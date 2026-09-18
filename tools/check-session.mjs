@@ -62,7 +62,7 @@ for (const [email, expectedRole] of ACCOUNTS) {
 
   const { data: memberships, error: memberError } = await db
     .from('clinic_memberships')
-    .select('clinic_id, role, clinics(name)')
+    .select('clinic_id, role, clinics(name, timezone)')
     .eq('user_id', staff.id)
     .eq('is_active', true)
 
@@ -80,11 +80,12 @@ for (const [email, expectedRole] of ACCOUNTS) {
 
   const m = memberships[0]
   const clinicName = m.clinics?.name ?? null
+  const clinicTz = m.clinics?.timezone ?? null
   const roleOk = m.role === expectedRole
-  const nameOk = Boolean(clinicName)
+  const nameOk = Boolean(clinicName) && Boolean(clinicTz)
 
   console.log(
-    `${roleOk && nameOk ? 'ok  ' : 'FAIL'}  ${email.padEnd(30)} role=${m.role.padEnd(9)} clinic=${clinicName ?? 'UNREADABLE (join blocked by RLS)'}`,
+    `${roleOk && nameOk ? 'ok  ' : 'FAIL'}  ${email.padEnd(30)} role=${m.role.padEnd(9)} clinic=${clinicName ?? 'UNREADABLE'} tz=${clinicTz ?? 'MISSING'}`,
   )
   if (!roleOk || !nameOk) failures++
 

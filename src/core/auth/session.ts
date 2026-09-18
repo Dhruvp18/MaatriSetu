@@ -28,8 +28,19 @@ const CLINIC_COOKIE = 'maatrisetu.clinic'
 export interface ClinicOption {
   readonly clinicId: string
   readonly clinicName: string
+  readonly clinicTimezone: string
   readonly role: ClinicRole
 }
+
+/**
+ * Fallback when a clinic row carries no timezone.
+ *
+ * Every seeded and migrated clinic has one (the column is NOT NULL with a
+ * default), so this is unreachable in practice. It exists so that a missing
+ * value produces a plausible date rather than an exception deep inside a
+ * gestational-age calculation.
+ */
+const FALLBACK_TIME_ZONE = 'Asia/Kolkata'
 
 /**
  * The outcome of resolving a request's identity.
@@ -99,19 +110,23 @@ export const resolveSession = cache(async function resolveSession(): Promise<Ses
 
   const { data: memberships } = await db
     .from('clinic_memberships')
-    .select('clinic_id, role, clinics(name)')
+    .select('clinic_id, role, clinics(name, timezone)')
     .eq('user_id', staff.id)
     .eq('is_active', true)
 
-  const options: ClinicOption[] = (memberships ?? []).map((row) => ({
-    clinicId: row.clinic_id,
-    role: row.role,
+  const options: ClinicOption[] = (memberships ?? []).map((row) => {
     // The join is typed as possibly-absent; a membership whose clinic row is
     // unreadable is still a real membership, so it is labelled rather than
     // dropped.
-    clinicName:
-      (row.clinics as { name: string } | null)?.name ?? 'Unnamed clinic',
-  }))
+    const clinic = row.clinics as { name: string; timezone: string } | null
+
+    return {
+      clinicId: row.clinic_id,
+      role: row.role,
+      clinicName: clinic?.name ?? 'Unnamed clinic',
+      clinicTimezone: clinic?.timezone ?? FALLBACK_TIME_ZONE,
+    }
+  })
 
   if (options.length === 0) {
     return { status: 'NO_MEMBERSHIP', authUserId, displayName: staff.display_name }
@@ -134,6 +149,7 @@ export const resolveSession = cache(async function resolveSession(): Promise<Ses
       staffUserId: staff.id,
       authUserId,
       clinicId: chosen.clinicId,
+      clinicTimezone: chosen.clinicTimezone,
       role: chosen.role,
       displayName: staff.display_name,
       // Correlates every audit row written while handling this request.

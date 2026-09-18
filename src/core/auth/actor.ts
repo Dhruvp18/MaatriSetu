@@ -24,6 +24,16 @@ export interface StaffActor {
   readonly staffUserId: string
   readonly authUserId: string
   readonly clinicId: string
+  /**
+   * IANA zone of the clinic being acted in, e.g. `Asia/Kolkata`.
+   *
+   * Carried on the actor because gestational age is a *calendar* computation.
+   * Deriving "today" from the server clock shifts the displayed POG by a day
+   * for several hours each night in IST, and near a milestone boundary — the
+   * anomaly-scan window, the steroid window — that day decides what a clinician
+   * orders. It belongs to the clinic, not to the server or the browser.
+   */
+  readonly clinicTimezone: string
   readonly role: ClinicRole
   readonly displayName: string
   /** Correlates every row written while handling one request. */
@@ -43,6 +53,8 @@ export interface WorkerActor {
   readonly kind: 'WORKER'
   readonly worker: string
   readonly clinicId: string
+  /** See `StaffActor.clinicTimezone`. A job dates its work by the clinic too. */
+  readonly clinicTimezone: string
   readonly requestId: string
 }
 

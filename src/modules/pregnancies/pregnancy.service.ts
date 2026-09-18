@@ -31,13 +31,12 @@ import type { Pregnancy, PregnancyWithHistory } from './pregnancy.types'
  * IST, and near a milestone boundary — the anomaly-scan window, the steroid
  * window — that day matters.
  *
- * Hardcoded to the pilot clinic's zone for now. It becomes a lookup on
- * `clinics.timezone` when a second site exists; the column is already there.
+ * The zone travels on the actor, resolved from `clinics.timezone` when the
+ * session is established, so a second site in another zone is correct by
+ * construction rather than by remembering to change a constant here.
  */
-const CLINIC_TIME_ZONE = 'Asia/Kolkata'
-
-function clinicToday(): CalendarDate {
-  return todayIn(CLINIC_TIME_ZONE)
+function clinicToday(actor: ActorContext): CalendarDate {
+  return todayIn(actor.clinicTimezone)
 }
 
 /* -------------------------------------------------------------------------- */
@@ -125,7 +124,7 @@ export async function createPregnancy(
   // Catches the transposed-year LMP: a date thirteen months back satisfies both
   // the date format and the column CHECK, and would otherwise surface only as a
   // nonsensical gestational age on the cockpit.
-  if (!datingIsPlausibleOn(dating, clinicToday())) {
+  if (!datingIsPlausibleOn(dating, clinicToday(actor))) {
     throw validation(
       'That dating implies an impossible gestational age today. Check the date.',
       { field: 'dating' },
@@ -230,7 +229,7 @@ export async function updatePregnancyDating(
     })
   }
 
-  if (!datingIsPlausibleOn(dating, clinicToday())) {
+  if (!datingIsPlausibleOn(dating, clinicToday(actor))) {
     throw validation(
       'That dating implies an impossible gestational age today. Check the date.',
       { field: 'dating' },
@@ -282,7 +281,7 @@ export async function closePregnancy(
 
   const data = parsed.data
 
-  if (data.status === 'COMPLETED' && data.outcomeDate > clinicToday()) {
+  if (data.status === 'COMPLETED' && data.outcomeDate > clinicToday(actor)) {
     throw validation('An outcome cannot be recorded for a future date.', {
       field: 'outcomeDate',
     })
