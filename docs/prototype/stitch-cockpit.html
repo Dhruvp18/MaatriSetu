@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MatriSetu &bull; Clinical Consultation Cockpit</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    .accordion-body { transition: max-height 0.2s ease-out, opacity 0.15s ease-out; }
+    .collapsed .accordion-body { max-height: 0; opacity: 0; overflow: hidden; padding-top: 0; padding-bottom: 0; }
+    .collapsed .chevron-icon { transform: rotate(-90deg); }
+    .drawer-overlay { transition: opacity 0.2s ease-in-out; }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans antialiased flex h-screen overflow-hidden">
+
+  <!-- 1. LEFT VERTICAL UTILITY SIDEBAR (64px width) -->
+  <aside class="w-16 bg-white border-r border-slate-200 flex flex-col items-center justify-between py-4 shadow-sm z-30 shrink-0">
+    <!-- Brand / Monogram -->
+    <div class="flex flex-col items-center space-y-6">
+      <div class="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white font-black text-sm tracking-tighter shadow-sm">
+        MS
+      </div>
+      
+      <!-- Utility Icons Stack -->
+      <nav class="flex flex-col space-y-4">
+        <!-- Master Order -->
+        <button onclick="toggleDrawer('master-drawer')" class="relative group p-2.5 rounded-lg text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition">
+          <i class="fa-solid fa-wand-magic-sparkles text-lg"></i>
+          <span class="absolute left-16 ml-2 bg-slate-900 text-white text-[11px] font-medium px-2 py-1 rounded shadow-md whitespace-nowrap hidden group-hover:block z-50">
+            Master Order Bundles
+          </span>
+        </button>
+
+        <!-- Therapeutic Drug Monitoring (TDM) -->
+        <button onclick="alert('Therapeutic Drug Monitoring: Labetalol steady state verified. MgSO4 monitoring protocol ready.')" class="relative group p-2.5 rounded-lg text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition">
+          <i class="fa-solid fa-capsules text-lg"></i>
+          <span class="absolute left-16 ml-2 bg-slate-900 text-white text-[11px] font-medium px-2 py-1 rounded shadow-md whitespace-nowrap hidden group-hover:block z-50">
+            Therapeutic Drug Monitoring (TDM)
+          </span>
+        </button>
+
+        <!-- Leave / Medical Certificates -->
+        <button onclick="alert('Maternity Leave Certificate Generator: Pre-filled for Sunita Devi (32W POG).')" class="relative group p-2.5 rounded-lg text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition">
+          <i class="fa-solid fa-file-signature text-lg"></i>
+          <span class="absolute left-16 ml-2 bg-slate-900 text-white text-[11px] font-medium px-2 py-1 rounded shadow-md whitespace-nowrap hidden group-hover:block z-50">
+            Maternity Leave & Fitness Certificates
+          </span>
+        </button>
+
+        <!-- Multi-Center Journey Timeline -->
+        <button onclick="toggleDrawer('timeline-drawer')" class="relative group p-2.5 rounded-lg text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition">
+          <i class="fa-solid fa-timeline text-lg"></i>
+          <span class="absolute left-16 ml-2 bg-slate-900 text-white text-[11px] font-medium px-2 py-1 rounded shadow-md whitespace-nowrap hidden group-hover:block z-50">
+            Dispensary & Hospital Encounter Timeline
+          </span>
+        </button>
+
+        <!-- Inter-Department Referral -->
+        <button onclick="alert('Cross-Consultation Portal: Cardiology / Endocrinology referral queue.')" class="relative group p-2.5 rounded-lg text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition">
+          <i class="fa-solid fa-hospital-user text-lg"></i>
+          <span class="absolute left-16 ml-2 bg-slate-900 text-white text-[11px] font-medium px-2 py-1 rounded shadow-md whitespace-nowrap hidden group-hover:block z-50">
+            Specialist Cross-Referral
+          </span>
+        </button>
+      </nav>
+    </div>
+
+    <!-- Bottom System Settings -->
+    <div class="flex flex-col items-center">
+      <button class="text-slate-400 hover:text-slate-600 p-2">
+        <i class="fa-solid fa-gear text-base"></i>
+      </button>
+    </div>
+  </aside>
+
+  <!-- 2. MAIN CLINICAL DESK (Scrollable Canvas) -->
+  <div class="flex-1 flex flex-col overflow-hidden">
+
+    <!-- Subtle Top Demographic Bar (Always Visible, Non-Collapsible) -->
+    <header class="bg-slate-50 border-b border-slate-200 px-5 py-2.5 shrink-0">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        
+        <!-- Patient Identity & Formula -->
+        <div class="flex items-center space-x-3">
+          <div>
+            <div class="flex items-baseline space-x-2">
+              <h1 class="text-sm font-extrabold text-slate-900">Sunita Devi</h1>
+              <span class="text-xs text-slate-500 font-medium">26Y / F</span>
+              <span class="text-[10px] text-slate-400 tracking-tight font-mono">UHID: MH-2026-89412</span>
+            </div>
+            <div class="flex items-center space-x-2 mt-0.5">
+              <span class="bg-indigo-50 text-indigo-800 text-[11px] font-bold px-1.5 py-0.2 rounded border border-indigo-100">G2 P1 L1 A0</span>
+              <span class="text-xs text-slate-600 font-medium">LMP: 12 Nov 2025</span>
+              <span class="text-slate-300">&bull;</span>
+              <span class="text-xs text-slate-600 font-medium">EDD: 19 Aug 2026</span>
+              <span class="text-slate-300">&bull;</span>
+              <span class="text-xs font-bold text-indigo-700 bg-indigo-50/80 px-1.5 py-0.2 rounded">POG: 32W + 4D</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Baseline Vitals & Weight -->
+        <div class="flex items-center space-x-4 text-xs text-slate-600 border-x border-slate-200 px-4 hidden md:flex">
+          <div>
+            <span class="text-slate-400 block text-[10px] uppercase font-semibold">BP &bull; Pulse</span>
+            <span class="font-bold text-slate-900">124/80 mmHg</span> <span class="text-slate-400 font-normal">| 84 bpm</span>
+          </div>
+          <div>
+            <span class="text-slate-400 block text-[10px] uppercase font-semibold">Current Wt (Gain)</span>
+            <span class="font-bold text-slate-900">60 kg</span> <span class="text-slate-400 font-normal">(Pre: 55 kg &bull; +5 kg)</span>
+          </div>
+        </div>
+
+        <!-- Non-Negotiable Persistent Alerts & Query Drawer Button -->
+        <div class="flex items-center space-x-2">
+          <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-rose-50 text-rose-800 border border-rose-200">
+            <i class="fa-solid fa-triangle-exclamation mr-1 text-rose-600 text-[10px]"></i> O Rh-NEGATIVE [!]
+          </span>
+          <span class="text-[11px] text-amber-800 font-semibold bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+            Allergy: Penicillin
+          </span>
+          <span class="text-[11px] text-slate-600 font-semibold bg-slate-100 px-2 py-0.5 rounded border border-slate-200 hidden lg:inline-block">
+            Prev LSCS (2024)
+          </span>
+
+          <button onclick="toggleDrawer('query-drawer')" class="ml-2 bg-white hover:bg-slate-50 border border-slate-300 text-indigo-700 text-xs font-bold px-3 py-1 rounded shadow-sm flex items-center space-x-1.5 transition">
+            <i class="fa-regular fa-comments text-indigo-600"></i>
+            <span>Patient Queries</span>
+            <span class="bg-indigo-600 text-white text-[10px] font-bold px-1.5 rounded-full">1</span>
+          </button>
+        </div>
+
+      </div>
+    </header>
+
+    <!-- Scrollable Workspace Body -->
+    <main class="flex-1 overflow-y-auto p-4 space-y-3">
+
+      <!-- 3. COMPRESSED REVIEW STRIP: Diagnostic Reports for Current Visit -->
+      <section class="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden collapsed" id="acc-review-strip">
+        <button onclick="toggleAccordion('acc-review-strip')" class="w-full flex items-center justify-between px-3.5 py-2 bg-indigo-50/50 hover:bg-indigo-50 transition text-left border-b border-indigo-100">
+          <div class="flex items-center space-x-2">
+            <i class="fa-solid fa-chevron-down text-indigo-600 text-xs transition-transform duration-200 chevron-icon"></i>
+            <span class="text-xs font-bold text-indigo-950 flex items-center">
+              <i class="fa-regular fa-bell mr-1.5 text-indigo-600"></i>
+              Diagnostic Reports for Current Visit (3 Pending Review)
+            </span>
+          </div>
+          <span class="text-[11px] text-indigo-700 font-medium">CBC (Hb: 8.6 g/dL), Growth Scan (32W), Urine Routine</span>
+        </button>
+        <div class="accordion-body p-3 text-xs bg-white">
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-2.5" id="reports-grid">
+            <div class="p-2.5 rounded border border-slate-200 bg-slate-50 flex items-center justify-between" id="strip-cbc">
+              <div>
+                <span class="font-bold text-rose-600">CBC: Hb 8.6 g/dL</span>
+                <p class="text-[10px] text-slate-500">WBC 4,200 &bull; Plt 1.85L</p>
+              </div>
+              <button onclick="pinReport('strip-cbc', 'CBC Hb 8.6')" class="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded text-[10px] font-bold">
+                Flag to Labs
+              </button>
+            </div>
+            <div class="p-2.5 rounded border border-slate-200 bg-slate-50 flex items-center justify-between" id="strip-scan">
+              <div>
+                <span class="font-bold text-slate-800">Growth Scan (32W)</span>
+                <p class="text-[10px] text-slate-500">EFW 1850g &bull; AFI 12cm</p>
+              </div>
+              <button onclick="pinReport('strip-scan', '32W Growth')" class="px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-200 rounded text-[10px] font-bold">
+                Flag to Scans
+              </button>
+            </div>
+            <div class="p-2.5 rounded border border-slate-200 bg-slate-50 flex items-center justify-between" id="strip-urine">
+              <div>
+                <span class="font-bold text-emerald-700">Urine Routine</span>
+                <p class="text-[10px] text-slate-500">Albumin: Nil &bull; Sugar: Nil</p>
+              </div>
+              <button onclick="pinReport('strip-urine', 'Urine Routine')" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded text-[10px] font-medium">
+                Mark Reviewed
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 4. EXPANDABLE ACCORDIONS -->
+
+      <!-- ACCORDION 1: Menstrual & Gynecological History (Default Collapsed) -->
+      <div class="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden collapsed" id="acc-menstrual">
+        <button onclick="toggleAccordion('acc-menstrual')" class="w-full flex items-center justify-between px-3.5 py-2 bg-white hover:bg-slate-50 transition text-left border-b border-slate-100">
+          <div class="flex items-center space-x-2">
+            <i class="fa-solid fa-chevron-down text-slate-400 text-xs transition-transform duration-200 chevron-icon"></i>
+            <span class="text-xs font-bold uppercase tracking-wider text-slate-700">Menstrual & Gynecological History</span>
+          </div>
+          <span class="text-[11px] text-slate-400 font-medium">Menarche: 13Y &bull; Cycle: Regular (28–30D) &bull; Dysmenorrhea (-)</span>
+        </button>
+        <div class="accordion-body p-3.5 text-xs bg-slate-50/50">
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-3 bg-white p-3 rounded border border-slate-200">
+            <div><span class="text-slate-400 block text-[10px]">Age at Menarche</span><span class="font-semibold text-slate-800">13 Years</span></div>
+            <div><span class="text-slate-400 block text-[10px]">Cycle Regularity</span><span class="font-semibold text-slate-800">Regular (28–30 Days)</span></div>
+            <div><span class="text-slate-400 block text-[10px]">Bleeding Flow / Duration</span><span class="font-semibold text-slate-800">4–5 Days (Normal, 3 pads/day)</span></div>
+            <div><span class="text-slate-400 block text-[10px]">Dysmenorrhea / Gynae History</span><span class="font-semibold text-slate-800">Absent &bull; Fibroids/PCOD (-)</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ACCORDION 2: Previous Obstetric History (Default Collapsed) -->
+      <div class="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden collapsed" id="acc-prev-obstetric">
+        <button onclick="toggleAccordion('acc-prev-obstetric')" class="w-full flex items-center justify-between px-3.5 py-2 bg-white hover:bg-slate-50 transition text-left border-b border-slate-100">
+          <div class="flex items-center space-x-2">
+            <i class="fa-solid fa-chevron-down text-slate-400 text-xs transition-transform duration-200 chevron-icon"></i>
+            <span class="text-xs font-bold uppercase tracking-wider text-slate-700">Previous Obstetric History (Gravida Record)</span>
+          </div>
+          <span class="text-[11px] text-slate-400 font-medium">G1 (2024): FT-NVD Male (2.9 kg) &bull; Uncomplicated</span>
+        </button>
+        <div class="accordion-body p-3.5 text-xs bg-slate-50/50">
+          <div class="bg-white p-3 rounded border border-slate-200 space-y-1">
+            <div class="font-bold text-slate-900">Gravida 1 (Year 2024):</div>
+            <p class="text-slate-700">Conception: Natural &bull; Gestational Age: Full Term (39 Weeks) &bull; Mode: FT-NVD &bull; Baby Weight: 2.9 kg &bull; Gender: Male</p>
+            <p class="text-slate-500 text-[11px]">Complications: Nil (No PIH, No GDM, No Pre-eclampsia) &bull; NICU Stay: Nil (Healthy live birth)</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ACCORDION 3: Family History & Drug Reactions (Default Collapsed) -->
+      <div class="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden collapsed" id="acc-family-allergy">
+        <button onclick="toggleAccordion('acc-family-allergy')" class="w-full flex items-center justify-between px-3.5 py-2 bg-white hover:bg-slate-50 transition text-left border-b border-slate-100">
+          <div class="flex items-center space-x-2">
+            <i class="fa-solid fa-chevron-down text-slate-400 text-xs transition-transform duration-200 chevron-icon"></i>
+            <span class="text-xs font-bold uppercase tracking-wider text-slate-700">Family History & Drug Reactions</span>
+          </div>
+          <span class="text-[11px] text-slate-400 font-medium">Family: DM (Husband) &bull; Penicillin Reaction (Urticaria)</span>
+        </button>
+        <div class="accordion-body p-3.5 text-xs bg-slate-50/50">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div class="bg-white p-2.5 rounded border border-slate-200">
+              <span class="text-[10px] font-bold text-slate-400 uppercase">Family History</span>
+              <p class="text-slate-800 font-medium mt-0.5">Husband: Type 2 Diabetes Mellitus (On oral hypoglycemics)</p>
+              <p class="text-slate-500 text-[11px]">Father: Hypertension</p>
+            </div>
+            <div class="bg-white p-2.5 rounded border border-slate-200">
+              <span class="text-[10px] font-bold text-slate-400 uppercase">Documented Drug Reactions</span>
+              <p class="text-amber-800 font-bold mt-0.5">Penicillin: Urticaria & skin rashes (Reported 2022)</p>
+              <p class="text-slate-500 text-[11px]">Severity: Moderate &bull; Status: Active Contraindication</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ACCORDION 4: Ongoing Rx & Immunization (Default Collapsed) -->
+      <div class="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden collapsed" id="acc-ongoing-rx">
+        <button onclick="toggleAccordion('acc-ongoing-rx')" class="w-full flex items-center justify-between px-3.5 py-2 bg-white hover:bg-slate-50 transition text-left border-b border-slate-100">
+          <div class="flex items-center space-x-2">
+            <i class="fa-solid fa-chevron-down text-slate-400 text-xs transition-transform duration-200 chevron-icon"></i>
+            <span class="text-xs font-bold uppercase tracking-wider text-slate-700">Ongoing Rx & Immunization</span>
+          </div>
+          <span class="text-[11px] text-slate-400 font-medium">3 Active Regimens &bull; Td 1 Completed</span>
+        </button>
+        <div class="accordion-body p-3.5 text-xs bg-slate-50/50">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div class="bg-white p-3 rounded border border-slate-200 space-y-1">
+              <div class="text-[10px] font-bold text-slate-400 uppercase">Active Prescriptions</div>
+              <div>&bull; Tab. Labetalol 100 mg | TDS (1-0-1) | Active 10 days</div>
+              <div>&bull; Tab. Ferrous Ascorbate | OD (0-1-0) | Oral hematinic</div>
+              <div>&bull; Tab. Calcium 500 mg + D3 | BD (1-0-1) | Oral</div>
+            </div>
+            <div class="bg-white p-3 rounded border border-slate-200 flex flex-col justify-center space-y-1.5">
+              <div class="text-[10px] font-bold text-slate-400 uppercase">Immunization Status</div>
+              <label class="flex items-center text-slate-700"><input type="checkbox" checked disabled class="rounded text-indigo-600 mr-2"> Td 1 (Given: 15/01/2026)</label>
+              <label class="flex items-center text-slate-700"><input type="checkbox" class="rounded text-indigo-600 mr-2"> Td 2 (Pending)</label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ACCORDION 5: Significant Blood & Urine Reports (Default Expanded) -->
+      <div class="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden" id="acc-sig-labs">
+        <button onclick="toggleAccordion('acc-sig-labs')" class="w-full flex items-center justify-between px-3.5 py-2 bg-white hover:bg-slate-50 transition text-left border-b border-slate-100">
+          <div class="flex items-center space-x-2">
+            <i class="fa-solid fa-chevron-down text-slate-400 text-xs transition-transform duration-200 chevron-icon"></i>
+            <span class="text-xs font-bold uppercase tracking-wider text-slate-700">Significant Blood & Urine Reports</span>
+          </div>
+          <span class="text-[11px] text-rose-600 font-bold">Hb: 8.6 g/dL (Flagged)</span>
+        </button>
+        <div class="accordion-body p-3.5 text-xs">
+          <table class="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr class="text-slate-400 border-b border-slate-100 text-[11px]">
+                <th class="py-1 font-semibold">Date</th>
+                <th class="py-1 font-semibold">Test</th>
+                <th class="py-1 font-semibold">Key Flagged Findings</th>
+                <th class="py-1 font-semibold text-right">Details</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 text-slate-700">
+              <tr>
+                <td class="py-1.5 text-slate-500">21/04/26</td>
+                <td class="py-1.5 font-bold">CBC</td>
+                <td class="py-1.5"><span class="font-bold text-rose-600">Hb: 8.6 g/dL [Mild-Mod Anemia]</span> &bull; Plt: 1.85L</td>
+                <td class="py-1.5 text-right"><span class="text-indigo-600 font-medium cursor-pointer">View</span></td>
+              </tr>
+              <tr>
+                <td class="py-1.5 text-slate-500">15/01/26</td>
+                <td class="py-1.5 font-bold">OGTT 75g (DIPSI)</td>
+                <td class="py-1.5">Fasting: 84 &bull; 2-Hr: 118 mg/dL <span class="text-emerald-700 font-semibold">(Normal)</span></td>
+                <td class="py-1.5 text-right"><span class="text-indigo-600 font-medium cursor-pointer">View</span></td>
+              </tr>
+              <tr>
+                <td class="py-1.5 text-slate-500">17/01/26</td>
+                <td class="py-1.5 font-bold">Serology Panel</td>
+                <td class="py-1.5 text-emerald-700 font-semibold">HIV (-), HBsAg (-), VDRL (-)</td>
+                <td class="py-1.5 text-right"><span class="text-indigo-600 font-medium cursor-pointer">View</span></td>
+              </tr>
+            </tbody>
+          </table>
+          <button onclick="toggleDrawer('labs-drawer')" class="mt-2.5 w-full py-1 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded text-xs text-indigo-700 font-semibold transition">
+            View Full Investigation Archive (LFT, RFT, HPLC, Anti-D Titer)
+          </button>
+        </div>
+      </div>
+
+      <!-- ACCORDION 6: Significant Scans & Milestone Sonography (Default Expanded) -->
+      <div class="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden" id="acc-sig-scans">
+        <button onclick="toggleAccordion('acc-sig-scans')" class="w-full flex items-center justify-between px-3.5 py-2 bg-white hover:bg-slate-50 transition text-left border-b border-slate-100">
+          <div class="flex items-center space-x-2">
+            <i class="fa-solid fa-chevron-down text-slate-400 text-xs transition-transform duration-200 chevron-icon"></i>
+            <span class="text-xs font-bold uppercase tracking-wider text-slate-700">Significant Scans & Milestone Sonography</span>
+          </div>
+          <span class="text-[11px] text-slate-400 font-medium">12W NT &bull; 20W TIFFA &bull; 32W Growth</span>
+        </button>
+        <div class="accordion-body p-3.5 text-xs">
+          <table class="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr class="text-slate-400 border-b border-slate-100 text-[11px]">
+                <th class="py-1 font-semibold">GA</th>
+                <th class="py-1 font-semibold">Scan Type</th>
+                <th class="py-1 font-semibold">Key Findings</th>
+                <th class="py-1 font-semibold text-right">Media</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 text-slate-700">
+              <tr>
+                <td class="py-1.5 font-bold">12W</td>
+                <td class="py-1.5">NT / NB Scan</td>
+                <td class="py-1.5">NT: 1.2 mm &bull; Nasal Bone Present <span class="text-emerald-700 font-semibold">(Low Risk)</span></td>
+                <td class="py-1.5 text-right text-indigo-600 cursor-pointer">Image</td>
+              </tr>
+              <tr>
+                <td class="py-1.5 font-bold">20W</td>
+                <td class="py-1.5">TIFFA / Anomaly</td>
+                <td class="py-1.5">No Gross Structural Malformation Detected &bull; Normal Liquor</td>
+                <td class="py-1.5 text-right text-indigo-600 cursor-pointer">Image</td>
+              </tr>
+              <tr>
+                <td class="py-1.5 font-bold">32W</td>
+                <td class="py-1.5">Growth & Doppler</td>
+                <td class="py-1.5">EFW: 1850 g (50th %ile) &bull; Cephalic &bull; AFI: 12 cm &bull; Placenta Anterior</td>
+                <td class="py-1.5 text-right text-indigo-600 cursor-pointer">Image</td>
+              </tr>
+            </tbody>
+          </table>
+          
+          <div class="grid grid-cols-2 gap-2 mt-2.5">
+            <button onclick="alert('Viewing full ultrasound scan gallery & Doppler metrics.')" class="py-1 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded text-xs text-indigo-700 font-semibold transition">
+              View Full Scan Gallery & Doppler
+            </button>
+            <button onclick="toggleDrawer('other-reports-drawer')" class="py-1 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded text-xs text-slate-700 font-semibold transition">
+              View Other Reports (MRI, X-Rays, 2D Echo)
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ACCORDION 7: Provisional Diagnosis & Staging (Default Expanded) -->
+      <div class="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden" id="acc-staging">
+        <button onclick="toggleAccordion('acc-staging')" class="w-full flex items-center justify-between px-3.5 py-2 bg-white hover:bg-slate-50 transition text-left border-b border-slate-100">
+          <div class="flex items-center space-x-2">
+            <i class="fa-solid fa-chevron-down text-slate-400 text-xs transition-transform duration-200 chevron-icon"></i>
+            <span class="text-xs font-bold uppercase tracking-wider text-slate-700">Provisional Diagnosis & Staging (ICD-10)</span>
+          </div>
+          <span class="text-[11px] text-slate-400 font-medium">Click to adjust staging</span>
+        </button>
+        <div class="accordion-body p-3.5 text-xs space-y-2">
+          <div class="flex flex-wrap gap-1.5">
+            <span class="bg-indigo-50 border border-indigo-200 text-indigo-800 px-2 py-0.5 rounded text-[11px] font-semibold">O99.013 - Anemia complicating pregnancy, 3rd tri &times;</span>
+            <span class="bg-slate-100 border border-slate-200 text-slate-700 px-2 py-0.5 rounded text-[11px] font-medium">O34.21 - Scar from previous cesarean delivery &times;</span>
+            <span class="bg-slate-50 border border-dashed border-slate-300 text-slate-400 px-2 py-0.5 rounded text-[11px] cursor-pointer">+ Add ICD-10 Diagnosis</span>
+          </div>
+          <textarea rows="2" class="w-full p-2 border border-slate-200 rounded text-xs text-slate-800 focus:outline-none focus:border-indigo-400 bg-slate-50/50">G2P1L1 at 32.4 weeks with Mild Nutritional Anemia + Previous LSCS with 2-year inter-pregnancy interval. Blood pressure well-controlled on Tab. Labetalol. Fetal growth concordant (50th centile).</textarea>
+        </div>
+      </div>
+
+      <!-- ACCORDION 8: Fresh Orders & Advise (Default Expanded, Highlighted) -->
+      <div class="bg-indigo-50/30 rounded-lg border border-indigo-200 shadow-sm overflow-hidden" id="acc-fresh-orders">
+        <button onclick="toggleAccordion('acc-fresh-orders')" class="w-full flex items-center justify-between px-3.5 py-2 bg-indigo-50/80 hover:bg-indigo-100/50 transition text-left border-b border-indigo-100">
+          <div class="flex items-center space-x-2">
+            <i class="fa-solid fa-chevron-down text-indigo-700 text-xs transition-transform duration-200 chevron-icon"></i>
+            <span class="text-xs font-bold uppercase tracking-wider text-indigo-950">Fresh Orders & Advise</span>
+          </div>
+          <span class="text-[11px] font-bold text-indigo-800">Next Follow-Up: 06 / 10 / 2026 (Unit Clinic: Dr. Anthony)</span>
+        </button>
+        <div class="accordion-body p-3.5 text-xs">
+          
+          <!-- Side-by-Side: Prescription vs Advise & Orders Checklist -->
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            
+            <!-- Left Pane: Prescription (Medications) -->
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">Prescription (Medications):</label>
+              <textarea rows="5" class="w-full p-2.5 text-xs bg-white border border-slate-300 rounded focus:border-indigo-500 focus:outline-none text-slate-800">1. Tab. Ferrous Ascorbate 100 mg 1 OD pc
+2. Tab. Calcium 500 mg + D3 1 BD pc (afternoon & night)
+3. Continue Tab. Labetalol 100 mg TDS (monitor BP)
+4. Continue Tab. Folic Acid 5 mg OD</textarea>
+            </div>
+
+            <!-- Right Pane: Advise & Orders Checklist -->
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">Advise & Orders Checklist:</label>
+              <div class="bg-white p-2.5 rounded border border-slate-200 space-y-1 text-[11px]">
+                <label class="flex items-center space-x-2"><input type="checkbox" checked class="rounded text-indigo-600"><span class="font-bold text-slate-800">DFKC Monitoring</span> (>= 10 kicks in 2 hrs post meals)</label>
+                <label class="flex items-center space-x-2"><input type="checkbox" checked class="rounded text-indigo-600"><span class="font-bold text-slate-800">MNT Diet Plan</span> (High protein, iron-rich, green leafy vegetables)</label>
+                <label class="flex items-center space-x-2"><input type="checkbox" checked class="rounded text-indigo-600"><span class="font-bold text-slate-800">Left Lateral Rest</span> (2 hrs afternoon + 8 hrs night)</label>
+                <label class="flex items-center space-x-2"><input type="checkbox" checked class="rounded text-indigo-600"><span>Serial BP Log (Check twice daily at local clinic)</span></label>
+                <label class="flex items-center space-x-2"><input type="checkbox" checked class="rounded text-indigo-600"><span>Repeat CBC / Hb & Urine Albumin in 3 weeks</span></label>
+                <label class="flex items-center space-x-2"><input type="checkbox" checked class="rounded text-indigo-600"><span>36W Growth Scan + Umbilical Doppler</span></label>
+                <label class="flex items-center space-x-2"><input type="checkbox" class="rounded text-indigo-600"><span>Indirect Coombs Test (ICT) / Anti-D Titer</span></label>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Consultation Completion Bar -->
+          <div class="mt-3 pt-3 border-t border-indigo-100 flex flex-wrap items-center justify-between gap-2">
+            <div class="flex items-center space-x-2 text-xs">
+              <span class="font-semibold text-slate-600">Allocated Follow-Up:</span>
+              <span class="bg-white border border-slate-300 font-bold px-2 py-0.5 rounded text-slate-800">06 / 10 / 2026 (36W POG)</span>
+              <span class="text-indigo-700 font-medium">&bull; Dr. Anthony Unit OPD</span>
+            </div>
+            <div class="flex items-center space-x-2">
+              <button onclick="alert('Generating and printing localized MCP Slip...')" class="px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-bold rounded shadow-sm">
+                Print MCP Slip
+              </button>
+              <button onclick="alert('Visit recorded. Next patient file ready for scanning.')" class="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded shadow-sm">
+                Save Visit & Next Patient &rarr;
+              </button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- 5. SLIDE-OUT DRAWERS (Off-Canvas) -->
+
+  <!-- DRAWER: Patient Vernacular Queries -->
+  <div id="query-drawer" class="fixed inset-0 bg-slate-900/40 hidden z-50 drawer-overlay">
+    <div class="fixed inset-y-0 right-0 max-w-md w-full bg-white shadow-2xl p-5 flex flex-col justify-between">
+      <div>
+        <div class="flex justify-between items-center border-b pb-3 mb-4">
+          <div>
+            <h2 class="text-sm font-bold text-slate-900">Pre-Queued Patient Inquiries</h2>
+            <p class="text-[11px] text-indigo-600 font-medium">Transcribed via Vernacular Voice Model</p>
+          </div>
+          <button onclick="toggleDrawer('query-drawer')" class="text-slate-400 hover:text-slate-700 text-base">&times;</button>
+        </div>
+
+        <div class="space-y-3 text-xs">
+          <div class="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+            <div class="flex justify-between items-center mb-1">
+              <span class="font-bold text-amber-900">Marathi Voice Note</span>
+              <span class="text-[10px] text-slate-500">2 days ago</span>
+            </div>
+            <p class="text-slate-800 italic">"संध्याकाळी पायावर थोडी सूज येते, काही त्रास आहे का?"</p>
+            <p class="text-[11px] text-slate-600 font-medium mt-1">Translation: "Slight swelling on feet in evening, is it problematic?"</p>
+            <div class="mt-2 text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded inline-block">
+              Triage Flag: Dependent edema vs rule-out preeclampsia
+            </div>
+          </div>
+
+          <div class="p-3 bg-slate-50 border border-slate-200 rounded-lg">
+            <div class="flex justify-between items-center mb-1">
+              <span class="font-bold text-slate-800">Medication Query</span>
+              <span class="text-[10px] text-emerald-700 font-bold bg-emerald-100 px-1.5 py-0.2 rounded">Auto-Answered</span>
+            </div>
+            <p class="text-slate-700">"Can I take Calcium and Iron together?"</p>
+            <p class="text-[11px] text-slate-500 mt-1">Bot advised taking Iron in morning and Calcium at night with minimum 2-hour separation.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="pt-4 border-t">
+        <button onclick="toggleDrawer('query-drawer')" class="w-full py-2 bg-indigo-600 text-white font-bold text-xs rounded hover:bg-indigo-700 transition">
+          Mark Inquiries Addressed & Close
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DRAWER: Master Order Packs -->
+  <div id="master-drawer" class="fixed inset-0 bg-slate-900/40 hidden z-50 drawer-overlay">
+    <div class="fixed inset-y-0 left-16 max-w-sm w-full bg-white shadow-2xl p-5 flex flex-col justify-between">
+      <div>
+        <div class="flex justify-between items-center border-b pb-3 mb-4">
+          <h2 class="text-sm font-bold text-slate-900">Doctor Master-Order Bundles</h2>
+          <button onclick="toggleDrawer('master-drawer')" class="text-slate-400 hover:text-slate-700 text-base">&times;</button>
+        </div>
+        <div class="space-y-2 text-xs">
+          <div onclick="applyBundle('32W Anemia Pack')" class="p-3 border rounded hover:border-indigo-500 hover:bg-indigo-50/50 cursor-pointer transition">
+            <div class="font-bold text-slate-900">32–36W Anemia Regimen</div>
+            <p class="text-[11px] text-slate-500 mt-0.5">Ferrous Ascorbate BD + Shelcal BD + Repeat Hb in 3 wks</p>
+          </div>
+          <div onclick="applyBundle('PIH Protocol Pack')" class="p-3 border rounded hover:border-indigo-500 hover:bg-indigo-50/50 cursor-pointer transition">
+            <div class="font-bold text-slate-900">PIH Surveillance Pack</div>
+            <p class="text-[11px] text-slate-500 mt-0.5">Tab. Labetalol 100 TDS + Urine Albumin + Serial BP Charting</p>
+          </div>
+          <div onclick="applyBundle('Booking Pack')" class="p-3 border rounded hover:border-indigo-500 hover:bg-indigo-50/50 cursor-pointer transition">
+            <div class="font-bold text-slate-900">First Trimester Booking Pack</div>
+            <p class="text-[11px] text-slate-500 mt-0.5">Folic Acid 5mg + CBC + Blood Group + Viral Markers + TSH</p>
+          </div>
+        </div>
+      </div>
+      <div class="pt-4 border-t">
+        <button onclick="toggleDrawer('master-drawer')" class="w-full py-1.5 bg-slate-100 text-slate-700 font-bold text-xs rounded hover:bg-slate-200">
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DRAWER: Multi-Center Encounter Timeline -->
+  <div id="timeline-drawer" class="fixed inset-0 bg-slate-900/40 hidden z-50 drawer-overlay">
+    <div class="fixed inset-y-0 left-16 max-w-md w-full bg-white shadow-2xl p-5 flex flex-col justify-between">
+      <div>
+        <div class="flex justify-between items-center border-b pb-3 mb-4">
+          <h2 class="text-sm font-bold text-slate-900">Multi-Dispensary Journey Timeline</h2>
+          <button onclick="toggleDrawer('timeline-drawer')" class="text-slate-400 hover:text-slate-700 text-base">&times;</button>
+        </div>
+        <div class="space-y-3 text-xs border-l-2 border-indigo-200 ml-3 pl-3">
+          <div>
+            <div class="font-bold text-slate-900">OPD Walk-In &bull; Sion Hospital</div>
+            <div class="text-[11px] text-slate-500">17-Sep-2026 | Dr. Anthony Unit &bull; Registered</div>
+          </div>
+          <div>
+            <div class="font-bold text-slate-900">Dispensary HBT Walk-In &bull; Nahur</div>
+            <div class="text-[11px] text-slate-500">16-Sep-2026 | Routine ANC Check &bull; BP logged</div>
+          </div>
+          <div>
+            <div class="font-bold text-slate-900">Dispensary HBT Walk-In &bull; Nahur</div>
+            <div class="text-[11px] text-slate-500">08-Sep-2026 | Hematinics refilled</div>
+          </div>
+        </div>
+      </div>
+      <div class="pt-4 border-t">
+        <button onclick="toggleDrawer('timeline-drawer')" class="w-full py-1.5 bg-slate-100 text-slate-700 font-bold text-xs rounded hover:bg-slate-200">
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DRAWER: Other Reports (MRI, X-Ray, 2D Echo) -->
+  <div id="other-reports-drawer" class="fixed inset-0 bg-slate-900/40 hidden z-50 drawer-overlay">
+    <div class="fixed inset-y-0 right-0 max-w-md w-full bg-white shadow-2xl p-5 flex flex-col justify-between">
+      <div>
+        <div class="flex justify-between items-center border-b pb-3 mb-4">
+          <h2 class="text-sm font-bold text-slate-900">Maternal Special Investigations & Reports</h2>
+          <button onclick="toggleDrawer('other-reports-drawer')" class="text-slate-400 hover:text-slate-700 text-base">&times;</button>
+        </div>
+        <div class="space-y-2.5 text-xs">
+          <div class="p-3 border rounded bg-slate-50 flex justify-between items-center">
+            <div>
+              <span class="font-bold text-slate-900">Maternal 2D Echocardiography</span>
+              <p class="text-[11px] text-slate-500 mt-0.5">Normal LV systolic function, EF 62%, No valvular lesion</p>
+            </div>
+            <span class="text-indigo-600 font-bold cursor-pointer hover:underline">View PDF</span>
+          </div>
+          <div class="p-3 border rounded bg-slate-50 flex justify-between items-center">
+            <div>
+              <span class="font-bold text-slate-900">Pelvic MRI (Scar & Placental Assessment)</span>
+              <p class="text-[11px] text-slate-500 mt-0.5">Lower uterine segment scar intact, no accreta spectrum</p>
+            </div>
+            <span class="text-indigo-600 font-bold cursor-pointer hover:underline">View PDF</span>
+          </div>
+          <div class="p-3 border rounded bg-slate-50 flex justify-between items-center">
+            <div>
+              <span class="font-bold text-slate-900">Chest X-Ray (Lead Shielded)</span>
+              <p class="text-[11px] text-slate-500 mt-0.5">Clear lung fields, normal cardiothoracic ratio</p>
+            </div>
+            <span class="text-indigo-600 font-bold cursor-pointer hover:underline">View PDF</span>
+          </div>
+        </div>
+      </div>
+      <div class="pt-4 border-t">
+        <button onclick="toggleDrawer('other-reports-drawer')" class="w-full py-1.5 bg-slate-100 text-slate-700 font-bold text-xs rounded hover:bg-slate-200">
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DRAWER: Full Investigation Archive -->
+  <div id="labs-drawer" class="fixed inset-0 bg-slate-900/40 hidden z-50 drawer-overlay">
+    <div class="fixed inset-y-0 right-0 max-w-md w-full bg-white shadow-2xl p-5 flex flex-col justify-between">
+      <div>
+        <div class="flex justify-between items-center border-b pb-3 mb-4">
+          <h2 class="text-sm font-bold text-slate-900">Full Laboratory Archive</h2>
+          <button onclick="toggleDrawer('labs-drawer')" class="text-slate-400 hover:text-slate-700 text-base">&times;</button>
+        </div>
+        <div class="space-y-2 text-xs max-h-[70vh] overflow-y-auto pr-1">
+          <div class="p-2.5 border rounded bg-slate-50">
+            <span class="font-bold text-slate-800">Liver Function Test (LFT) &bull; 15/01/26</span>
+            <p class="text-[11px] text-slate-600 mt-0.5">SGOT: 22 U/L | SGPT: 28 U/L | Total Bilirubin: 0.6 mg/dL (Normal)</p>
+          </div>
+          <div class="p-2.5 border rounded bg-slate-50">
+            <span class="font-bold text-slate-800">Renal Function Test (RFT) &bull; 15/01/26</span>
+            <p class="text-[11px] text-slate-600 mt-0.5">Urea: 18 mg/dL | Creatinine: 0.65 mg/dL | Uric Acid: 3.8 mg/dL (Normal)</p>
+          </div>
+          <div class="p-2.5 border rounded bg-slate-50">
+            <span class="font-bold text-slate-800">HPLC / Hemoglobin Electrophoresis</span>
+            <p class="text-[11px] text-slate-600 mt-0.5">HbA2: 2.3% (Negative for Thalassemia trait)</p>
+          </div>
+          <div class="p-2.5 border rounded bg-slate-50">
+            <span class="font-bold text-slate-800">Indirect Coombs Test (ICT) &bull; 28 Weeks</span>
+            <p class="text-[11px] text-slate-600 mt-0.5">Negative (No maternal sensitization detected)</p>
+          </div>
+        </div>
+      </div>
+      <div class="pt-4 border-t">
+        <button onclick="toggleDrawer('labs-drawer')" class="w-full py-1.5 bg-slate-100 text-slate-700 font-bold text-xs rounded hover:bg-slate-200">
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Client-Side Scripts for Accordion & Drawer Interactivity -->
+  <script>
+    function toggleAccordion(id) {
+      const el = document.getElementById(id);
+      el.classList.toggle('collapsed');
+    }
+
+    function toggleDrawer(id) {
+      const drawer = document.getElementById(id);
+      drawer.classList.toggle('hidden');
+    }
+
+    function pinReport(cardId, label) {
+      const card = document.getElementById(cardId);
+      card.innerHTML = `<span class="text-emerald-700 font-bold text-xs"><i class="fa-solid fa-check mr-1.5"></i>Pinned "${label}"</span>`;
+      card.className = "p-2.5 rounded border border-emerald-200 bg-emerald-50 flex items-center";
+    }
+
+    function applyBundle(bundleName) {
+      alert(`Applied "${bundleName}" orders and diagnostic checklist.`);
+      toggleDrawer('master-drawer');
+    }
+  </script>
+
+</body>
+</html>

@@ -1,0 +1,130 @@
+@import 'tailwindcss';
+
+/* ---------------------------------------------------------------------------
+   Design tokens
+   ---------------------------------------------------------------------------
+   Tailwind v4 is configured in CSS rather than in a JS config file. The palette
+   matches the Stitch reference: slate neutrals, indigo for the brand and for
+   interactive affordances, and a small set of state colours.
+
+   A deliberate constraint on the state colours: they mark *provenance and
+   recency*, never clinical severity. Nothing in this product decides that a
+   value is abnormal (PRD §3), so there is no "danger" token that a component
+   could reach for to colour a haemoglobin result red. `--color-alert` exists
+   for facts a clinician recorded — an Rh-negative blood group, a known
+   allergy — and for system failures the user must notice.
+--------------------------------------------------------------------------- */
+
+@theme {
+  --color-brand-50: oklch(0.962 0.018 272.314);
+  --color-brand-100: oklch(0.93 0.034 272.788);
+  --color-brand-600: oklch(0.511 0.262 276.966);
+  --color-brand-700: oklch(0.457 0.24 277.023);
+
+  /* Recorded facts that must be impossible to miss on a handover slip. */
+  --color-alert-50: oklch(0.969 0.015 12.422);
+  --color-alert-600: oklch(0.586 0.253 17.585);
+  --color-alert-700: oklch(0.514 0.222 16.935);
+
+  /* Unverified, stale, or awaiting review. */
+  --color-caution-50: oklch(0.987 0.022 95.277);
+  --color-caution-100: oklch(0.962 0.059 95.617);
+  --color-caution-700: oklch(0.555 0.163 48.998);
+
+  /* Verified by a clinician. */
+  --color-verified-50: oklch(0.979 0.021 166.113);
+  --color-verified-700: oklch(0.508 0.118 165.612);
+
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    'Noto Sans', 'Noto Sans Devanagari', sans-serif;
+
+  /* Tabular figures for anything a clinician compares down a column: lab
+     trends, blood pressures, doses. Proportional digits make 11.2 and 8.6 sit
+     at different widths, which defeats scanning a series. */
+  --font-numeric: ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, Consolas, monospace;
+}
+
+/* ---------------------------------------------------------------------------
+   Base
+--------------------------------------------------------------------------- */
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-slate-100 text-slate-800 antialiased;
+  }
+
+  /* Any element carrying clinical numbers lines its digits up. */
+  .numeric {
+    font-family: var(--font-numeric);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Keyboard focus stays visible. The cockpit is driven by staff who type far
+     faster than they point, and a two-minute consultation has no room for
+     hunting a cursor. */
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-brand-600;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Print
+   ---------------------------------------------------------------------------
+   Printing is not a nice-to-have here. The visit summary and the referral slip
+   are the artefacts that physically travel with the patient, and the referral
+   is read under stress in a receiving unit that has no access to this system.
+
+   Rules:
+     * Black on white. A clinic laser printer renders mid-grey text as noise,
+       and a referral that cannot be read at 2 AM is worse than none.
+     * Nothing interactive survives. Buttons, navigation and drawers are marked
+       `print:hidden` at the component level; this is the backstop.
+     * Content is never clipped to fit. A slip that silently drops the last two
+       administered doses is a redosing risk — it wraps onto a second page
+       instead.
+--------------------------------------------------------------------------- */
+
+@media print {
+  @page {
+    /* A4 is the ward standard in Indian hospitals. */
+    size: A4;
+    margin: 12mm;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  body {
+    /* Overflow hidden on screen keeps the cockpit panes independent; on paper
+       it would truncate the document at one page. */
+    overflow: visible !important;
+    height: auto !important;
+  }
+
+  .no-print,
+  nav,
+  button {
+    display: none !important;
+  }
+
+  /* Keep a labelled value and its number together across a page break. */
+  .print-keep {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* Spell out link targets: a printed slip cannot be clicked. */
+  a[href^='http']::after {
+    content: ' (' attr(href) ')';
+    font-size: 0.75em;
+    word-break: break-all;
+  }
+}

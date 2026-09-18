@@ -1,0 +1,11 @@
+# Postinstall scripts pnpm is allowed to run. pnpm 11 refuses to run any build
+# script it has not been told about, and its pre-script dependency check treats
+# an unanswered prompt as a failed install — which makes every `pnpm <script>`
+# exit 1 until these are declared.
+#
+# Both are native-binary downloads for dev tooling, not runtime dependencies:
+#   esbuild        the bundler vitest runs tests through
+#   unrs-resolver  the module resolver used by the ESLint import rules
+allowBuilds:
+  esbuild: true
+  unrs-resolver: true

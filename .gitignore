@@ -1,0 +1,44 @@
+# dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# next.js
+.next/
+out/
+next-env.d.ts
+
+# production
+build/
+dist/
+
+# environment — never commit real credentials
+.env
+.env.local
+.env*.local
+# Backups and editor scratch copies of env files. `.env*.local` does not match a
+# trailing suffix, so `.env.local.bak` would otherwise be committed with live
+# credentials in it.
+.env*.bak
+.env.*.backup
+*.env.local
+
+# supabase local stack
+supabase/.temp/
+supabase/.branches/
+
+# testing
+coverage/
+
+# editor / os
+.DS_Store
+Thumbs.db
+*.swp
+
+# logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# typescript
+*.tsbuildinfo
