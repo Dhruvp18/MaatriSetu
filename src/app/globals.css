@@ -128,3 +128,49 @@
     word-break: break-all;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   File sticker
+   ---------------------------------------------------------------------------
+   The QR sticker is cut out and stuck on the mother's paper file, so when one
+   is on screen it is the only thing that should reach the paper — printing the
+   surrounding page around a 25mm square wastes a sheet per patient at eighty
+   patients a shift.
+
+   `visibility` rather than `display: none` on the rest of the tree: hiding the
+   ancestors with `display` would remove the sticker along with them, whereas
+   visibility is overridden again on the sticker itself.
+
+   The page stays A4 because @page cannot be varied by content. The sticker is
+   positioned at the top-left corner so it lands in a predictable place whether
+   it is cut out by hand or printed onto a label sheet. The pilot printer is
+   still an open question (PRD §12); revisit the size once it is known.
+--------------------------------------------------------------------------- */
+
+@media print {
+  body:has(.print-sticker) * {
+    visibility: hidden;
+  }
+
+  body:has(.print-sticker) .print-sticker,
+  body:has(.print-sticker) .print-sticker * {
+    visibility: visible;
+  }
+
+  body:has(.print-sticker) .print-sticker {
+    position: absolute;
+    top: 0;
+    left: 0;
+    /* Exact physical size matters here; the scanner's tolerance does not
+       stretch to a browser's default scaling. */
+    width: 25mm;
+    height: 25mm;
+    border: none;
+  }
+
+  /* Solid black on white. A thermal head has no greys, and an anti-aliased
+     module edge is what makes a small symbol fail to scan. */
+  .print-sticker svg path[fill='#ffffff'] {
+    fill: #fff;
+  }
+}

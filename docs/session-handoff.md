@@ -1,4 +1,4 @@
-# Session handoff — 2026-09-19
+# Session handoff — 2026-09-20
 
 Paste the block below into a new session. Update "Verified state" and "Next"
 as work progresses.
@@ -38,13 +38,20 @@ Work is committed. `git log` starts at the foundation commit; check
 - **171 unit tests** across 8 files; `tsc --noEmit` and ESLint clean
 - `node tools/smoke-live.mjs` — full live round trip green
 - `node tools/check-session.mjs` — all four roles resolve to an actor
+- `node tools/check-pages.mjs` — 26 checks on the *rendered* authenticated
+  screens (needs `pnpm dev` running)
 
 Confirm everything:
 
 ```
 pnpm verify:schema && pnpm typecheck && pnpm test
 node tools/smoke-live.mjs && node tools/check-session.mjs
+
+pnpm dev                     # then, against the port it prints:
+node tools/check-pages.mjs
 ```
+
+`verify:schema` needs Docker Desktop running; it is the only check that does.
 
 **Database is live** (hosted Supabase, `ap-south-1` Mumbai for DPDP residency),
 project ref `gbzmnjrwkcsyaxhkiysw`. `.env.local` is configured — do not
@@ -59,8 +66,10 @@ src/core/           obstetrics/dating, errors, auth (permissions, actor,
 src/modules/        patients, pregnancies, visits  (five-file shape)
 src/middleware.ts   Supabase session refresh + signed-out redirect
 src/app/sign-in/    form, server actions
-src/app/clinic/     authenticated shell, home, patients/new (registration)
-tools/              smoke-live.mjs, check-session.mjs
+src/app/clinic/     authenticated shell, home,
+                    patients (search), patients/new (registration),
+                    patients/[id] (record + QR sticker issue & print)
+tools/              smoke-live.mjs, check-session.mjs, check-pages.mjs
 ```
 
 ## Conventions — follow for every new module
@@ -128,7 +137,11 @@ tools/              smoke-live.mjs, check-session.mjs
 **Environment**
 - The dev server may land on 3001/3002 — a stale process holds 3000. Read the
   `pnpm dev` output; don't assume.
-- Playwright's Chrome launch times out (~3 min). Verify pages with curl.
+- Playwright's Chrome launch times out (~3 min), and server actions are not
+  curl-able. Use `tools/check-pages.mjs`, which signs in and asserts rendered
+  content — do not ship an authenticated screen without adding checks to it.
+- Docker Desktop is often not running. Only `pnpm verify:schema` needs it;
+  everything else runs against the hosted project.
 
 ## Decided — do not reopen
 
@@ -141,18 +154,18 @@ tools/              smoke-live.mjs, check-session.mjs
 
 Continue the vertical slice:
 
-1. **Patient search** → `patients.service.searchPatients`. It is the QR-lost
-   fallback (PRD §11) and the entry point to everything below.
+1. **Scan a sticker** → `getPatientByQrToken`. Needs a keyboard-wedge capture
+   (HID scanners just type the token followed by Enter) plus a manual-entry
+   box; webcam scanning via zxing-js can come later. Issue and print already
+   work at `/clinic/patients/[id]`.
 2. **Pregnancy episode + vitals** for a registered patient.
-3. **QR issue + print** (`issue_patient_qr`), then **scan** →
-   `getPatientByQrToken`.
-4. **Cockpit read** — 6 accordions, POG computed live, "dating not established"
+3. **Cockpit read** — 6 accordions, POG computed live, "dating not established"
    rendered honestly for the seeded patient with no anchor (Lakshmi Yadav).
    The Hb trend MUST read from `observations`, not `finding_pins` — the seeded
    data (11.2 → 9.8 → 8.6, only the latest pinned) exists to prove this.
-5. **Save & Next** — atomic, versioned, idempotent. `idempotency_requests` and
+4. **Save & Next** — atomic, versioned, idempotent. `idempotency_requests` and
    `src/core/idempotency/` are both still empty.
-6. **MCP slip print.**
+5. **MCP slip print.**
 
 Run `pnpm verify:schema`, `pnpm typecheck`, `pnpm test` and
 `node tools/smoke-live.mjs` before declaring anything done, and say plainly

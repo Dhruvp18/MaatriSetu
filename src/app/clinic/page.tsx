@@ -1,3 +1,5 @@
+import type { Route } from 'next'
+import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
 import type { Permission } from '@core/auth/permissions'
@@ -21,7 +23,7 @@ interface Workflow {
   readonly label: string
   readonly description: string
   readonly permission: Permission
-  readonly href: string | null
+  readonly href: Route | null
 }
 
 /**
@@ -34,15 +36,15 @@ interface Workflow {
 const WORKFLOWS: readonly Workflow[] = [
   {
     label: 'Find a patient',
-    description: 'Search by file number, name or phone.',
+    description: 'Search by file number, name or phone. Also the fallback when a sticker will not scan.',
     permission: 'patient.search',
-    href: null,
+    href: '/clinic/patients',
   },
   {
     label: 'Register a patient',
     description: 'New mother, or a returning one with a new pregnancy.',
     permission: 'patient.register',
-    href: null,
+    href: '/clinic/patients/new',
   },
   {
     label: 'Record visit vitals',
@@ -109,12 +111,22 @@ export default async function ClinicHomePage() {
                 <p className="text-sm text-slate-500">{workflow.description}</p>
               </div>
               {/*
-                Honest state. These land in the next slices; showing them as
-                live links would be a fixture masquerading as a feature.
+                Honest state. A workflow with no screen behind it says so
+                rather than offering a link that goes nowhere — a fixture
+                masquerading as a feature is the thing to avoid here.
               */}
-              <span className="shrink-0 rounded-full bg-caution-100 px-2.5 py-1 text-xs font-medium text-caution-700">
-                Not built yet
-              </span>
+              {workflow.href ? (
+                <Link
+                  href={workflow.href}
+                  className="shrink-0 rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-brand-700"
+                >
+                  Open
+                </Link>
+              ) : (
+                <span className="shrink-0 rounded-full bg-caution-100 px-2.5 py-1 text-xs font-medium text-caution-700">
+                  Not built yet
+                </span>
+              )}
             </li>
           ))}
         </ul>

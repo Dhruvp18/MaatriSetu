@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useActionState, useState } from 'react'
 import { useFormStatus } from 'react-dom'
 
@@ -34,7 +35,27 @@ function SubmitButton() {
   )
 }
 
+/**
+ * Wrapper whose only job is to hand the form a fresh identity.
+ *
+ * `useActionState` has no reset, and navigating to this same route is a soft
+ * navigation that keeps component state — so the confirmation panel would
+ * linger. Bumping a key remounts the form with everything genuinely cleared,
+ * which is what "register another" has to mean at a counter handling one
+ * mother after the next.
+ */
 export function RegistrationForm() {
+  const [attempt, setAttempt] = useState(0)
+
+  return (
+    <RegistrationFormFields
+      key={attempt}
+      onRegisterAnother={() => setAttempt((n) => n + 1)}
+    />
+  )
+}
+
+function RegistrationFormFields({ onRegisterAnother }: { onRegisterAnother: () => void }) {
   const [state, formAction] = useActionState(submitRegistration, initialState)
   const [ageKind, setAgeKind] = useState<'ESTIMATED' | 'DATE_OF_BIRTH'>('ESTIMATED')
   const [allergyStatus, setAllergyStatus] = useState('UNKNOWN')
@@ -50,17 +71,25 @@ export function RegistrationForm() {
         </div>
 
         <p className="text-sm leading-relaxed text-slate-600">
-          Next she needs a pregnancy episode opened and a file sticker printed.
-          Neither screen is built yet, so nothing further has happened
-          automatically.
+          Next she needs a file sticker issued and a pregnancy episode opened.
+          Neither happens automatically — open her record to issue the sticker.
         </p>
 
-        <a
-          href="/clinic/patients/new"
-          className="inline-block rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 transition hover:bg-slate-50"
-        >
-          Register another
-        </a>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={onRegisterAnother}
+            className="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 transition hover:bg-slate-50"
+          >
+            Register another
+          </button>
+          <Link
+            href={`/clinic/patients/${state.patientId}`}
+            className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-700"
+          >
+            Open her record
+          </Link>
+        </div>
       </div>
     )
   }

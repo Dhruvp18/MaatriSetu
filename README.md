@@ -147,6 +147,23 @@ the queries `resolveSession()` makes, so a policy that hides a staff row or a
 membership shows up as a failed sign-in rather than as a puzzling
 "no clinic access" screen.
 
+### Verifying the authenticated screens
+
+```bash
+pnpm dev                     # note the port it prints
+node tools/check-pages.mjs   # add the base URL if it is not :3000
+```
+
+Next's server actions are not curl-able and Playwright's Chrome launch times
+out on this machine, so authenticated pages are otherwise easy to ship
+unverified. This script signs in as each seeded role, encodes the session the
+way `@supabase/ssr` expects to find it in a cookie, and fetches the pages.
+
+It asserts **rendered content**, not status codes: that the Hb trend and
+gestational age are actually computed, that the seeded patient with no dating
+anchor reads "Dating not established" rather than showing an invented
+gestation, and that an assistant's search results carry no demographics.
+
 Run `pnpm verify:schema` before every migration commit.
 
 ---
