@@ -63,6 +63,12 @@ const { error: e5 } = await db.rpc('record_visit_vitals', {
 if (e5) fail('record_visit_vitals: ' + e5.message); else ok('record_visit_vitals')
 
 // 4. QR round trip.
+//
+// The two lines below deliberately mirror mintToken() and hashToken() in
+// src/core/tokens/opaque-token.ts, byte count and encoding included, so this
+// exercises the real sticker format rather than an approximation of it. If that
+// module changes, tests/unit/opaque-token.test.ts fails first -- keep these in
+// step with it.
 const raw = randomBytes(32).toString('base64url')
 const hash = createHash('sha256').update(raw, 'utf8').digest('hex')
 await db.rpc('issue_patient_qr', { p_clinic_id: CLINIC, p_actor_staff_user_id: NURSE, p_request_id: 'smoke-6', p_patient_id: newId, p_token_hash: hash })

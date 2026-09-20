@@ -134,6 +134,17 @@ const doctor = await signIn('doctor@maatrisetu.local')
   report(body.includes('Allergies not recorded'), 'renders unknown allergies as unknown')
 }
 
+{
+  const { status, body } = await get('/clinic/scan', doctor)
+  report(status === 200, 'scan page renders', `status ${status}`)
+  report(body.includes('Scan the file sticker'), 'shows the capture field')
+  // The token must never travel in a URL, so the capture is a form post rather
+  // than a link or a GET. A regression here would leak working keys into
+  // browser history and proxy logs on a shared counter machine.
+  report(!body.includes('method="get"'), 'captures by POST, not GET')
+  report(body.includes('search for her by name'), 'offers the sticker-failed fallback')
+}
+
 /* -------------------------------------------------------------------------- */
 /* Assistant — minimisation                                                   */
 /* -------------------------------------------------------------------------- */
@@ -153,6 +164,15 @@ const assistant = await signIn('assistant@maatrisetu.local')
   const { body } = await get(`/clinic/patients/${SUNITA}`, assistant)
   report(body.includes('Not available to you'), 'assistant is refused the full record')
   report(!body.includes('Penicillin'), 'no clinical detail leaks to the assistant')
+}
+
+{
+  // A sticker is a faster way to reach a record, never a way to reach one you
+  // could not otherwise open. An assistant lacks patient.read, so she must not
+  // be able to scan past that boundary.
+  const { body } = await get('/clinic/scan', assistant)
+  report(body.includes('Not available to you'), 'assistant cannot scan into a record')
+  report(!body.includes('Scan the file sticker'), 'no capture field for the assistant')
 }
 
 /* -------------------------------------------------------------------------- */

@@ -38,7 +38,7 @@ Work is committed. `git log` starts at the foundation commit; check
 - **171 unit tests** across 8 files; `tsc --noEmit` and ESLint clean
 - `node tools/smoke-live.mjs` — full live round trip green
 - `node tools/check-session.mjs` — all four roles resolve to an actor
-- `node tools/check-pages.mjs` — 26 checks on the *rendered* authenticated
+- `node tools/check-pages.mjs` — 32 checks on the *rendered* authenticated
   screens (needs `pnpm dev` running)
 
 Confirm everything:
@@ -68,7 +68,8 @@ src/middleware.ts   Supabase session refresh + signed-out redirect
 src/app/sign-in/    form, server actions
 src/app/clinic/     authenticated shell, home,
                     patients (search), patients/new (registration),
-                    patients/[id] (record + QR sticker issue & print)
+                    patients/[id] (record + QR sticker issue & print),
+                    scan (keyboard-wedge sticker capture)
 tools/              smoke-live.mjs, check-session.mjs, check-pages.mjs
 ```
 
@@ -154,18 +155,15 @@ tools/              smoke-live.mjs, check-session.mjs, check-pages.mjs
 
 Continue the vertical slice:
 
-1. **Scan a sticker** → `getPatientByQrToken`. Needs a keyboard-wedge capture
-   (HID scanners just type the token followed by Enter) plus a manual-entry
-   box; webcam scanning via zxing-js can come later. Issue and print already
-   work at `/clinic/patients/[id]`.
-2. **Pregnancy episode + vitals** for a registered patient.
-3. **Cockpit read** — 6 accordions, POG computed live, "dating not established"
+1. **Pregnancy episode + vitals** for a registered patient. The record page
+   currently says "That screen is not built yet" where the episode would go.
+2. **Cockpit read** — 6 accordions, POG computed live, "dating not established"
    rendered honestly for the seeded patient with no anchor (Lakshmi Yadav).
    The Hb trend MUST read from `observations`, not `finding_pins` — the seeded
    data (11.2 → 9.8 → 8.6, only the latest pinned) exists to prove this.
-4. **Save & Next** — atomic, versioned, idempotent. `idempotency_requests` and
+3. **Save & Next** — atomic, versioned, idempotent. `idempotency_requests` and
    `src/core/idempotency/` are both still empty.
-5. **MCP slip print.**
+4. **MCP slip print.**
 
 Run `pnpm verify:schema`, `pnpm typecheck`, `pnpm test` and
 `node tools/smoke-live.mjs` before declaring anything done, and say plainly
@@ -173,8 +171,10 @@ what is verified versus merely written.
 
 ## Not yet verified
 
-The registration form has never been submitted through a real browser session.
-Next's server actions make that impractical with curl and Playwright times out
-here, so the form's happy path is written-but-unproven; the service beneath it
-is covered by `smoke-live.mjs`. Worth one manual pass at
-`/clinic/patients/new`.
+**Server actions are never invoked over HTTP by any check.** Next does not emit
+action ids into the HTML, and Playwright times out here, so form submissions —
+registration, sticker issue, scan — are exercised only up to the service they
+call. Each of those services is covered (`smoke-live.mjs` for the data layer,
+unit tests for token and schema logic) and every page around them is covered by
+`check-pages.mjs`, but the wiring between form and service is unproven. One
+manual pass through register → issue sticker → scan it would close it.

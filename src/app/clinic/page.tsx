@@ -35,6 +35,12 @@ interface Workflow {
  */
 const WORKFLOWS: readonly Workflow[] = [
   {
+    label: 'Scan a file',
+    description: 'Point a scanner at the sticker to open her record.',
+    permission: 'patient.read',
+    href: '/clinic/scan',
+  },
+  {
     label: 'Find a patient',
     description: 'Search by file number, name or phone. Also the fallback when a sticker will not scan.',
     permission: 'patient.search',
