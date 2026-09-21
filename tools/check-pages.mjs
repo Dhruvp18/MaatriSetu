@@ -145,6 +145,100 @@ const doctor = await signIn('doctor@maatrisetu.local')
   report(body.includes('search for her by name'), 'offers the sticker-failed fallback')
 }
 
+{
+  // Every seeded patient already has an active episode, so the form must not
+  // be offered — a second episode would split her record in two, and the
+  // service would refuse the submit anyway.
+  const { status, body } = await get(`/clinic/patients/${SUNITA}/pregnancy/new`, doctor)
+  report(status === 200, 'pregnancy form route renders', `status ${status}`)
+  report(body.includes('already has an open pregnancy'), 'refuses a second active episode')
+  report(!body.includes('How is this pregnancy dated?'), 'does not offer the form regardless')
+}
+
+{
+  /*
+   * The dating form itself, which no seeded patient can reach — they all have
+   * an active episode. The three dating branches are the most safety-relevant
+   * UI in this flow (an LMP, a scan-measured gestation, or an explicit "not
+   * established"), so rendering them is worth a throwaway patient.
+   *
+   * Created and removed through the service role, the same way smoke-live.mjs
+   * does. Synthetic, and cleaned up in `finally` so a failed assertion cannot
+   * leave a stray record behind.
+   */
+  const admin = createClient(URL_, env.SUPABASE_SERVICE_ROLE_KEY, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  })
+
+  const CLINIC = '11111111-1111-4111-8111-000000000001'
+  const NURSE = '33333333-3333-4333-8333-000000000002'
+  let scratchId = null
+
+  try {
+    const { data, error } = await admin.rpc('register_patient', {
+      p_clinic_id: CLINIC,
+      p_actor_staff_user_id: NURSE,
+      p_request_id: 'pagecheck-1',
+      p_uhid: 'PAGECHK-' + Math.random().toString(16).slice(2, 10).toUpperCase(),
+      p_full_name: 'Page Check Patient',
+      p_date_of_birth: null,
+      p_estimated_age_years: 24,
+      p_age_recorded_on: new Date().toISOString().slice(0, 10),
+      p_abha_id: null,
+      p_abha_verification: 'NOT_PROVIDED',
+      p_allergy_status: 'UNKNOWN',
+      p_blood_group: null,
+      p_blood_group_source: null,
+      p_blood_group_recorded_on: null,
+      p_allergies: [],
+      p_contacts: [],
+    })
+
+    if (error) throw new Error(error.message)
+    scratchId = data
+
+    const { status, body } = await get(`/clinic/patients/${scratchId}/pregnancy/new`, doctor)
+    report(status === 200, 'dating form renders for a patient with no episode', `status ${status}`)
+    report(body.includes('How is this pregnancy dated?'), 'asks the dating question first')
+    report(body.includes('Last menstrual period'), 'offers LMP dating')
+    report(body.includes('Dating scan'), 'offers scan dating')
+    report(body.includes('Not established yet'), 'offers "not established" as a real choice')
+
+    const record = await get(`/clinic/patients/${scratchId}`, doctor)
+    report(
+      record.body.includes('No active pregnancy episode'),
+      'record page states there is no episode',
+    )
+    report(
+      record.body.includes('Allergies not recorded'),
+      'a patient registered without an allergy answer reads as not recorded',
+    )
+  } finally {
+    if (scratchId) {
+      await admin.from('audit_events').delete().like('request_id', 'pagecheck-%')
+      await admin.from('patient_contacts').delete().eq('patient_id', scratchId)
+      await admin.from('patients').delete().eq('id', scratchId)
+    }
+  }
+}
+
+{
+  const { status, body } = await get(`/clinic/patients/${SUNITA}/visit`, doctor)
+  report(status === 200, 'visit page renders', `status ${status}`)
+  // Computed live from the pregnancy's dating, not read off the visit row —
+  // gaDaysAtVisit is null until a consultation is saved.
+  report(/\d+w \+ \d+d/.test(body), 'shows a live gestational age')
+  // The seed leaves her last visit SAVED, so today has no open encounter.
+  report(body.includes('No visit open'), 'reports no open visit')
+  report(body.includes('Start today'), 'offers to start one')
+}
+
+{
+  const { body } = await get(`/clinic/patients/${LAKSHMI}/visit`, doctor)
+  report(body.includes('dating not established'), 'visit page is honest about missing dating')
+  report(!/\d+w \+ \d+d/.test(body), 'invents no gestational age on the visit page')
+}
+
 /* -------------------------------------------------------------------------- */
 /* Assistant — minimisation                                                   */
 /* -------------------------------------------------------------------------- */
@@ -186,6 +280,20 @@ const nurse = await signIn('nurse@maatrisetu.local')
   report(status === 200, 'nurse home renders', `status ${status}`)
   report(body.includes('Register a patient'), 'nurse is offered registration')
   report(!body.includes('Consultation cockpit'), 'nurse is not offered the cockpit')
+}
+
+{
+  // Vitals are the nurse's job and happen before the doctor sees the patient.
+  // Making that wait on a clinician would put the bottleneck exactly where the
+  // product is trying to remove it.
+  const { status, body } = await get(`/clinic/patients/${SUNITA}/visit`, nurse)
+  report(status === 200, 'nurse may open the visit page', `status ${status}`)
+  report(body.includes('Start today'), 'nurse may start a visit')
+}
+
+{
+  const { body } = await get(`/clinic/patients/${SUNITA}/visit`, assistant)
+  report(body.includes('Not available to you'), 'assistant cannot open a visit')
 }
 
 console.log(

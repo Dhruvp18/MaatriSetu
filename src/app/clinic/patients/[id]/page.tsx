@@ -169,16 +169,33 @@ export default async function PatientPage({
         <Panel>
           <SectionTitle>Current pregnancy</SectionTitle>
           {episode === null ? (
-            <p className="text-sm text-slate-600">
-              No active pregnancy episode. Labs, scans and visits all belong to an
-              episode, so one has to be opened before anything clinical can be
-              recorded.
-              <span className="mt-1 block text-slate-500">
-                That screen is not built yet.
-              </span>
-            </p>
+            <div>
+              <p className="text-sm text-slate-600">
+                No active pregnancy episode. Labs, scans and visits all belong to
+                an episode, so one has to be opened before anything clinical can
+                be recorded.
+              </p>
+              {roleHasPermission(actor.role, 'pregnancy.create') ? (
+                <Link
+                  href={`/clinic/patients/${patient.id}/pregnancy/new`}
+                  className="mt-3 inline-block rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-700"
+                >
+                  Open a pregnancy
+                </Link>
+              ) : null}
+            </div>
           ) : (
-            <PregnancySummary episode={episode} today={today} />
+            <div className="space-y-4">
+              <PregnancySummary episode={episode} today={today} />
+              {roleHasPermission(actor.role, 'visit.read') ? (
+                <Link
+                  href={`/clinic/patients/${patient.id}/visit`}
+                  className="inline-block rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-700"
+                >
+                  Today’s visit
+                </Link>
+              ) : null}
+            </div>
           )}
         </Panel>
 

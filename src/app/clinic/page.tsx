@@ -54,9 +54,9 @@ const WORKFLOWS: readonly Workflow[] = [
   },
   {
     label: 'Record visit vitals',
-    description: 'Open today’s visit and enter observations.',
+    description: 'Open today’s visit and enter observations. Reached through her record.',
     permission: 'visit.record_vitals',
-    href: null,
+    href: '/clinic/patients',
   },
   {
     label: 'Upload a report',

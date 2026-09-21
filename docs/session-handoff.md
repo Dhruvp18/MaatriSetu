@@ -1,4 +1,4 @@
-# Session handoff — 2026-09-20
+# Session handoff — 2026-09-21
 
 Paste the block below into a new session. Update "Verified state" and "Next"
 as work progresses.
@@ -38,8 +38,10 @@ Work is committed. `git log` starts at the foundation commit; check
 - **171 unit tests** across 8 files; `tsc --noEmit` and ESLint clean
 - `node tools/smoke-live.mjs` — full live round trip green
 - `node tools/check-session.mjs` — all four roles resolve to an actor
-- `node tools/check-pages.mjs` — 32 checks on the *rendered* authenticated
-  screens (needs `pnpm dev` running)
+- `node tools/check-pages.mjs` — 51 checks on the *rendered* authenticated
+  screens (needs `pnpm dev` running). It creates one throwaway patient through
+  the service role to reach screens no seeded patient can, and removes it in a
+  `finally`.
 
 Confirm everything:
 
@@ -69,6 +71,8 @@ src/app/sign-in/    form, server actions
 src/app/clinic/     authenticated shell, home,
                     patients (search), patients/new (registration),
                     patients/[id] (record + QR sticker issue & print),
+                    patients/[id]/pregnancy/new (dating + GPLA),
+                    patients/[id]/visit (open visit, record vitals),
                     scan (keyboard-wedge sticker capture)
 tools/              smoke-live.mjs, check-session.mjs, check-pages.mjs
 ```
@@ -155,15 +159,13 @@ tools/              smoke-live.mjs, check-session.mjs, check-pages.mjs
 
 Continue the vertical slice:
 
-1. **Pregnancy episode + vitals** for a registered patient. The record page
-   currently says "That screen is not built yet" where the episode would go.
-2. **Cockpit read** — 6 accordions, POG computed live, "dating not established"
+1. **Cockpit read** — 6 accordions, POG computed live, "dating not established"
    rendered honestly for the seeded patient with no anchor (Lakshmi Yadav).
    The Hb trend MUST read from `observations`, not `finding_pins` — the seeded
    data (11.2 → 9.8 → 8.6, only the latest pinned) exists to prove this.
-3. **Save & Next** — atomic, versioned, idempotent. `idempotency_requests` and
+2. **Save & Next** — atomic, versioned, idempotent. `idempotency_requests` and
    `src/core/idempotency/` are both still empty.
-4. **MCP slip print.**
+3. **MCP slip print.**
 
 Run `pnpm verify:schema`, `pnpm typecheck`, `pnpm test` and
 `node tools/smoke-live.mjs` before declaring anything done, and say plainly
