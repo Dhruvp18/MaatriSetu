@@ -1,4 +1,4 @@
-# Session handoff — 2026-09-21
+# Session handoff — 2026-09-21 (cockpit)
 
 Paste the block below into a new session. Update "Verified state" and "Next"
 as work progresses.
@@ -35,10 +35,10 @@ Work is committed. `git log` starts at the foundation commit; check
 
 - **17 migrations** apply cleanly; seed applies cleanly and is re-runnable
 - **52 invariant checks** pass, including 10 that evaluate RLS as `authenticated`
-- **171 unit tests** across 8 files; `tsc --noEmit` and ESLint clean
+- **196 unit tests** across 10 files; `tsc --noEmit` and ESLint clean
 - `node tools/smoke-live.mjs` — full live round trip green
 - `node tools/check-session.mjs` — all four roles resolve to an actor
-- `node tools/check-pages.mjs` — 51 checks on the *rendered* authenticated
+- `node tools/check-pages.mjs` — 78 checks on the *rendered* authenticated
   screens (needs `pnpm dev` running). It creates one throwaway patient through
   the service role to reach screens no seeded patient can, and removes it in a
   `finally`.
@@ -65,7 +65,8 @@ regenerate it. Sign-ins: `doctor@` / `nurse@` / `assistant@` /
 ```
 src/core/           obstetrics/dating, errors, auth (permissions, actor,
                     session, credentials, safe-redirect), tokens, db, config
-src/modules/        patients, pregnancies, visits  (five-file shape)
+src/modules/        patients, pregnancies, visits, reports (read), orders (read)
+                    (five-file shape)
 src/middleware.ts   Supabase session refresh + signed-out redirect
 src/app/sign-in/    form, server actions
 src/app/clinic/     authenticated shell, home,
@@ -73,7 +74,9 @@ src/app/clinic/     authenticated shell, home,
                     patients/[id] (record + QR sticker issue & print),
                     patients/[id]/pregnancy/new (dating + GPLA),
                     patients/[id]/visit (open visit, record vitals),
+                    patients/[id]/cockpit (6 accordions, read-only),
                     scan (keyboard-wedge sticker capture)
+src/components/cockpit/  accordion (native details), header-banner, sparkline
 tools/              smoke-live.mjs, check-session.mjs, check-pages.mjs
 ```
 
@@ -157,19 +160,28 @@ tools/              smoke-live.mjs, check-session.mjs, check-pages.mjs
 
 ## Next
 
-Continue the vertical slice:
+1. **Save & Next** — the atomic consultation commit, and the single most
+   important remaining piece. Impression, prescriptions, advice checklist,
+   follow-up date, pin decisions and resolved queries must land in ONE
+   transaction with their audit rows, or a consultation can be half-recorded.
+   - `src/core/idempotency/` and the `idempotency_requests` table are both
+     empty and both needed: a double-clicked Save at two minutes a patient is
+     routine, not exotic.
+   - Needs version-checked writes raising `serialization_failure` -> 409.
+   - `reports` and `orders` are currently READ-ONLY modules; the verification
+     and prescribing writes go there.
+   - The cockpit's sixth accordion currently explains that nothing saves yet.
+     Replace it, do not bolt inputs onto a page that cannot persist them.
 
-1. **Cockpit read** — 6 accordions, POG computed live, "dating not established"
-   rendered honestly for the seeded patient with no anchor (Lakshmi Yadav).
-   The Hb trend MUST read from `observations`, not `finding_pins` — the seeded
-   data (11.2 → 9.8 → 8.6, only the latest pinned) exists to prove this.
-2. **Save & Next** — atomic, versioned, idempotent. `idempotency_requests` and
-   `src/core/idempotency/` are both still empty.
-3. **MCP slip print.**
+2. **MCP slip print** — A5/A4 printable visit summary. `globals.css` already
+   carries A4 rules and an isolated sticker block to follow.
 
-Run `pnpm verify:schema`, `pnpm typecheck`, `pnpm test` and
-`node tools/smoke-live.mjs` before declaring anything done, and say plainly
-what is verified versus merely written.
+3. **OCR ingestion** (`modules/reports` write path), then **referrals**, then
+   **voice**. All three have complete schemas and no code.
+
+Run `pnpm verify:schema`, `pnpm typecheck`, `pnpm test`,
+`node tools/smoke-live.mjs` and `node tools/check-pages.mjs` before declaring
+anything done, and say plainly what is verified versus merely written.
 
 ## Not yet verified
 

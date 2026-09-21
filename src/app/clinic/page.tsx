@@ -66,9 +66,9 @@ const WORKFLOWS: readonly Workflow[] = [
   },
   {
     label: 'Consultation cockpit',
-    description: 'The full record on one screen, and today’s orders.',
-    permission: 'visit.save',
-    href: null,
+    description: 'The full record on one screen. Reached by scanning her file, or through her record.',
+    permission: 'observation.read',
+    href: '/clinic/scan',
   },
   {
     label: 'Emergency referral',

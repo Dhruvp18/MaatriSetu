@@ -87,6 +87,9 @@ console.log(`Checking ${BASE} as seeded staff\n`)
 /* -------------------------------------------------------------------------- */
 
 const doctor = await signIn('doctor@maatrisetu.local')
+// Signed in early so the cockpit's role-minimisation can be checked alongside
+// the doctor's view of the same screen.
+const nurseEarly = await signIn('nurse@maatrisetu.local')
 
 {
   const { status, body } = await get('/clinic', doctor)
@@ -239,6 +242,68 @@ const doctor = await signIn('doctor@maatrisetu.local')
   report(!/\d+w \+ \d+d/.test(body), 'invents no gestational age on the visit page')
 }
 
+{
+  const { status, body } = await get(`/clinic/patients/${SUNITA}/cockpit`, doctor)
+  report(status === 200, 'cockpit renders', `status ${status}`)
+
+  // Header banner (PRD F3).
+  report(body.includes('Sunita Devi'), 'banner names the patient')
+  report(/G2 P1 L1 A0/.test(body), 'banner shows the GPLA badge')
+  report(body.includes('Rh negative'), 'banner flags Rh-negative as a recorded fact')
+  report(body.includes('Penicillin'), 'banner flags the recorded allergy')
+  report(body.includes('Previous uterine scar'), 'banner flags the previous scar')
+  report(/\d+w \+ \d+d/.test(body), 'banner computes POG live')
+
+  // Presentation belongs to the scan that observed it, dated — never pinned to
+  // a banner where it would go stale unnoticed.
+  const bannerEnd = body.indexOf('Ongoing medication')
+  const banner = bannerEnd > 0 ? body.slice(0, bannerEnd) : body
+  report(!/cephalic/i.test(banner), 'banner carries no fetal presentation')
+  report(/cephalic/i.test(body), 'presentation appears with the scan instead')
+
+  // The whole reason observations and finding_pins are separate tables. The
+  // seed pins only the latest haemoglobin; all three must still be on the line.
+  report(body.includes('11.2 → 9.8 → 8.6'), 'Hb trend shows every verified value, not just pins')
+  report(body.includes('g/dL'), 'trend carries its unit')
+
+  // Six accordions (PRD F5).
+  for (const section of [
+    'Ongoing medication',
+    'Significant labs',
+    'Significant scans',
+    'Previous obstetric history',
+    'Physician impression',
+    'Fresh orders and advice',
+  ]) {
+    report(body.includes(section), `accordion present: ${section}`)
+  }
+
+  report(body.includes('Ferrous ascorbate'), 'ongoing medication lists the seeded prescription')
+  report(body.includes('once daily'), 'frequency is spelled out, not abbreviated')
+  report(body.includes('TIFFA'), 'scans are listed')
+
+  // Honest about what is not built.
+  report(body.includes('not built yet'), 'fresh orders says it does not save yet')
+}
+
+{
+  // A nurse may read the record but not prescriptions — by the matrix and,
+  // independently, by RLS.
+  const { status, body } = await get(`/clinic/patients/${SUNITA}/cockpit`, nurseEarly)
+  report(status === 200, 'nurse may open the cockpit', `status ${status}`)
+  report(body.includes('Significant labs'), 'nurse sees labs')
+  report(
+    !body.includes('Ferrous ascorbate'),
+    'nurse sees no prescription detail',
+  )
+}
+
+{
+  const { body } = await get(`/clinic/patients/${LAKSHMI}/cockpit`, doctor)
+  report(body.includes('Dating not established'), 'cockpit is honest about missing dating')
+  report(!/\d+w \+ \d+d/.test(body), 'cockpit invents no gestational age')
+}
+
 /* -------------------------------------------------------------------------- */
 /* Assistant — minimisation                                                   */
 /* -------------------------------------------------------------------------- */
@@ -279,7 +344,11 @@ const nurse = await signIn('nurse@maatrisetu.local')
   const { status, body } = await get('/clinic', nurse)
   report(status === 200, 'nurse home renders', `status ${status}`)
   report(body.includes('Register a patient'), 'nurse is offered registration')
-  report(!body.includes('Consultation cockpit'), 'nurse is not offered the cockpit')
+  // The cockpit is gated on observation.read, which a nurse holds: she takes
+  // the vitals and may well need the last haemoglobin. What she does not get is
+  // the prescription accordion, checked against the rendered cockpit above.
+  report(body.includes('Consultation cockpit'), 'nurse is offered the cockpit')
+  report(!body.includes('Emergency referral'), 'nurse is not offered referral issue')
 }
 
 {

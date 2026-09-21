@@ -187,14 +187,24 @@ export default async function PatientPage({
           ) : (
             <div className="space-y-4">
               <PregnancySummary episode={episode} today={today} />
-              {roleHasPermission(actor.role, 'visit.read') ? (
-                <Link
-                  href={`/clinic/patients/${patient.id}/visit`}
-                  className="inline-block rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-700"
-                >
-                  Today’s visit
-                </Link>
-              ) : null}
+              <div className="flex flex-wrap gap-2">
+                {roleHasPermission(actor.role, 'observation.read') ? (
+                  <Link
+                    href={`/clinic/patients/${patient.id}/cockpit`}
+                    className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-700"
+                  >
+                    Open cockpit
+                  </Link>
+                ) : null}
+                {roleHasPermission(actor.role, 'visit.read') ? (
+                  <Link
+                    href={`/clinic/patients/${patient.id}/visit`}
+                    className="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 transition hover:bg-slate-50"
+                  >
+                    Today’s visit
+                  </Link>
+                ) : null}
+              </div>
             </div>
           )}
         </Panel>
