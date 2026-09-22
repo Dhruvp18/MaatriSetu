@@ -54,11 +54,12 @@ const serverSchema = z.object({
   DATABASE_URL: nonEmpty,
   APP_BASE_URL: z.url(),
 
-  // Referral tokens are signed and short-lived. A weak secret here means a
-  // guessable link to a patient's handover document, so a floor is enforced.
-  REFERRAL_TOKEN_SECRET: z
-    .string()
-    .min(32, 'REFERRAL_TOKEN_SECRET must be at least 32 characters.'),
+  /*
+   * Referral links are NOT signed payloads, so there is no signing secret.
+   * `core/tokens/opaque-token` mints a random token and stores only its
+   * SHA-256 hash: a leaked database yields no working link, which a signed
+   * token would not give us. Only the lifetime is configurable.
+   */
   REFERRAL_TOKEN_TTL_HOURS: z.coerce.number().int().positive().max(168).default(24),
 })
 

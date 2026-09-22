@@ -779,3 +779,394 @@ select pg_temp.must_equal(
 );
 
 \echo ''
+\echo ''
+\echo '=== An issued referral is a frozen document ==='
+
+-- The referral is the one artefact this system produces that is read by someone
+-- with no account and no way to ask a follow-up question. These exercise the
+-- routines in 0021 end to end rather than asserting the constraints behind them
+-- in isolation.
+
+do $$
+declare
+  c_clinic  uuid := '11111111-1111-4111-8111-000000000001';
+  c_patient uuid := '44444444-4444-4444-8444-00000000000a';
+  c_preg    uuid := '55555555-5555-4555-8555-00000000000a';
+  c_doctor  uuid := '33333333-3333-4333-8333-000000000001';
+
+  v_draft    uuid;
+  v_version  integer;
+  v_first    jsonb;
+  v_replay   jsonb;
+  v_snapshot jsonb;
+  v_doses    jsonb;
+begin
+  -- A dose that was GIVEN. The whole feature turns on this row being the source
+  -- of the slip's drug list, rather than the prescriptions seeded against the
+  -- same pregnancy.
+  insert into medication_administrations (
+    clinic_id, patient_id, pregnancy_id, medicine_name,
+    dose_amount, dose_unit, route, administered_at, certainty, recorded_by
+  ) values (
+    c_clinic, c_patient, c_preg, 'Magnesium sulphate',
+    4, 'g', 'IV', now() - interval '95 minutes', 'WITNESSED', c_doctor
+  );
+
+  v_draft := public.create_referral_draft(
+    c_clinic, c_doctor, 'inv-ref-1', c_preg, null, null,
+    'Severe pre-eclampsia, BP 170/115 with headache', 'District Hospital'
+  );
+
+  select version into v_version from referrals where id = v_draft;
+
+  v_version := public.update_referral_draft(
+    c_clinic, c_doctor, 'inv-ref-2', v_draft, v_version,
+    null, 'Dr Seeded', '9820000000', 'District Hospital', 'Labour ward 022-0000',
+    '108 ambulance', now(),
+    'Severe pre-eclampsia, BP 170/115 with headache',
+    'Loading dose given. Transferring for definitive care.',
+    170, 115, 104, 22, 96, 37.1, 'THREE_PLUS', 140, now(),
+    null, null, null, 'NOT_ASSESSED', null, null, null,
+    '18G cannula right forearm; Foley in situ', 'Staff nurse escorting'
+  );
+
+  v_first := public.issue_referral(
+    c_clinic, c_doctor, 'inv-ref-3', v_draft, v_version, current_date, 1
+  );
+
+  v_snapshot := v_first->'issued_snapshot';
+  v_doses := v_snapshot->'preReferralDoses';
+
+  if (v_first->>'replayed')::boolean then
+    raise notice 'FAIL  first issue reported as a replay';
+  else
+    raise notice 'ok    a draft issues';
+  end if;
+
+  -- THE point of the feature. What was given is on the slip; what was merely
+  -- ordered is not.
+  if jsonb_array_length(v_doses) = 1
+     and v_doses->0->>'medicineName' = 'Magnesium sulphate'
+     and v_doses->0->>'administeredAt' is not null then
+    raise notice 'ok    pre-referral doses come from what was GIVEN, with a time';
+  else
+    raise notice 'FAIL  pre-referral doses are wrong: %', v_doses;
+  end if;
+
+  if not exists (
+    select 1 from jsonb_array_elements(v_doses) d
+    where d->>'medicineName' in ('Ferrous ascorbate', 'Calcium carbonate with Vitamin D3')
+  ) then
+    raise notice 'ok    prescribed-but-not-given drugs stay off the slip';
+  else
+    raise notice 'FAIL  a prescription reached the referral slip';
+  end if;
+
+  -- Unknowns are written down as values, never omitted.
+  if v_snapshot->'patient'->'allergies'->>'status' is not null
+     and v_snapshot->'patient'->'bloodGroup'->>'status' is not null
+     and v_snapshot->'pregnancy'->'uterineScar'->>'status' is not null
+     and v_snapshot->'transferVitals'->>'status' = 'RECORDED'
+     and v_snapshot->'examination'->>'status' = 'NOT_PERFORMED' then
+    raise notice 'ok    every unknown on the slip is a tagged value';
+  else
+    raise notice 'FAIL  a field that can be unknown is missing its tag';
+  end if;
+
+  if v_snapshot->>'timeZone' is not null then
+    raise notice 'ok    the clinic timezone travels with the document';
+  else
+    raise notice 'FAIL  the snapshot carries no timezone';
+  end if;
+
+  -- A double-tapped Issue returns the frozen document instead of failing.
+  v_replay := public.issue_referral(
+    c_clinic, c_doctor, 'inv-ref-4', v_draft, v_version, current_date, 1
+  );
+
+  if (v_replay->>'replayed')::boolean
+     and v_replay->'issued_snapshot' = v_snapshot then
+    raise notice 'ok    issuing twice replays the same document';
+  else
+    raise notice 'FAIL  a second issue did not replay';
+  end if;
+
+  if exists (
+    select 1 from audit_events
+    where entity_id = v_draft and action = 'referral.issued'
+  ) then
+    raise notice 'ok    the issue was audited in the same transaction';
+  else
+    raise notice 'FAIL  a referral was issued with no audit row';
+  end if;
+end;
+$$;
+
+select pg_temp.must_fail(
+  'the frozen snapshot cannot be edited',
+  $stmt$
+    update referrals set issued_snapshot = '{"tampered":true}'::jsonb
+     where status = 'ISSUED'
+  $stmt$
+);
+
+select pg_temp.must_fail(
+  'an issued referral cannot return to draft',
+  $stmt$
+    update referrals set status = 'DRAFT' where status = 'ISSUED'
+  $stmt$
+);
+
+select pg_temp.must_fail(
+  'an issued referral cannot be edited through the draft routine',
+  $stmt$
+    select public.update_referral_draft(
+      '11111111-1111-4111-8111-000000000001',
+      '33333333-3333-4333-8333-000000000001',
+      'inv-ref-5',
+      (select id from referrals where status = 'ISSUED' limit 1),
+      (select version from referrals where status = 'ISSUED' limit 1),
+      null, null, null, 'Somewhere else', null, null, null,
+      'Changed my mind', null,
+      null, null, null, null, null, null, null, null, null,
+      null, null, null, 'NOT_ASSESSED', null, null, null,
+      null, null)
+  $stmt$
+);
+
+select pg_temp.must_fail(
+  'a transfer observation with no time is rejected',
+  $stmt$
+    with d as (
+      select public.create_referral_draft(
+        '11111111-1111-4111-8111-000000000001',
+        '33333333-3333-4333-8333-000000000001',
+        'inv-ref-6', '55555555-5555-4555-8555-00000000000a',
+        null, null, 'Test', 'Test') as id
+    )
+    select public.update_referral_draft(
+      '11111111-1111-4111-8111-000000000001',
+      '33333333-3333-4333-8333-000000000001',
+      'inv-ref-7', d.id, 1,
+      null, null, null, null, null, null, null, null, null,
+      170, 115, null, null, null, null, null, null, null,
+      null, null, null, 'NOT_ASSESSED', null, null, null,
+      null, null)
+    from d
+  $stmt$
+);
+
+select pg_temp.must_fail(
+  'a referral with no indication cannot be issued',
+  $stmt$
+    with d as (
+      select public.create_referral_draft(
+        '11111111-1111-4111-8111-000000000001',
+        '33333333-3333-4333-8333-000000000001',
+        'inv-ref-8', '55555555-5555-4555-8555-00000000000a',
+        null, null, null, 'District Hospital') as id
+    )
+    select public.issue_referral(
+      '11111111-1111-4111-8111-000000000001',
+      '33333333-3333-4333-8333-000000000001',
+      'inv-ref-9', d.id, 1, current_date, 1)
+    from d
+  $stmt$
+);
+
+\echo ''
+\echo '=== Referral links reveal nothing they should not ==='
+
+do $$
+declare
+  c_clinic uuid := '11111111-1111-4111-8111-000000000001';
+  c_doctor uuid := '33333333-3333-4333-8333-000000000001';
+
+  v_referral uuid;
+  v_live     jsonb;
+  v_token    uuid;
+  v_expired  uuid;
+  v_result   jsonb;
+begin
+  select id into v_referral from referrals where status = 'ISSUED' order by issued_at desc limit 1;
+
+  v_live := public.create_referral_token(
+    c_clinic, c_doctor, 'inv-ref-10', v_referral,
+    encode(digest('token-one', 'sha256'), 'hex'), 4320
+  );
+  v_token := (v_live->>'token_id')::uuid;
+
+  -- Only a hash is stored. If the raw value were recoverable from the row, a
+  -- database dump would be a working key to every referral ever issued.
+  if exists (
+    select 1 from referral_access_tokens
+    where id = v_token and token_hash = digest('token-one', 'sha256')
+  ) then
+    raise notice 'ok    only the token hash is stored';
+  else
+    raise notice 'FAIL  the stored token hash is not the hash of the raw value';
+  end if;
+
+  v_result := public.log_referral_access(
+    encode(digest('token-one', 'sha256'), 'hex'), null, 'invariant-check'
+  );
+
+  if (v_result->>'granted')::boolean and v_result->'issued_snapshot' is not null then
+    raise notice 'ok    a live token opens the frozen document';
+  else
+    raise notice 'FAIL  a live token did not open the document';
+  end if;
+
+  if exists (
+    select 1 from referral_access_log
+    where token_id = v_token and outcome = 'GRANTED'
+  ) then
+    raise notice 'ok    the access was logged in the same transaction';
+  else
+    raise notice 'FAIL  a referral was served with no access log row';
+  end if;
+
+  -- An unknown token is indistinguishable from an expired or revoked one, and
+  -- leaves no row behind: there is no tenant to attribute it to, so enumeration
+  -- cannot be used to fill another clinic's log.
+  v_result := public.log_referral_access(
+    encode(digest('never-issued', 'sha256'), 'hex'), null, 'invariant-check'
+  );
+
+  if v_result = jsonb_build_object('granted', false) then
+    raise notice 'ok    an unknown token reveals nothing';
+  else
+    raise notice 'FAIL  an unknown token returned %', v_result;
+  end if;
+
+  -- Expired. Inserted directly, because the routine refuses to mint a token
+  -- that is already dead.
+  insert into referral_access_tokens (
+    clinic_id, referral_id, token_hash, expires_at, issued_by, created_at
+  ) values (
+    c_clinic, v_referral, digest('token-expired', 'sha256'),
+    now() - interval '1 minute', c_doctor, now() - interval '2 hours'
+  ) returning id into v_expired;
+
+  v_result := public.log_referral_access(
+    encode(digest('token-expired', 'sha256'), 'hex'), null, 'invariant-check'
+  );
+
+  if v_result = jsonb_build_object('granted', false) then
+    raise notice 'ok    an expired token is refused, identically';
+  else
+    raise notice 'FAIL  an expired token returned %', v_result;
+  end if;
+
+  if exists (select 1 from referral_access_log where token_id = v_expired and outcome = 'EXPIRED') then
+    raise notice 'ok    the refusal is recorded even though the caller is not told why';
+  else
+    raise notice 'FAIL  an expired access was not logged';
+  end if;
+
+  -- Revoked.
+  perform public.revoke_referral_token(
+    c_clinic, c_doctor, 'inv-ref-11', v_token, 'handed to the wrong relative'
+  );
+
+  v_result := public.log_referral_access(
+    encode(digest('token-one', 'sha256'), 'hex'), null, 'invariant-check'
+  );
+
+  if v_result = jsonb_build_object('granted', false) then
+    raise notice 'ok    a revoked token is refused, identically';
+  else
+    raise notice 'FAIL  a revoked token returned %', v_result;
+  end if;
+
+  if public.revoke_referral_token(c_clinic, c_doctor, 'inv-ref-12', v_token, null) then
+    raise notice 'FAIL  revoking twice reported a second revocation';
+  else
+    raise notice 'ok    revoking a referral link twice is a no-op, not an error';
+  end if;
+end;
+$$;
+
+\echo ''
+\echo '=== A correction supersedes; it never edits ==='
+
+do $$
+declare
+  c_clinic uuid := '11111111-1111-4111-8111-000000000001';
+  c_preg   uuid := '55555555-5555-4555-8555-00000000000a';
+  c_doctor uuid := '33333333-3333-4333-8333-000000000001';
+
+  v_original     uuid;
+  v_original_doc jsonb;
+  v_replacement  uuid;
+  v_version      integer;
+  v_token        jsonb;
+begin
+  select id, issued_snapshot into v_original, v_original_doc
+  from referrals where status = 'ISSUED' order by issued_at desc limit 1;
+
+  v_token := public.create_referral_token(
+    c_clinic, c_doctor, 'inv-ref-13', v_original,
+    encode(digest('token-original', 'sha256'), 'hex'), 4320
+  );
+
+  v_replacement := public.create_referral_draft(
+    c_clinic, c_doctor, 'inv-ref-14', c_preg, null, v_original,
+    'Severe pre-eclampsia - corrected: BP 180/120', 'District Hospital'
+  );
+
+  select version into v_version from referrals where id = v_replacement;
+
+  perform public.issue_referral(
+    c_clinic, c_doctor, 'inv-ref-15', v_replacement, v_version, current_date, 1
+  );
+
+  if (select status from referrals where id = v_original) = 'SUPERSEDED' then
+    raise notice 'ok    issuing a replacement retires the original';
+  else
+    raise notice 'FAIL  the original was not superseded';
+  end if;
+
+  -- The retired document is kept exactly as it was handed over.
+  if (select issued_snapshot from referrals where id = v_original) = v_original_doc then
+    raise notice 'ok    the superseded document is unchanged';
+  else
+    raise notice 'FAIL  superseding altered the original document';
+  end if;
+
+  if (select revoked_at from referral_access_tokens
+       where id = (v_token->>'token_id')::uuid) is not null then
+    raise notice 'ok    a superseded referral has no live links left';
+  else
+    raise notice 'FAIL  a superseded referral still has a live link';
+  end if;
+
+  if not (public.log_referral_access(
+            encode(digest('token-original', 'sha256'), 'hex'), null, 'invariant-check'
+          )->>'granted')::boolean then
+    raise notice 'ok    a superseded referral no longer opens';
+  else
+    raise notice 'FAIL  a superseded referral still opens';
+  end if;
+end;
+$$;
+
+select pg_temp.must_equal(
+  'no referral routine is executable by authenticated or anon',
+  (
+    select count(*)
+    from unnest(array[
+      'public.create_referral_draft(uuid, uuid, text, uuid, uuid, uuid, text, text)',
+      'public.update_referral_draft(uuid, uuid, text, uuid, integer, text, text, text, text, text, text, timestamptz, text, text, integer, integer, integer, integer, integer, numeric, dipstick_grade, integer, timestamptz, numeric, integer, text, membrane_status, text, timestamptz, uuid, text, text)',
+      'public.issue_referral(uuid, uuid, text, uuid, integer, date, integer)',
+      'public.create_referral_token(uuid, uuid, text, uuid, text, integer)',
+      'public.revoke_referral_token(uuid, uuid, text, uuid, text)',
+      'public.log_referral_access(text, text, text)'
+    ]) as fn
+    cross join unnest(array['authenticated', 'anon']) as grantee
+    where has_function_privilege(grantee, fn, 'EXECUTE')
+  ),
+  0::bigint
+);
+
+\echo ''

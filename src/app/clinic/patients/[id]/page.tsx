@@ -204,6 +204,19 @@ export default async function PatientPage({
                     Today’s visit
                   </Link>
                 ) : null}
+                {/*
+                  Reachable without an open visit, deliberately. A woman
+                  deteriorating in the corridor is not inside a consultation,
+                  and a transfer must never wait on someone opening one.
+                */}
+                {roleHasPermission(actor.role, 'referral.read') ? (
+                  <Link
+                    href={`/clinic/patients/${patient.id}/referral`}
+                    className="rounded-lg border border-alert-600/40 px-4 py-2 text-sm font-medium text-alert-700 transition hover:bg-alert-50"
+                  >
+                    Emergency referral
+                  </Link>
+                ) : null}
               </div>
             </div>
           )}

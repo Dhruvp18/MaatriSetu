@@ -2866,6 +2866,30 @@ export type Database = {
         }
         Returns: string
       }
+      create_referral_draft: {
+        Args: {
+          p_actor_staff_user_id: string
+          p_clinic_id: string
+          p_indication: string
+          p_origin_visit_id: string
+          p_pregnancy_id: string
+          p_receiving_facility: string
+          p_request_id: string
+          p_supersedes_id: string
+        }
+        Returns: string
+      }
+      create_referral_token: {
+        Args: {
+          p_actor_staff_user_id: string
+          p_clinic_id: string
+          p_referral_id: string
+          p_request_id: string
+          p_token_hash: string
+          p_ttl_minutes: number
+        }
+        Returns: Json
+      }
       fail_voice_transcription: {
         Args: {
           p_clinic_id: string
@@ -2894,6 +2918,26 @@ export type Database = {
           p_token_hash: string
         }
         Returns: string
+      }
+      issue_referral: {
+        Args: {
+          p_actor_staff_user_id: string
+          p_as_of_date: string
+          p_clinic_id: string
+          p_expected_version: number
+          p_referral_id: string
+          p_request_id: string
+          p_snapshot_schema_version: number
+        }
+        Returns: Json
+      }
+      log_referral_access: {
+        Args: {
+          p_client_ip_hash: string
+          p_token_hash: string
+          p_user_agent: string
+        }
+        Returns: Json
       }
       open_or_reuse_visit: {
         Args: {
@@ -2973,6 +3017,16 @@ export type Database = {
         }
         Returns: boolean
       }
+      revoke_referral_token: {
+        Args: {
+          p_actor_staff_user_id: string
+          p_clinic_id: string
+          p_reason: string
+          p_request_id: string
+          p_token_id: string
+        }
+        Returns: boolean
+      }
       save_visit_consultation: {
         Args: {
           p_actor_staff_user_id: string
@@ -3004,6 +3058,43 @@ export type Database = {
           p_pregnancy_id: string
           p_reason: string
           p_request_id: string
+        }
+        Returns: number
+      }
+      update_referral_draft: {
+        Args: {
+          p_accompanying_staff: string
+          p_actor_staff_user_id: string
+          p_clinic_id: string
+          p_clinical_summary: string
+          p_departure_at: string
+          p_expected_version: number
+          p_indication: string
+          p_lines_and_catheters: string
+          p_pv_dilatation_cm: number
+          p_pv_effacement_percent: number
+          p_pv_examined_at: string
+          p_pv_examined_by: string
+          p_pv_liquor: string
+          p_pv_membranes: Database["public"]["Enums"]["membrane_status"]
+          p_pv_station: string
+          p_receiving_contact: string
+          p_receiving_facility: string
+          p_referral_id: string
+          p_referring_contact_phone: string
+          p_referring_doctor_name: string
+          p_referring_facility: string
+          p_request_id: string
+          p_transfer_bp_diastolic_mmhg: number
+          p_transfer_bp_systolic_mmhg: number
+          p_transfer_fetal_heart_rate_bpm: number
+          p_transfer_pulse_bpm: number
+          p_transfer_respiratory_rate_bpm: number
+          p_transfer_spo2_percent: number
+          p_transfer_temperature_c: number
+          p_transfer_urine_albumin: Database["public"]["Enums"]["dipstick_grade"]
+          p_transfer_vitals_recorded_at: string
+          p_transport_mode: string
         }
         Returns: number
       }
