@@ -2781,6 +2781,44 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      acknowledge_voice_query: {
+        Args: {
+          p_actor_staff_user_id: string
+          p_clinic_id: string
+          p_request_id: string
+          p_voice_query_id: string
+        }
+        Returns: undefined
+      }
+      apply_voice_transcription: {
+        Args: {
+          p_clinic_id: string
+          p_confidence: number
+          p_detected_language: string
+          p_lexicon_version: string
+          p_matched_phrases: string[]
+          p_model: string
+          p_provider: string
+          p_request_id: string
+          p_routing_bucket: Database["public"]["Enums"]["query_routing_bucket"]
+          p_transcript: string
+          p_translation_en: string
+          p_voice_query_id: string
+          p_worker: string
+        }
+        Returns: undefined
+      }
+      associate_voice_query: {
+        Args: {
+          p_actor_staff_user_id: string
+          p_clinic_id: string
+          p_contact_id: string
+          p_patient_id: string
+          p_request_id: string
+          p_voice_query_id: string
+        }
+        Returns: undefined
+      }
       cancel_visit: {
         Args: {
           p_actor_staff_user_id: string
@@ -2827,6 +2865,16 @@ export type Database = {
           p_request_id: string
         }
         Returns: string
+      }
+      fail_voice_transcription: {
+        Args: {
+          p_clinic_id: string
+          p_error: string
+          p_request_id: string
+          p_voice_query_id: string
+          p_worker: string
+        }
+        Returns: undefined
       }
       find_patient_by_qr: {
         Args: {
@@ -2875,6 +2923,22 @@ export type Database = {
           p_urine_sugar: Database["public"]["Enums"]["dipstick_grade"]
           p_visit_id: string
           p_weight_kg: number
+        }
+        Returns: string
+      }
+      record_voice_note: {
+        Args: {
+          p_actor_staff_user_id: string
+          p_audio_duration_seconds: number
+          p_audio_mime_type: string
+          p_audio_object_key: string
+          p_channel: Database["public"]["Enums"]["voice_channel"]
+          p_clinic_id: string
+          p_contact_id: string
+          p_from_phone_e164: string
+          p_patient_id: string
+          p_provider_message_id: string
+          p_request_id: string
         }
         Returns: string
       }
