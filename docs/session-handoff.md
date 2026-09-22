@@ -1,4 +1,4 @@
-# Session handoff — 2026-09-21 (cockpit)
+# Session handoff — 2026-09-22
 
 Paste the block below into a new session. Update "Verified state" and "Next"
 as work progresses.
@@ -33,9 +33,9 @@ in the migration headers and exists for a patient-safety reason.
 Work is committed. `git log` starts at the foundation commit; check
 `git status` before assuming anything is uncommitted.
 
-- **17 migrations** apply cleanly; seed applies cleanly and is re-runnable
-- **52 invariant checks** pass, including 10 that evaluate RLS as `authenticated`
-- **196 unit tests** across 10 files; `tsc --noEmit` and ESLint clean
+- **18 migrations** apply cleanly; seed applies cleanly and is re-runnable
+- **60 invariant checks** pass, including 10 that evaluate RLS as `authenticated`
+- **208 unit tests** across 11 files; `tsc --noEmit` and ESLint clean
 - `node tools/smoke-live.mjs` — full live round trip green
 - `node tools/check-session.mjs` — all four roles resolve to an actor
 - `node tools/check-pages.mjs` — 78 checks on the *rendered* authenticated
@@ -64,7 +64,8 @@ regenerate it. Sign-ins: `doctor@` / `nurse@` / `assistant@` /
 
 ```
 src/core/           obstetrics/dating, errors, auth (permissions, actor,
-                    session, credentials, safe-redirect), tokens, db, config
+                    session, credentials, safe-redirect), tokens, db, config,
+                    idempotency (request key + payload fingerprint)
 src/modules/        patients, pregnancies, visits, reports (read), orders (read)
                     (five-file shape)
 src/middleware.ts   Supabase session refresh + signed-out redirect
@@ -74,7 +75,7 @@ src/app/clinic/     authenticated shell, home,
                     patients/[id] (record + QR sticker issue & print),
                     patients/[id]/pregnancy/new (dating + GPLA),
                     patients/[id]/visit (open visit, record vitals),
-                    patients/[id]/cockpit (6 accordions, read-only),
+                    patients/[id]/cockpit (6 accordions + Save & Next),
                     scan (keyboard-wedge sticker capture)
 src/components/cockpit/  accordion (native details), header-banner, sparkline
 tools/              smoke-live.mjs, check-session.mjs, check-pages.mjs
@@ -160,24 +161,24 @@ tools/              smoke-live.mjs, check-session.mjs, check-pages.mjs
 
 ## Next
 
-1. **Save & Next** — the atomic consultation commit, and the single most
-   important remaining piece. Impression, prescriptions, advice checklist,
-   follow-up date, pin decisions and resolved queries must land in ONE
-   transaction with their audit rows, or a consultation can be half-recorded.
-   - `src/core/idempotency/` and the `idempotency_requests` table are both
-     empty and both needed: a double-clicked Save at two minutes a patient is
-     routine, not exotic.
-   - Needs version-checked writes raising `serialization_failure` -> 409.
-   - `reports` and `orders` are currently READ-ONLY modules; the verification
-     and prescribing writes go there.
-   - The cockpit's sixth accordion currently explains that nothing saves yet.
-     Replace it, do not bolt inputs onto a page that cannot persist them.
+1. **MCP slip print** — the printable visit summary a mother leaves with
+   (PRD F8). `globals.css` already carries A4 rules and an isolated sticker
+   block to follow. Read from the SAVED visit, never recomputed.
 
-2. **MCP slip print** — A5/A4 printable visit summary. `globals.css` already
-   carries A4 rules and an isolated sticker block to follow.
+2. **OCR ingestion** — `modules/reports` currently has a read path only. The
+   write path is uploads -> extraction_runs -> report_candidates -> clinician
+   verification, and verification must join the Save & Next commit rather than
+   getting an endpoint of its own. Schema is complete (0006); no code.
 
-3. **OCR ingestion** (`modules/reports` write path), then **referrals**, then
-   **voice**. All three have complete schemas and no code.
+3. **Emergency referral** — `modules/referrals` empty, schema complete (0010).
+   Highest narrative value per unit of work, and no external dependency.
+
+4. **Voice** — `modules/voice` empty, schema complete (0009). In-app audio
+   upload, not live WhatsApp. Automated clinical replies stay disabled.
+
+Also open: `visit_amendments` exists in the schema with no code path. A saved
+consultation is corrected by amendment, and there is currently no way to make
+one.
 
 Run `pnpm verify:schema`, `pnpm typecheck`, `pnpm test`,
 `node tools/smoke-live.mjs` and `node tools/check-pages.mjs` before declaring

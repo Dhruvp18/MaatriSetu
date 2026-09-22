@@ -2,10 +2,17 @@ import 'server-only'
 
 import { type ActorContext, requirePermission } from '@core/auth/actor'
 import { userClient, serviceClient } from '@core/db/clients'
+import { hashPayload } from '@core/idempotency/request-key'
+import { todayIn } from '@core/obstetrics/dating'
 import { AppError, notFound, validation } from '@core/errors/app-error'
 
 import * as repo from './visit.repository'
-import { CancelVisitSchema, OpenVisitSchema, RecordVitalsSchema } from './visit.schema'
+import {
+  CancelVisitSchema,
+  OpenVisitSchema,
+  RecordVitalsSchema,
+  SaveConsultationSchema,
+} from './visit.schema'
 import type { OpenedVisit, Visit, VisitWithVitals, VitalsReading } from './visit.types'
 
 /**
@@ -204,4 +211,65 @@ export async function cancelVisit(
   if (!visit) throw notFound('That visit is not recorded at this clinic.')
 
   return visit
+}
+
+/* -------------------------------------------------------------------------- */
+/* Save & Next                                                                */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Commit the consultation.
+ *
+ * Reserved to doctors. A nurse records vitals and a nurse opens the visit, but
+ * finishing a consultation — the impression, the orders, what gets surfaced on
+ * the record — is a clinician act, and `visit.save` sits only with DOCTOR in
+ * the matrix.
+ *
+ * The write goes through the service role because the routine in migration 0018
+ * is revoked from `authenticated` and because the commit spans seven tables.
+ * Authorization has already happened here (ARCH-5); there is no safety net
+ * behind that client.
+ *
+ * `idempotencyKey` is minted by the caller when editing begins and travels with
+ * every retry of that same save. Supplying a fresh key per attempt would defeat
+ * the whole mechanism, so it is required rather than defaulted.
+ */
+export async function saveConsultation(
+  actor: ActorContext,
+  visitId: string,
+  idempotencyKey: string,
+  input: unknown,
+): Promise<repo.SaveConsultationResult> {
+  requirePermission(actor, 'visit.save')
+
+  const parsed = SaveConsultationSchema.safeParse(input)
+  if (!parsed.success) {
+    throw validation('This consultation could not be saved.', parsed.error.issues)
+  }
+
+  const data = parsed.data
+
+  // Fingerprinted from the PARSED payload, not the raw request. Two clients
+  // that serialise the same consultation differently then agree, while a
+  // genuinely different save still differs.
+  const payloadHashHex = hashPayload({ visitId, ...data })
+
+  return repo.saveConsultation(serviceClient(), {
+    clinicId: actor.clinicId,
+    actorStaffUserId: actor.staffUserId,
+    requestId: actor.requestId,
+    visitId,
+    expectedVersion: data.expectedVersion,
+    // The clinic's calendar day. Gestational age is frozen from it, and the
+    // server's UTC clock is the wrong one for several hours each night in IST.
+    asOfDate: todayIn(actor.clinicTimezone),
+    impression: data.impression ?? null,
+    prescriptions: data.prescriptions,
+    advice: data.advice ?? null,
+    pinObservationIds: [...data.pinObservationIds],
+    unpinObservationIds: [...data.unpinObservationIds],
+    resolveQueryIds: [...data.resolveQueryIds],
+    idempotencyKey,
+    payloadHashHex,
+  })
 }

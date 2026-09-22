@@ -282,8 +282,14 @@ const nurseEarly = await signIn('nurse@maatrisetu.local')
   report(body.includes('once daily'), 'frequency is spelled out, not abbreviated')
   report(body.includes('TIFFA'), 'scans are listed')
 
-  // Honest about what is not built.
-  report(body.includes('not built yet'), 'fresh orders says it does not save yet')
+  // The seed leaves her last visit SAVED, so at this point no visit is open.
+  // Orders belong to a consultation, so the sixth accordion must say there is
+  // nothing to record against rather than offering inputs that cannot persist.
+  report(
+    body.includes('No visit is open'),
+    'fresh orders refuses to collect orders with no open visit',
+  )
+  report(!body.includes('Save &amp; next patient'), 'no commit offered without a visit')
 }
 
 {
@@ -302,6 +308,77 @@ const nurseEarly = await signIn('nurse@maatrisetu.local')
   const { body } = await get(`/clinic/patients/${LAKSHMI}/cockpit`, doctor)
   report(body.includes('Dating not established'), 'cockpit is honest about missing dating')
   report(!/\d+w \+ \d+d/.test(body), 'cockpit invents no gestational age')
+}
+
+{
+  // Save & Next needs an open visit. The seed leaves Sunita's last visit SAVED,
+  // so one is opened here and cancelled afterwards — a cancelled visit is
+  // excluded from history, and cancelling is the audited way to undo an
+  // encounter that should not have been started.
+  const admin = createClient(URL_, env.SUPABASE_SERVICE_ROLE_KEY, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  })
+
+  const CLINIC = '11111111-1111-4111-8111-000000000001'
+  const DOCTOR = '33333333-3333-4333-8333-000000000001'
+  const SUNITA_PREGNANCY = '55555555-5555-4555-8555-00000000000a'
+  let openedVisitId = null
+
+  try {
+    const { data, error } = await admin.rpc('open_or_reuse_visit', {
+      p_clinic_id: CLINIC,
+      p_actor_staff_user_id: DOCTOR,
+      p_request_id: 'pagecheck-visit',
+      p_pregnancy_id: SUNITA_PREGNANCY,
+      p_visit_type: 'ANC_OPD',
+    })
+    if (error) throw new Error(error.message)
+    openedVisitId = data.visit_id
+
+    const { body } = await get(`/clinic/patients/${SUNITA}/cockpit`, doctor)
+    report(body.includes('Save &amp; next patient'), 'consultation form offers Save & Next')
+    report(body.includes('Impression'), 'form takes an impression')
+    report(body.includes('Add drug'), 'form can add a prescription')
+    report(body.includes('Danger signs explained'), 'advice checklist is present')
+    report(body.includes('Next follow-up'), 'form takes a follow-up date')
+    report(body.includes('Surface on the cockpit'), 'pin decisions are part of the same save')
+    report(
+      body.includes('written together, or not at all'),
+      'form states the commit is atomic',
+    )
+    // The idempotency key is minted client-side per mount, so it cannot appear
+    // in server-rendered HTML — but the field must exist for it to land in.
+    report(body.includes('name="idempotencyKey"'), 'form carries an idempotency key field')
+    report(body.includes('name="expectedVersion"'), 'form carries the version it edited')
+
+    // A nurse may read this cockpit but must not be offered the commit.
+    const nurseView = await get(`/clinic/patients/${SUNITA}/cockpit`, nurseEarly)
+    report(
+      !nurseView.body.includes('Save &amp; next patient'),
+      'nurse is not offered Save & Next',
+    )
+    report(
+      nurseView.body.includes('clinician act'),
+      'nurse is told why the commit is unavailable',
+    )
+  } finally {
+    if (openedVisitId) {
+      const { data: v } = await admin
+        .from('visits')
+        .select('version')
+        .eq('id', openedVisitId)
+        .maybeSingle()
+
+      await admin.rpc('cancel_visit', {
+        p_clinic_id: CLINIC,
+        p_actor_staff_user_id: DOCTOR,
+        p_request_id: 'pagecheck-visit-cancel',
+        p_visit_id: openedVisitId,
+        p_expected_version: v?.version ?? 1,
+        p_reason: 'Opened by an automated page check.',
+      })
+    }
+  }
 }
 
 /* -------------------------------------------------------------------------- */

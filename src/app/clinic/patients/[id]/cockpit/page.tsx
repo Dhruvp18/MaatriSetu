@@ -21,7 +21,10 @@ import {
   type ScanReport,
 } from '@modules/reports/report.types'
 import { getOpenVisit, getVisitWithVitals, listVisits } from '@modules/visits/visit.service'
+
 import type { VitalsReading } from '@modules/visits/visit.types'
+
+import { ConsultationForm, type PinnableFinding } from './consultation-form'
 
 /**
  * The consultation cockpit (PRD F3–F7).
@@ -29,9 +32,9 @@ import type { VitalsReading } from '@modules/visits/visit.types'
  * One screen, six accordions, everything read in a single pass so the whole
  * record is on screen inside the two minutes the consultation actually has.
  *
- * Read-only for now. Editing the impression and writing fresh orders belong to
- * the atomic Save & Next commit, which is the next slice — so accordion six
- * says so plainly rather than offering inputs that would quietly go nowhere.
+ * Accordions one to five read; the sixth writes. Impression, orders, advice,
+ * follow-up date and pin decisions all commit in one transaction through
+ * `saveConsultation`, so a consultation is never half-recorded.
  */
 
 export const metadata = { title: 'Cockpit' }
@@ -123,6 +126,17 @@ export default async function CockpitPage({ params }: { params: Promise<{ id: st
 
   const labs = results.observations.filter((o) => o.category !== 'OTHER')
   const hbTrend = results.trends.find((t) => t.testCode === 'hb')
+
+  // Offered for pinning: the most recent results, which is what a clinician
+  // actually decides about. The full list would be a wall of checkboxes in a
+  // two-minute consultation.
+  const pinnableFindings: PinnableFinding[] = results.observations
+    .slice(0, 12)
+    .map((observation) => ({
+      id: observation.id,
+      label: `${observation.testName} ${formatObservationValue(observation.value)} (${observation.observedDate})`,
+      isPinned: observation.isPinned,
+    }))
 
   return (
     <Shell>
@@ -282,14 +296,27 @@ export default async function CockpitPage({ params }: { params: Promise<{ id: st
           </p>
         </Accordion>
 
-        {/* 6 — Fresh orders. Honest about not existing yet. */}
+        {/* 6 — Fresh orders, and the atomic commit. */}
         <Accordion title="Fresh orders and advice" defaultOpen>
-          <p className="text-sm leading-relaxed text-slate-600">
-            Prescribing, the advice checklist and the follow-up date commit
-            together with the impression in one atomic save, so that a
-            consultation is never half-recorded. That commit is not built yet,
-            and nothing here would be saved — so no inputs are offered.
-          </p>
+          {!openVisit ? (
+            <p className="text-sm leading-relaxed text-slate-600">
+              No visit is open, so there is nothing to record against. Orders
+              belong to a consultation.
+            </p>
+          ) : !roleHasPermission(actor.role, 'visit.save') ? (
+            <p className="text-sm leading-relaxed text-slate-600">
+              Finishing a consultation is a clinician act. Your role
+              ({actor.role.toLowerCase()}) can record vitals and upload reports,
+              but not prescribe or save the consultation.
+            </p>
+          ) : (
+            <ConsultationForm
+              visitId={openVisit.id}
+              expectedVersion={openVisit.version}
+              currentImpression={openVisit.impression}
+              findings={pinnableFindings}
+            />
+          )}
         </Accordion>
       </div>
     </Shell>

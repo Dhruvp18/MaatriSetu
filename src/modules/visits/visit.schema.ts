@@ -1,5 +1,10 @@
 import { z } from 'zod'
 
+/** An ISO calendar date. A follow-up date is a calendar fact, not an instant. */
+const CalendarDateSchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, 'Use a calendar date in YYYY-MM-DD form.')
+
 /**
  * Validation for everything entering the visits module from outside.
  *
@@ -113,3 +118,94 @@ export const CancelVisitSchema = z
   .strict()
 
 export type CancelVisitInput = z.infer<typeof CancelVisitSchema>
+
+/* -------------------------------------------------------------------------- */
+/* Save & Next                                                                */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * One prescription line written during the consultation.
+ *
+ * `.strict()` on its own, because `.strict()` on the enclosing object does not
+ * reach in. Without it a misspelled `doseUnits` would be dropped in silence and
+ * the order would be written with no unit at all.
+ */
+const PrescriptionInputSchema = z
+  .object({
+    medicineName: z.string().min(1).max(200).trim(),
+    doseAmount: z.number().positive().max(100000).nullish(),
+    doseUnit: z.string().min(1).max(32).nullish(),
+    form: z.string().max(32).nullish(),
+    route: z
+      .enum(['ORAL', 'IV', 'IM', 'SC', 'PR', 'PV', 'TOPICAL', 'INHALED', 'OTHER'])
+      .default('ORAL'),
+    frequency: z.enum([
+      'OD', 'BD', 'TDS', 'QID', 'HS', 'SOS', 'PRN', 'STAT', 'WEEKLY', 'OTHER',
+    ]),
+    foodRelation: z
+      .enum(['BEFORE_FOOD', 'AFTER_FOOD', 'WITH_FOOD', 'NOT_SPECIFIED'])
+      .default('NOT_SPECIFIED'),
+    durationDays: z.number().int().positive().max(400).nullish(),
+    instructions: z.string().max(1000).nullish(),
+  })
+  .strict()
+  .refine(
+    (rx) => (rx.doseAmount == null) === (rx.doseUnit == null),
+    {
+      // "500" of an unnamed thing is not a dose. The column CHECK says the
+      // same; this is where the clinician gets a sentence instead.
+      message: 'A dose needs both an amount and a unit, or neither.',
+      path: ['doseUnit'],
+    },
+  )
+
+const AdviceInputSchema = z
+  .object({
+    dfkcCounselled: z.boolean().default(false),
+    nutritionCounselled: z.boolean().default(false),
+    leftLateralRest: z.boolean().default(false),
+    dangerSignsCounselled: z.boolean().default(false),
+    labOrders: z.array(z.string().min(1).max(200)).max(30).default([]),
+    scanOrders: z.array(z.string().min(1).max(200)).max(30).default([]),
+    nextFollowupDate: CalendarDateSchema.nullish(),
+    additionalAdvice: z.string().max(2000).nullish(),
+  })
+  .strict()
+
+/**
+ * Everything the consultation commits, in one payload.
+ *
+ * It arrives together because it commits together. PRD §9 originally offered
+ * separate pin and resolve endpoints alongside an atomic save; those writes
+ * would have landed before the save and survived its failure, which is the
+ * opposite of what "atomic" was promising.
+ */
+export const SaveConsultationSchema = z
+  .object({
+    /** Optimistic concurrency. A mismatch is a 409, never a silent overwrite. */
+    expectedVersion: z.number().int().min(1),
+    impression: z.string().max(10000).nullish(),
+    prescriptions: z.array(PrescriptionInputSchema).max(30).default([]),
+    advice: AdviceInputSchema.nullish(),
+    pinObservationIds: z.array(z.uuid()).max(50).default([]),
+    unpinObservationIds: z.array(z.uuid()).max(50).default([]),
+    resolveQueryIds: z.array(z.uuid()).max(50).default([]),
+  })
+  .strict()
+  .superRefine((value, ctx) => {
+    // Pinning and unpinning the same finding in one save is not a preference,
+    // it is a mistake — and whichever the routine applied first would decide
+    // the outcome silently.
+    const pinned = new Set(value.pinObservationIds)
+    const clash = value.unpinObservationIds.find((id) => pinned.has(id))
+
+    if (clash) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['unpinObservationIds'],
+        message: 'The same finding is both pinned and unpinned in this save.',
+      })
+    }
+  })
+
+export type SaveConsultationInput = z.infer<typeof SaveConsultationSchema>

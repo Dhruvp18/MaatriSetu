@@ -4,6 +4,10 @@
  * Regenerate after every migration:
  *     pnpm db:types
  *
+ * `pnpm db:types` needs the local Supabase stack, which does not start on this
+ * machine. Generate through the Supabase MCP connector instead and write the
+ * `types` field of its response here verbatim, keeping this header.
+ *
  * Project: maatrisetu (ap-south-1). Chosen for DPDP data residency — patient
  * data stays in India.
  */
@@ -2904,6 +2908,25 @@ export type Database = {
           p_request_id: string
         }
         Returns: boolean
+      }
+      save_visit_consultation: {
+        Args: {
+          p_actor_staff_user_id: string
+          p_advice: Json
+          p_as_of_date: string
+          p_clinic_id: string
+          p_expected_version: number
+          p_idempotency_key: string
+          p_impression: string
+          p_payload_hash: string
+          p_pin_observation_ids: string[]
+          p_prescriptions: Json
+          p_request_id: string
+          p_resolve_query_ids: string[]
+          p_unpin_observation_ids: string[]
+          p_visit_id: string
+        }
+        Returns: Json
       }
       update_pregnancy_dating: {
         Args: {

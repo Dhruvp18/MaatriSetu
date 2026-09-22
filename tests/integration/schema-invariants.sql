@@ -616,3 +616,166 @@ select pg_temp.readable_as_authenticated('voice_queries policy evaluates', 'voic
 select pg_temp.readable_as_authenticated('referrals policy evaluates', 'referrals');
 
 \echo ''
+
+\echo ''
+\echo '=== The consultation commit is atomic, versioned and idempotent ==='
+
+-- Save & Next is the one write that must be all-or-nothing. These exercise the
+-- routine end to end against the seeded patient rather than asserting the
+-- constraints behind it in isolation.
+
+do $$
+declare
+  c_clinic  uuid := '11111111-1111-4111-8111-000000000001';
+  c_patient uuid := '44444444-4444-4444-8444-00000000000a';
+  c_preg    uuid := '55555555-5555-4555-8555-00000000000a';
+  c_doctor  uuid := '33333333-3333-4333-8333-000000000001';
+  c_hb_old  uuid := '66666666-6666-4666-8666-00000000000a';
+
+  v_visit    uuid;
+  v_version  integer;
+  v_first    jsonb;
+  v_second   jsonb;
+  v_rx_count integer;
+  v_advice   integer;
+  v_pinned   integer;
+begin
+  insert into visits (clinic_id, patient_id, pregnancy_id, status, opened_by)
+  values (c_clinic, c_patient, c_preg, 'OPEN', c_doctor)
+  returning id, version into v_visit, v_version;
+
+  -- First save: commits everything together.
+  v_first := public.save_visit_consultation(
+    c_clinic, c_doctor, 'inv-1', v_visit, v_version, current_date,
+    'Mild anaemia on oral iron. Continue.',
+    '[{"medicineName":"Ferrous ascorbate","doseAmount":100,"doseUnit":"mg","form":"Tab","frequency":"OD","foodRelation":"AFTER_FOOD","durationDays":30}]'::jsonb,
+    '{"dfkcCounselled":true,"labOrders":["Repeat CBC in 3 weeks"],"nextFollowupDate":null}'::jsonb,
+    array[c_hb_old]::uuid[], '{}'::uuid[], '{}'::uuid[],
+    'inv-key-1', decode('aa', 'hex')
+  );
+
+  if (v_first->>'replayed')::boolean then
+    raise notice 'FAIL  first save reported as a replay';
+  else
+    raise notice 'ok    consultation commits';
+  end if;
+
+  select count(*) into v_rx_count from prescriptions where visit_id = v_visit;
+  select count(*) into v_advice from visit_advice where visit_id = v_visit;
+
+  if v_rx_count = 1 and v_advice = 1 then
+    raise notice 'ok    orders and advice land with the impression';
+  else
+    raise notice 'FAIL  orders/advice missing (rx=%, advice=%)', v_rx_count, v_advice;
+  end if;
+
+  if (select status from visits where id = v_visit) = 'SAVED'
+     and (select ga_days_at_visit from visits where id = v_visit) is not null then
+    raise notice 'ok    gestational age is frozen at save';
+  else
+    raise notice 'FAIL  visit not saved, or gestational age not frozen';
+  end if;
+
+  -- The same request again: returns the original result, writes nothing more.
+  v_second := public.save_visit_consultation(
+    c_clinic, c_doctor, 'inv-2', v_visit, v_version, current_date,
+    'Mild anaemia on oral iron. Continue.',
+    '[{"medicineName":"Ferrous ascorbate","doseAmount":100,"doseUnit":"mg","form":"Tab","frequency":"OD","foodRelation":"AFTER_FOOD","durationDays":30}]'::jsonb,
+    '{"dfkcCounselled":true,"labOrders":["Repeat CBC in 3 weeks"],"nextFollowupDate":null}'::jsonb,
+    array[c_hb_old]::uuid[], '{}'::uuid[], '{}'::uuid[],
+    'inv-key-1', decode('aa', 'hex')
+  );
+
+  select count(*) into v_rx_count from prescriptions where visit_id = v_visit;
+
+  if (v_second->>'replayed')::boolean and v_rx_count = 1 then
+    raise notice 'ok    a repeated save replays instead of duplicating';
+  else
+    raise notice 'FAIL  repeat save duplicated work (replayed=%, rx=%)',
+      v_second->>'replayed', v_rx_count;
+  end if;
+
+  -- Pins are recorded, and audited individually.
+  select count(*) into v_pinned
+  from finding_pins where observation_id = c_hb_old and unpinned_at is null;
+
+  if v_pinned = 1 and exists (
+    select 1 from audit_events where action = 'finding.pinned' and entity_id = c_hb_old
+  ) then
+    raise notice 'ok    pin decisions commit with the visit and are audited';
+  else
+    raise notice 'FAIL  pin not recorded or not audited';
+  end if;
+end;
+$$;
+
+-- Reusing a key with different content must be refused outright: applying it
+-- would let one clinician's save silently replace another's.
+select pg_temp.must_fail(
+  'an idempotency key reused with different content is rejected',
+  $stmt$
+    select public.save_visit_consultation(
+      '11111111-1111-4111-8111-000000000001',
+      '33333333-3333-4333-8333-000000000001',
+      'inv-3',
+      (select id from visits where status = 'SAVED' order by created_at desc limit 1),
+      1, current_date, 'Different impression entirely.',
+      '[]'::jsonb, null, '{}'::uuid[], '{}'::uuid[], '{}'::uuid[],
+      'inv-key-1', decode('bb', 'hex')
+    )
+  $stmt$
+);
+
+-- A stale version means someone else changed the visit underneath the editor.
+select pg_temp.must_fail(
+  'a stale visit version is rejected',
+  $stmt$
+    insert into visits (id, clinic_id, patient_id, pregnancy_id, status, opened_by)
+    values ('cccccccc-cccc-4ccc-8ccc-000000000001',
+      '11111111-1111-4111-8111-000000000001',
+      '44444444-4444-4444-8444-00000000000a',
+      '55555555-5555-4555-8555-00000000000a', 'OPEN',
+      '33333333-3333-4333-8333-000000000001');
+    select public.save_visit_consultation(
+      '11111111-1111-4111-8111-000000000001',
+      '33333333-3333-4333-8333-000000000001',
+      'inv-4', 'cccccccc-cccc-4ccc-8ccc-000000000001',
+      999, current_date, 'Impression.',
+      '[]'::jsonb, null, '{}'::uuid[], '{}'::uuid[], '{}'::uuid[],
+      'inv-key-stale', decode('cc', 'hex')
+    )
+  $stmt$
+);
+
+-- A saved consultation is corrected by amendment, never by saving over it.
+select pg_temp.must_fail(
+  'saving an already-saved visit is rejected',
+  $stmt$
+    select public.save_visit_consultation(
+      '11111111-1111-4111-8111-000000000001',
+      '33333333-3333-4333-8333-000000000001',
+      'inv-5',
+      (select id from visits where status = 'SAVED' order by created_at desc limit 1),
+      (select version from visits where status = 'SAVED' order by created_at desc limit 1),
+      current_date, 'Saving again.',
+      '[]'::jsonb, null, '{}'::uuid[], '{}'::uuid[], '{}'::uuid[],
+      'inv-key-resave', decode('dd', 'hex')
+    )
+  $stmt$
+);
+
+select pg_temp.must_equal(
+  'the save routine is not executable by authenticated or anon',
+  (
+    select count(*)
+    from unnest(array['authenticated', 'anon']) as grantee
+    where has_function_privilege(
+      grantee,
+      'public.save_visit_consultation(uuid, uuid, text, uuid, integer, date, text, jsonb, jsonb, uuid[], uuid[], uuid[], text, bytea)',
+      'EXECUTE'
+    )
+  ),
+  0::bigint
+);
+
+\echo ''

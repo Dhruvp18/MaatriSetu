@@ -307,3 +307,109 @@ export async function cancelVisit(
 
   return data
 }
+
+/* -------------------------------------------------------------------------- */
+/* Save & Next                                                                */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Argument nullability, restored — see the note beside `RecordVitalsArgs`.
+ *
+ * `p_impression` and `p_advice` are genuinely optional: a consultation may end
+ * with orders and no narrative, or a narrative and no advice checklist.
+ */
+type SaveConsultationArgs = Nullable<
+  Fn['save_visit_consultation']['Args'],
+  'p_impression' | 'p_advice'
+>
+
+export interface SaveConsultationResult {
+  readonly visitId: string
+  /** True when this request had already been committed and was replayed. */
+  readonly replayed: boolean
+  readonly gaDaysAtVisit: number | null
+  readonly prescriptions: number
+  readonly pinned: number
+  readonly unpinned: number
+  readonly queriesResolved: number
+}
+
+/**
+ * Commit the consultation.
+ *
+ * Everything the routine needs travels in one call, because everything it
+ * writes lands in one transaction. The idempotency key and payload hash are
+ * part of that payload rather than headers: they are checked inside the same
+ * transaction that does the work, so a crash between the check and the write is
+ * not a state this can reach.
+ */
+export async function saveConsultation(
+  db: TypedClient,
+  input: {
+    clinicId: string
+    actorStaffUserId: string
+    requestId: string
+    visitId: string
+    expectedVersion: number
+    asOfDate: string
+    impression: string | null
+    prescriptions: unknown
+    advice: unknown
+    pinObservationIds: string[]
+    unpinObservationIds: string[]
+    resolveQueryIds: string[]
+    idempotencyKey: string
+    payloadHashHex: string
+  },
+): Promise<SaveConsultationResult> {
+  const args: SaveConsultationArgs = {
+    p_clinic_id: input.clinicId,
+    p_actor_staff_user_id: input.actorStaffUserId,
+    p_request_id: input.requestId,
+    p_visit_id: input.visitId,
+    p_expected_version: input.expectedVersion,
+    p_as_of_date: input.asOfDate,
+    p_impression: input.impression,
+    p_prescriptions: input.prescriptions as never,
+    p_advice: input.advice as never,
+    p_pin_observation_ids: input.pinObservationIds,
+    p_unpin_observation_ids: input.unpinObservationIds,
+    p_resolve_query_ids: input.resolveQueryIds,
+    p_idempotency_key: input.idempotencyKey,
+    // Postgres accepts a hex string for bytea through this encoding.
+    p_payload_hash: `\\x${input.payloadHashHex}`,
+  }
+
+  const { data, error } = await db.rpc(
+    'save_visit_consultation',
+    args as Fn['save_visit_consultation']['Args'],
+  )
+
+  // `translate` maps serialization_failure to a 409 conflict, which is what
+  // both a stale version and a concurrent duplicate raise.
+  if (error) translate(error, 'saveConsultation')
+
+  const result = data as {
+    visit_id: string
+    replayed: boolean
+    ga_days_at_visit: number | null
+    prescriptions: number
+    pinned: number
+    unpinned: number
+    queries_resolved: number
+  } | null
+
+  if (!result) throw internal('The consultation was saved but returned no result.')
+
+  return {
+    visitId: result.visit_id,
+    replayed: result.replayed,
+    // A replay returns only the visit id; the counts belong to the original
+    // commit and are not re-derived here.
+    gaDaysAtVisit: result.ga_days_at_visit ?? null,
+    prescriptions: result.prescriptions ?? 0,
+    pinned: result.pinned ?? 0,
+    unpinned: result.unpinned ?? 0,
+    queriesResolved: result.queries_resolved ?? 0,
+  }
+}
