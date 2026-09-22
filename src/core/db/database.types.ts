@@ -8,7 +8,7 @@
  * machine. Generate through the Supabase MCP connector instead and write the
  * `types` field of its response here verbatim, keeping this header.
  *
- * Project: maatrisetu (ap-south-1). Chosen for DPDP data residency — patient
+ * Project: maatrisetu (ap-south-1). Chosen for DPDP data residency - patient
  * data stays in India.
  */
 
@@ -2808,6 +2808,17 @@ export type Database = {
         }
         Returns: undefined
       }
+      assign_report_upload: {
+        Args: {
+          p_actor_staff_user_id: string
+          p_clinic_id: string
+          p_pregnancy_id: string
+          p_quarantine_reason: string
+          p_request_id: string
+          p_upload_id: string
+        }
+        Returns: undefined
+      }
       associate_voice_query: {
         Args: {
           p_actor_staff_user_id: string
@@ -2841,6 +2852,32 @@ export type Database = {
           p_pregnancy_id: string
           p_request_id: string
           p_status: Database["public"]["Enums"]["pregnancy_status"]
+        }
+        Returns: number
+      }
+      complete_extraction_run: {
+        Args: {
+          p_candidates: Json
+          p_clinic_id: string
+          p_raw_output: Json
+          p_report_type: Database["public"]["Enums"]["report_type"]
+          p_request_id: string
+          p_run_id: string
+          p_worker: string
+        }
+        Returns: number
+      }
+      correct_report_candidate: {
+        Args: {
+          p_actor_staff_user_id: string
+          p_candidate_id: string
+          p_clinic_id: string
+          p_discard: boolean
+          p_observed_date: string
+          p_request_id: string
+          p_unit: string
+          p_value_numeric: number
+          p_value_text: string
         }
         Returns: number
       }
@@ -2889,6 +2926,17 @@ export type Database = {
           p_ttl_minutes: number
         }
         Returns: Json
+      }
+      fail_extraction_run: {
+        Args: {
+          p_clinic_id: string
+          p_error: string
+          p_error_code: string
+          p_request_id: string
+          p_run_id: string
+          p_worker: string
+        }
+        Returns: undefined
       }
       fail_voice_transcription: {
         Args: {
@@ -2948,6 +2996,21 @@ export type Database = {
           p_visit_type: Database["public"]["Enums"]["visit_type"]
         }
         Returns: Json
+      }
+      record_report_upload: {
+        Args: {
+          p_actor_staff_user_id: string
+          p_byte_size: number
+          p_clinic_id: string
+          p_content_type: string
+          p_object_key: string
+          p_patient_id: string
+          p_pregnancy_id: string
+          p_request_id: string
+          p_sha256: string
+          p_visit_id: string
+        }
+        Returns: string
       }
       record_visit_vitals: {
         Args: {
@@ -3042,9 +3105,22 @@ export type Database = {
           p_request_id: string
           p_resolve_query_ids: string[]
           p_unpin_observation_ids: string[]
+          p_verify_candidates: Json
           p_visit_id: string
         }
         Returns: Json
+      }
+      start_extraction_run: {
+        Args: {
+          p_clinic_id: string
+          p_model: string
+          p_prompt_version: string
+          p_provider: string
+          p_request_id: string
+          p_upload_id: string
+          p_worker: string
+        }
+        Returns: string
       }
       update_pregnancy_dating: {
         Args: {

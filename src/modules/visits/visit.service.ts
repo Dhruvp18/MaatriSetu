@@ -288,6 +288,9 @@ export async function saveConsultation(
     impression: data.impression ?? null,
     prescriptions: data.prescriptions,
     advice: data.advice ?? null,
+    // Verification lives in this commit and nowhere else: a standalone verify
+    // endpoint would write observations that survive a failed save.
+    verifyCandidates: data.verifyCandidates,
     pinObservationIds: [...data.pinObservationIds],
     unpinObservationIds: [...data.unpinObservationIds],
     resolveQueryIds: [...data.resolveQueryIds],

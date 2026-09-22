@@ -650,6 +650,7 @@ begin
     'Mild anaemia on oral iron. Continue.',
     '[{"medicineName":"Ferrous ascorbate","doseAmount":100,"doseUnit":"mg","form":"Tab","frequency":"OD","foodRelation":"AFTER_FOOD","durationDays":30}]'::jsonb,
     '{"dfkcCounselled":true,"labOrders":["Repeat CBC in 3 weeks"],"nextFollowupDate":null}'::jsonb,
+    '[]'::jsonb,
     array[c_hb_old]::uuid[], '{}'::uuid[], '{}'::uuid[],
     'inv-key-1', decode('aa', 'hex')
   );
@@ -682,6 +683,7 @@ begin
     'Mild anaemia on oral iron. Continue.',
     '[{"medicineName":"Ferrous ascorbate","doseAmount":100,"doseUnit":"mg","form":"Tab","frequency":"OD","foodRelation":"AFTER_FOOD","durationDays":30}]'::jsonb,
     '{"dfkcCounselled":true,"labOrders":["Repeat CBC in 3 weeks"],"nextFollowupDate":null}'::jsonb,
+    '[]'::jsonb,
     array[c_hb_old]::uuid[], '{}'::uuid[], '{}'::uuid[],
     'inv-key-1', decode('aa', 'hex')
   );
@@ -720,7 +722,7 @@ select pg_temp.must_fail(
       'inv-3',
       (select id from visits where status = 'SAVED' order by created_at desc limit 1),
       1, current_date, 'Different impression entirely.',
-      '[]'::jsonb, null, '{}'::uuid[], '{}'::uuid[], '{}'::uuid[],
+      '[]'::jsonb, null, '[]'::jsonb, '{}'::uuid[], '{}'::uuid[], '{}'::uuid[],
       'inv-key-1', decode('bb', 'hex')
     )
   $stmt$
@@ -741,7 +743,7 @@ select pg_temp.must_fail(
       '33333333-3333-4333-8333-000000000001',
       'inv-4', 'cccccccc-cccc-4ccc-8ccc-000000000001',
       999, current_date, 'Impression.',
-      '[]'::jsonb, null, '{}'::uuid[], '{}'::uuid[], '{}'::uuid[],
+      '[]'::jsonb, null, '[]'::jsonb, '{}'::uuid[], '{}'::uuid[], '{}'::uuid[],
       'inv-key-stale', decode('cc', 'hex')
     )
   $stmt$
@@ -758,7 +760,7 @@ select pg_temp.must_fail(
       (select id from visits where status = 'SAVED' order by created_at desc limit 1),
       (select version from visits where status = 'SAVED' order by created_at desc limit 1),
       current_date, 'Saving again.',
-      '[]'::jsonb, null, '{}'::uuid[], '{}'::uuid[], '{}'::uuid[],
+      '[]'::jsonb, null, '[]'::jsonb, '{}'::uuid[], '{}'::uuid[], '{}'::uuid[],
       'inv-key-resave', decode('dd', 'hex')
     )
   $stmt$
@@ -771,7 +773,7 @@ select pg_temp.must_equal(
     from unnest(array['authenticated', 'anon']) as grantee
     where has_function_privilege(
       grantee,
-      'public.save_visit_consultation(uuid, uuid, text, uuid, integer, date, text, jsonb, jsonb, uuid[], uuid[], uuid[], text, bytea)',
+      'public.save_visit_consultation(uuid, uuid, text, uuid, integer, date, text, jsonb, jsonb, jsonb, uuid[], uuid[], uuid[], text, bytea)',
       'EXECUTE'
     )
   ),

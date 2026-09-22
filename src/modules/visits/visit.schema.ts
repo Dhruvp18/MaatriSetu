@@ -180,12 +180,41 @@ const AdviceInputSchema = z
  * would have landed before the save and survived its failure, which is the
  * opposite of what "atomic" was promising.
  */
+/**
+ * One extracted value a clinician is turning into a clinical fact.
+ *
+ * `correctionVersion` is what the clinician actually reviewed. If an assistant
+ * corrects the candidate between the review and the save, the routine rejects
+ * the commit rather than storing a number nobody approved - the same
+ * optimistic-concurrency reasoning as the visit version, applied per value.
+ */
+const VerifyCandidateSchema = z
+  .object({
+    candidateId: z.uuid(),
+    correctionVersion: z.number().int().min(0),
+    category: z.enum([
+      'HEMATOLOGY', 'BIOCHEMISTRY', 'SEROLOGY', 'URINE', 'ENDOCRINE', 'OTHER',
+    ]),
+    testName: z.string().min(1).max(200).nullish(),
+    /*
+     * Clinician-entered, and tri-state on purpose: absent means nobody flagged
+     * it, which is not the same as a clinician judging it unremarkable. Nothing
+     * derives this from the printed reference range (PRD section 3).
+     */
+    flagged: z.boolean().nullish(),
+    note: z.string().max(1000).nullish(),
+    /** Surface it on the cockpit. A display choice, made in the same breath. */
+    pin: z.boolean().default(false),
+  })
+  .strict()
+
 export const SaveConsultationSchema = z
   .object({
     /** Optimistic concurrency. A mismatch is a 409, never a silent overwrite. */
     expectedVersion: z.number().int().min(1),
     impression: z.string().max(10000).nullish(),
     prescriptions: z.array(PrescriptionInputSchema).max(30).default([]),
+    verifyCandidates: z.array(VerifyCandidateSchema).max(60).default([]),
     advice: AdviceInputSchema.nullish(),
     pinObservationIds: z.array(z.uuid()).max(50).default([]),
     unpinObservationIds: z.array(z.uuid()).max(50).default([]),

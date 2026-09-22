@@ -359,6 +359,8 @@ export interface SaveConsultationResult {
   readonly replayed: boolean
   readonly gaDaysAtVisit: number | null
   readonly prescriptions: number
+  /** Candidates turned into verified observations by this commit. */
+  readonly observationsVerified: number
   readonly pinned: number
   readonly unpinned: number
   readonly queriesResolved: number
@@ -385,6 +387,7 @@ export async function saveConsultation(
     impression: string | null
     prescriptions: unknown
     advice: unknown
+    verifyCandidates: unknown
     pinObservationIds: string[]
     unpinObservationIds: string[]
     resolveQueryIds: string[]
@@ -402,6 +405,7 @@ export async function saveConsultation(
     p_impression: input.impression,
     p_prescriptions: input.prescriptions as never,
     p_advice: input.advice as never,
+    p_verify_candidates: input.verifyCandidates as never,
     p_pin_observation_ids: input.pinObservationIds,
     p_unpin_observation_ids: input.unpinObservationIds,
     p_resolve_query_ids: input.resolveQueryIds,
@@ -424,6 +428,7 @@ export async function saveConsultation(
     replayed: boolean
     ga_days_at_visit: number | null
     prescriptions: number
+    observations_verified: number
     pinned: number
     unpinned: number
     queries_resolved: number
@@ -438,6 +443,7 @@ export async function saveConsultation(
     // commit and are not re-derived here.
     gaDaysAtVisit: result.ga_days_at_visit ?? null,
     prescriptions: result.prescriptions ?? 0,
+    observationsVerified: result.observations_verified ?? 0,
     pinned: result.pinned ?? 0,
     unpinned: result.unpinned ?? 0,
     queriesResolved: result.queries_resolved ?? 0,

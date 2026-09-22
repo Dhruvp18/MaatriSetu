@@ -133,12 +133,16 @@ else
 fi
 
 echo "==> Checking invariants"
+# `|| true` matters: the file sets ON_ERROR_STOP, so a failing check makes psql
+# exit non-zero, and under `set -e` a failing command substitution would abort
+# the script BEFORE the output below is printed - hiding the very error the run
+# exists to surface.
 output=$(docker exec -i "$CONTAINER" psql -U postgres -q \
-  < "$ROOT/tests/integration/schema-invariants.sql" 2>&1)
+  < "$ROOT/tests/integration/schema-invariants.sql" 2>&1 || true)
 
 echo "$output" | grep -vE '^\(1 row\)|^-+$|^ *must_|^$' | sed 's/^/    /'
 
-if echo "$output" | grep -q 'FAIL'; then
+if echo "$output" | grep -qE 'FAIL|^ERROR:'; then
   echo ""
   echo "==> INVARIANT CHECKS FAILED"
   exit 1
