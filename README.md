@@ -23,6 +23,7 @@ Read these in order:
 
 | Document | Purpose |
 | --- | --- |
+| [`docs/WALKTHROUGH.md`](docs/WALKTHROUGH.md) | **Start here.** Complete walkthrough: how to run it, every feature, the demo script, the safety rules |
 | [`docs/PRD.md`](docs/PRD.md) | Product vision, personas, feature requirements |
 | [`docs/development-foundation.md`](docs/development-foundation.md) | Corrected data model, transaction rules, permissions. **Supersedes PRD §8–9.** |
 | [`docs/architecture.md`](docs/architecture.md) | Layering rules, module anatomy, file placement |
