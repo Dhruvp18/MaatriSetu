@@ -150,6 +150,7 @@ export const resolveSession = cache(async function resolveSession(): Promise<Ses
       authUserId,
       clinicId: chosen.clinicId,
       clinicTimezone: chosen.clinicTimezone,
+      clinicName: chosen.clinicName,
       role: chosen.role,
       displayName: staff.display_name,
       // Correlates every audit row written while handling this request.

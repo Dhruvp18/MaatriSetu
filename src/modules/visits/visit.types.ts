@@ -106,6 +106,32 @@ export interface VisitWithVitals {
   readonly vitals: readonly VitalsReading[]
 }
 
+/**
+ * What was advised at a consultation. At most one record per visit.
+ *
+ * The four counselling items are booleans rather than free text so that "kick
+ * counts were explained" means the same thing on every visit and on the slip
+ * the mother carries home. They are a record of what was *said*, not a
+ * recommendation this system produced.
+ *
+ * `false` means "not ticked at this consultation", which is why it is never
+ * printed: a take-home checklist showing four empty boxes reads as advice
+ * deliberately withheld, and the slip cannot tell those apart (ARCH-10).
+ */
+export interface VisitAdvice {
+  readonly id: string
+  readonly visitId: string
+  readonly dfkcCounselled: boolean
+  readonly nutritionCounselled: boolean
+  readonly leftLateralRest: boolean
+  readonly dangerSignsCounselled: boolean
+  readonly labOrders: readonly string[]
+  readonly scanOrders: readonly string[]
+  readonly nextFollowupDate: CalendarDate | null
+  readonly additionalAdvice: string | null
+  readonly recordedBy: string
+}
+
 /** What `open_or_reuse_visit` did. */
 export interface OpenedVisit {
   readonly visit: Visit
@@ -188,6 +214,25 @@ export function formatDipstick(grade: DipstickGrade): string {
     case 'FOUR_PLUS':
       return '4+'
   }
+}
+
+/**
+ * The counselling items actually ticked, spelled out in full sentences.
+ *
+ * Centralised here for the same reason `describeAllergies` is centralised in
+ * the patients module: the wording ends up on paper a mother keeps, and a
+ * screen that invents its own phrasing for `dfkcCounselled` is a screen that
+ * can phrase it wrongly. Column names never reach the page.
+ */
+export function adviceGiven(advice: VisitAdvice): readonly string[] {
+  const given: string[] = []
+
+  if (advice.dfkcCounselled) given.push('Count the baby’s kicks daily')
+  if (advice.nutritionCounselled) given.push('Diet, iron and calcium explained')
+  if (advice.leftLateralRest) given.push('Rest lying on the left side')
+  if (advice.dangerSignsCounselled) given.push('Danger signs explained')
+
+  return given
 }
 
 /** A measured value with the unit it was measured in. */

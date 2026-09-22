@@ -6,8 +6,15 @@ import type { TypedClient } from '@core/db/clients'
 import type { Database } from '@core/db/database.types'
 import { conflict, internal, notFound, retryable } from '@core/errors/app-error'
 
-import { type VisitRow, type VisitVitalsRow, toVisit, toVitalsReading } from './visit.mapper'
-import type { Visit, VitalsReading } from './visit.types'
+import {
+  type VisitAdviceRow,
+  type VisitRow,
+  type VisitVitalsRow,
+  toVisit,
+  toVisitAdvice,
+  toVitalsReading,
+} from './visit.mapper'
+import type { Visit, VisitAdvice, VitalsReading } from './visit.types'
 
 /**
  * The only place that talks to the database about visits.
@@ -146,6 +153,29 @@ export async function listVitalsForVisit(
 
   if (error) translate(error, 'listVitalsForVisit')
   return (data ?? []).map(toVitalsReading)
+}
+
+/**
+ * The advice recorded at a visit, or null when none was.
+ *
+ * Null is a real answer: a consultation may end with orders and no advice
+ * checklist, and `save_visit_consultation` writes no row at all in that case.
+ * The caller says so in words rather than printing an empty section.
+ */
+export async function findAdviceForVisit(
+  db: TypedClient,
+  clinicId: string,
+  visitId: string,
+): Promise<VisitAdvice | null> {
+  const { data, error } = await db
+    .from('visit_advice')
+    .select('*')
+    .eq('clinic_id', clinicId)
+    .eq('visit_id', visitId)
+    .maybeSingle<VisitAdviceRow>()
+
+  if (error) translate(error, 'findAdviceForVisit')
+  return data ? toVisitAdvice(data) : null
 }
 
 /* -------------------------------------------------------------------------- */

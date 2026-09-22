@@ -3,6 +3,7 @@ import { notFound, redirect } from 'next/navigation'
 
 import { Accordion } from '@components/cockpit/accordion'
 import { HeaderBanner } from '@components/cockpit/header-banner'
+import { QueriesPanel } from '@components/cockpit/queries-panel'
 import { Sparkline } from '@components/cockpit/sparkline'
 import { roleHasPermission } from '@core/auth/permissions'
 import { resolveSession } from '@core/auth/session'
@@ -21,6 +22,7 @@ import {
   type ScanReport,
 } from '@modules/reports/report.types'
 import { getOpenVisit, getVisitWithVitals, listVisits } from '@modules/visits/visit.service'
+import { listForPatient as listVoiceQueries } from '@modules/voice/voice.service'
 
 import type { VitalsReading } from '@modules/visits/visit.types'
 
@@ -109,10 +111,15 @@ export default async function CockpitPage({ params }: { params: Promise<{ id: st
 
   // Fetched together: the cockpit has to arrive in one pass, and the trend must
   // be derived from the same observation set the tables show.
-  const [results, visits, openVisit] = await Promise.all([
+  const [results, visits, openVisit, voiceQueries] = await Promise.all([
     getPregnancyResults(actor, pregnancy.id),
     listVisits(actor, pregnancy.id),
     getOpenVisit(actor, pregnancy.id),
+    // Unresolved only. A message she sent three visits ago and had answered is
+    // history, not something demanding attention now.
+    roleHasPermission(actor.role, 'query.read')
+      ? listVoiceQueries(actor, patient.id, false)
+      : Promise.resolve([]),
   ])
 
   // Prescription data is doctor-only, by the matrix and independently by RLS.
@@ -159,6 +166,12 @@ export default async function CockpitPage({ params }: { params: Promise<{ id: st
         latestVitals={latestVitals}
         today={today}
       />
+
+      {voiceQueries.length > 0 ? (
+        <div className="mt-3">
+          <QueriesPanel queries={voiceQueries} />
+        </div>
+      ) : null}
 
       <div className="mt-3 space-y-3">
         {/* 1 — Ongoing Rx. Collapsed: it changes least often. */}
@@ -273,6 +286,17 @@ export default async function CockpitPage({ params }: { params: Promise<{ id: st
                     <span className="ml-2 text-xs text-slate-500">
                       {visit.status.toLowerCase()}
                     </span>
+                    {/* Offered only once the consultation is saved — the slip
+                        is a record of what was decided, and the page refuses an
+                        open visit anyway (PRD F8). */}
+                    {visit.status === 'SAVED' ? (
+                      <Link
+                        href={`/clinic/visits/${visit.id}/slip`}
+                        className="no-print ml-2 text-xs text-brand-600 hover:underline"
+                      >
+                        print slip
+                      </Link>
+                    ) : null}
                   </li>
                 ))}
               </ul>
@@ -315,6 +339,13 @@ export default async function CockpitPage({ params }: { params: Promise<{ id: st
               expectedVersion={openVisit.version}
               currentImpression={openVisit.impression}
               findings={pinnableFindings}
+              queries={voiceQueries.map((q) => ({
+                id: q.id,
+                summary:
+                  q.processing.state === 'READY'
+                    ? q.processing.english || q.processing.original
+                    : 'Not transcribed',
+              }))}
             />
           )}
         </Accordion>

@@ -48,6 +48,11 @@ export interface PinnableFinding {
   readonly isPinned: boolean
 }
 
+export interface AddressableQuery {
+  readonly id: string
+  readonly summary: string
+}
+
 function SaveButton() {
   const { pending } = useFormStatus()
   return (
@@ -66,11 +71,13 @@ export function ConsultationForm({
   expectedVersion,
   currentImpression,
   findings,
+  queries,
 }: {
   visitId: string
   expectedVersion: number
   currentImpression: string | null
   findings: readonly PinnableFinding[]
+  queries: readonly AddressableQuery[]
 }) {
   const [state, formAction] = useActionState(submitConsultation, initialState)
 
@@ -306,6 +313,34 @@ export function ConsultationForm({
                   <span>
                     {finding.isPinned ? 'Unpin' : 'Pin'} — {finding.label}
                   </span>
+                </label>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {queries.length > 0 ? (
+        <section>
+          <span className="mb-1 block text-sm font-medium text-slate-700">
+            Messages addressed
+          </span>
+          {/*
+            Resolution commits with the consultation rather than on its own
+            button. Marking a question answered and recording what was said
+            about it are the same act, and letting them come apart leaves a
+            resolved query with no consultation behind it.
+          */}
+          <p className="mb-2 text-xs text-slate-500">
+            Tick what you have answered during this visit. Anything left unticked
+            stays in her queue.
+          </p>
+          <ul className="space-y-1">
+            {queries.map((query) => (
+              <li key={query.id}>
+                <label className="flex items-start gap-2 text-sm text-slate-700">
+                  <input type="checkbox" name="resolveQuery" value={query.id} className="mt-1" />
+                  <span>{query.summary}</span>
                 </label>
               </li>
             ))}

@@ -285,6 +285,23 @@ const nurseEarly = await signIn('nurse@maatrisetu.local')
   // The seed leaves her last visit SAVED, so at this point no visit is open.
   // Orders belong to a consultation, so the sixth accordion must say there is
   // nothing to record against rather than offering inputs that cannot persist.
+  // Her messages, above the record. The seed gives Sunita one unresolved
+  // Marathi note about swelling.
+  report(body.includes('Messages from her'), 'voice queries appear on the cockpit')
+  report(body.includes('संध्याकाळी'), 'her own words are shown')
+  report(body.includes('Slight swelling of the feet'), 'the English translation is shown alongside')
+  // Both, always. A live test had Sarvam render a vision-darkening danger sign
+  // as "I feel sleepy", so the translation alone is not safe to act on.
+  report(
+    body.indexOf('संध्याकाळी') < body.indexOf('Slight swelling'),
+    'her own words come first, above the translation',
+  )
+  report(body.includes('Needs a clinician'), 'routing is worded as reading order')
+  report(
+    !body.includes('pre-eclampsia') && !body.includes('RED_FLAG'),
+    'routing never states what she has',
+  )
+
   report(
     body.includes('No visit is open'),
     'fresh orders refuses to collect orders with no open visit',

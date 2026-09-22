@@ -1,6 +1,6 @@
 import type { Database } from '@core/db/database.types'
 
-import type { Visit, VitalsReading } from './visit.types'
+import type { Visit, VisitAdvice, VitalsReading } from './visit.types'
 
 /**
  * Visit rows, and how they become domain objects.
@@ -20,6 +20,9 @@ export type VisitRow = Tables['visits']['Row']
 
 /** `visit_vitals` — one row per reading, never one row per visit. */
 export type VisitVitalsRow = Tables['visit_vitals']['Row']
+
+/** `visit_advice` — at most one row per visit, written by the atomic save. */
+export type VisitAdviceRow = Tables['visit_advice']['Row']
 
 /* -------------------------------------------------------------------------- */
 /* Mapping                                                                    */
@@ -81,6 +84,25 @@ export function toVitalsReading(row: VisitVitalsRow): VitalsReading {
     urineSugar: row.urine_sugar,
     note: row.note,
     recordedAt: row.recorded_at,
+    recordedBy: row.recorded_by,
+  }
+}
+
+export function toVisitAdvice(row: VisitAdviceRow): VisitAdvice {
+  return {
+    id: row.id,
+    visitId: row.visit_id,
+    dfkcCounselled: row.dfkc_counselled,
+    nutritionCounselled: row.nutrition_counselled,
+    leftLateralRest: row.left_lateral_rest,
+    dangerSignsCounselled: row.danger_signs_counselled,
+    // `text[] not null default '{}'` — an empty array is "nothing was ordered",
+    // which is a different statement from "no advice record exists", and only
+    // the caller that found no row at all may say the second one.
+    labOrders: row.lab_orders,
+    scanOrders: row.scan_orders,
+    nextFollowupDate: row.next_followup_date,
+    additionalAdvice: row.additional_advice,
     recordedBy: row.recorded_by,
   }
 }

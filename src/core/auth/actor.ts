@@ -34,6 +34,16 @@ export interface StaffActor {
    * orders. It belongs to the clinic, not to the server or the browser.
    */
   readonly clinicTimezone: string
+  /**
+   * The clinic's name as registered, for documents that leave the building.
+   *
+   * Carried beside the timezone because it is resolved from the same membership
+   * read and for the same reason: it belongs to the clinic being acted in, not
+   * to the deployment. A printed visit slip or referral with no facility name
+   * on it cannot be traced back to anyone when the mother presents it
+   * elsewhere, so the value has to be available wherever a document is built.
+   */
+  readonly clinicName: string
   readonly role: ClinicRole
   readonly displayName: string
   /** Correlates every row written while handling one request. */

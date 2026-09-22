@@ -94,7 +94,9 @@ export async function submitConsultation(
     },
     pinObservationIds,
     unpinObservationIds,
-    resolveQueryIds: [],
+    resolveQueryIds: formData
+      .getAll('resolveQuery')
+      .filter((v): v is string => typeof v === 'string'),
   }
 
   try {

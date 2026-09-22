@@ -13,7 +13,13 @@ import {
   RecordVitalsSchema,
   SaveConsultationSchema,
 } from './visit.schema'
-import type { OpenedVisit, Visit, VisitWithVitals, VitalsReading } from './visit.types'
+import type {
+  OpenedVisit,
+  Visit,
+  VisitAdvice,
+  VisitWithVitals,
+  VitalsReading,
+} from './visit.types'
 
 /**
  * The visits module's public API.
@@ -105,6 +111,22 @@ export async function getOpenVisit(
   requirePermission(actor, 'visit.read')
 
   return repo.findOpenVisit(await userClient(), actor.clinicId, pregnancyId)
+}
+
+/**
+ * What was advised at a visit, or null when nothing was recorded.
+ *
+ * Guarded by `visit.read` rather than by `advice.write`: writing advice is a
+ * clinician act, but the nurse who prints the mother's card has to be able to
+ * read back what she is printing.
+ */
+export async function getVisitAdvice(
+  actor: ActorContext,
+  visitId: string,
+): Promise<VisitAdvice | null> {
+  requirePermission(actor, 'visit.read')
+
+  return repo.findAdviceForVisit(await userClient(), actor.clinicId, visitId)
 }
 
 /** Visit history for a pregnancy, most recent first. Cancelled visits excluded. */
