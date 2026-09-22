@@ -88,6 +88,7 @@ export function toVoiceQuery(row: VoiceQueryRow): VoiceQuery {
     association: toAssociation(row),
     processing: toProcessing(row),
     audioObjectKey: row.audio_object_key,
+    audioMimeType: row.audio_mime_type,
     audioDurationSeconds: row.audio_duration_seconds,
     fromPhoneE164: row.from_phone_e164,
     routingBucket: row.routing_bucket,

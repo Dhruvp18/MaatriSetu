@@ -6,6 +6,7 @@ import { type ActorContext, requirePermission } from '@core/auth/actor'
 import { serviceClient, userClient } from '@core/db/clients'
 import { validation } from '@core/errors/app-error'
 import { speechIsFixture, speechProvider } from '@core/speech'
+import { getObject, putObject } from '@core/storage/clinical-media'
 
 import { route } from './triage-lexicon'
 import * as repo from './voice.repository'
@@ -74,15 +75,18 @@ export interface RecordedVoiceNote {
 /**
  * Accept a voice note uploaded by staff and queue it for transcription.
  *
- * Returns the object key the caller must upload the audio to. Storage is
- * written separately so a large upload never blocks this request, and the
- * worker tolerates audio that has not landed yet by leaving the note queued.
+ * The row is written first so the note exists even if storage misbehaves, then
+ * the audio is uploaded. If that upload fails the note is failed immediately
+ * with a reason a human can read — the alternative is a row queued forever
+ * against audio that is never coming, which looks like a message nobody
+ * answered.
  *
  * `patientId` is optional. A note can arrive before anyone has established
  * whose it is, and requiring one here would invite the counter to guess.
  */
 export async function recordVoiceNote(
   actor: ActorContext,
+  audio: Uint8Array,
   input: unknown,
 ): Promise<RecordedVoiceNote> {
   requirePermission(actor, 'query.read')
@@ -93,6 +97,13 @@ export async function recordVoiceNote(
   }
 
   const data = parsed.data
+
+  // Checked against the bytes actually received, not against what the client
+  // claimed in the form.
+  if (audio.byteLength !== data.byteSize) {
+    throw validation('The uploaded audio did not match its stated size.')
+  }
+
   const id = randomUUID()
   const key = audioObjectKey(actor.clinicId, id, data.mimeType)
 
@@ -112,6 +123,22 @@ export async function recordVoiceNote(
     audioMimeType: data.mimeType,
     audioDurationSeconds: data.durationSeconds ?? null,
   })
+
+  try {
+    await putObject(key, audio, data.mimeType)
+  } catch (error) {
+    // Fail the note rather than leave it queued against audio that will never
+    // arrive. A visibly failed message gets looked at; a permanently pending
+    // one reads as a message nobody bothered to answer.
+    await repo.failTranscription(serviceClient(), {
+      clinicId: actor.clinicId,
+      worker: 'intake',
+      requestId: actor.requestId,
+      voiceQueryId,
+      reason: 'The audio could not be stored. Ask her to send it again.',
+    })
+    throw error
+  }
 
   return { voiceQueryId, audioObjectKey: key }
 }
@@ -184,18 +211,31 @@ export async function acknowledge(actor: ActorContext, voiceQueryId: string): Pr
  */
 export async function transcribeQueuedNote(
   voiceQueryId: string,
-  audio: Uint8Array,
-  mimeType: string,
-  fileName: string,
 ): Promise<{ ok: boolean; detail: string }> {
   const db = serviceClient()
   const clinicId = await repo.findClinicId(db, voiceQueryId)
   if (!clinicId) return { ok: false, detail: 'Voice note not found.' }
 
+  const note = await repo.findById(db, clinicId, voiceQueryId)
+  if (!note?.audioObjectKey) {
+    return { ok: false, detail: 'Voice note has no stored audio.' }
+  }
+
   const requestId = `worker-${randomUUID()}`
   const provider = speechProvider()
 
-  const result = await provider.transcribe({ audio, mimeType, fileName })
+  // Read here rather than being handed bytes: the worker is the only caller,
+  // and passing megabytes of audio through a function signature invites a
+  // caller that has already loaded it for some other reason.
+  const audio = await getObject(note.audioObjectKey)
+
+  const result = await provider.transcribe({
+    audio,
+    // The type the file was actually uploaded as. Guessing here would hand
+    // Sarvam a mislabelled blob and turn a good recording into a 422.
+    mimeType: note.audioMimeType ?? 'audio/ogg',
+    fileName: note.audioObjectKey.split('/').pop() ?? 'note.ogg',
+  })
 
   if (!result.ok) {
     await repo.failTranscription(db, {

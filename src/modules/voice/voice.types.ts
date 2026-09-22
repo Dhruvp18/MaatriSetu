@@ -60,6 +60,8 @@ export interface VoiceQuery {
   readonly association: PatientAssociation
   readonly processing: Processing
   readonly audioObjectKey: string | null
+  /** Needed verbatim by the transcription provider; never assumed. */
+  readonly audioMimeType: string | null
   readonly audioDurationSeconds: number | null
   readonly fromPhoneE164: string | null
 
