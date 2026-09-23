@@ -1,0 +1,134 @@
+import Link from 'next/link'
+import { User, FileText, UploadCloud, FileSymlink } from 'lucide-react'
+import { getPatientSession } from './lib/session'
+import { getPatientDashboard } from './lib/data'
+
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+export default async function MyANCPage() {
+  const session = await getPatientSession()
+
+  // Show a "scan your QR" prompt if not authenticated
+  if (!session) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[80vh] p-8 text-center">
+        <div className="text-5xl mb-4">📷</div>
+        <h2 className="text-xl font-bold text-[#8a3c4a] font-serif mb-2">Scan Your File QR</h2>
+        <p className="text-sm text-slate-500 italic leading-relaxed">
+          Scan the QR code on your ANC paper file to view your health records.
+        </p>
+      </div>
+    )
+  }
+
+  const data = await getPatientDashboard(session)
+
+  return (
+    <div className="p-4 pt-8">
+      {/* Header */}
+      <div className="flex justify-between items-center mb-6">
+        <div className="flex items-center gap-3">
+          <div className="w-11 h-11 bg-rose-100 rounded-full flex items-center justify-center shadow-sm">
+            <span className="text-xl">🤰</span>
+          </div>
+          <div>
+            <p className="text-xs text-slate-400 font-medium">Welcome back</p>
+            <h1 className="text-base font-bold text-slate-800">{data.fullName}</h1>
+          </div>
+        </div>
+        <div className="text-right">
+          <p className="text-[10px] text-slate-400">UHID</p>
+          <p className="text-xs font-mono font-bold text-slate-600">{data.uhid}</p>
+        </div>
+      </div>
+
+      {/* Hero card — pregnancy status */}
+      <div className="bg-gradient-to-br from-rose-50 via-white to-blue-50 p-4 rounded-2xl mb-6 shadow-sm border border-rose-100">
+        {data.hasActivePregnancy ? (
+          <div className="flex justify-between items-center">
+            <div>
+              <p className="text-xs text-slate-500 mb-1 italic">Current Pregnancy</p>
+              {data.gestationalAge ? (
+                <p className="text-2xl font-bold text-[#8a3c4a] font-serif">
+                  {data.gestationalAge.weeks}w {data.gestationalAge.days}d
+                  <span className="text-sm font-normal text-slate-500 ml-1">gestation</span>
+                </p>
+              ) : (
+                <p className="text-base font-bold text-slate-500 italic">Dating not established</p>
+              )}
+              {data.edd && (
+                <p className="text-xs text-slate-500 mt-1">
+                  Expected: <span className="font-semibold text-slate-700">{formatDate(data.edd)}</span>
+                </p>
+              )}
+            </div>
+            <div className="text-5xl">
+              {data.trimester === 1 ? '🌱' : data.trimester === 2 ? '🤰' : '👼'}
+            </div>
+          </div>
+        ) : (
+          <div className="text-center py-2">
+            <p className="text-slate-500 italic text-sm">No active pregnancy on record</p>
+          </div>
+        )}
+      </div>
+
+      {/* Visit info strip */}
+      {(data.lastVisitDate || data.nextFollowUpDate) && (
+        <div className="flex gap-3 mb-6">
+          {data.lastVisitDate && (
+            <div className="flex-1 bg-slate-50 rounded-xl p-3 border border-slate-100">
+              <p className="text-[10px] text-slate-400 mb-1">Last Visit</p>
+              <p className="text-sm font-bold text-slate-700">{formatDate(data.lastVisitDate)}</p>
+            </div>
+          )}
+          {data.nextFollowUpDate && (
+            <div className="flex-1 bg-amber-50 rounded-xl p-3 border border-amber-100">
+              <p className="text-[10px] text-amber-600 mb-1">Next Follow-up</p>
+              <p className="text-sm font-bold text-amber-700">{formatDate(data.nextFollowUpDate)}</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Grid Menu */}
+      <div className="grid grid-cols-2 gap-3 mb-8">
+        {[
+          { href: '/patient/profile', icon: User, label: 'My Profile', desc: 'View and manage your details', bg: 'bg-[#ffe8ed]', color: '#b84c63', textColor: '#8a3c4a' },
+          { href: '/patient/prescriptions', icon: FileText, label: 'My Prescriptions', desc: 'View your medicines and advice', bg: 'bg-[#eaf4ff]', color: '#456b9c', textColor: '#456b9c' },
+          { href: '/patient/scan-report', icon: UploadCloud, label: 'Scan New Report', desc: 'Scan and upload your reports', bg: 'bg-[#fff1da]', color: '#a47b3b', textColor: '#a47b3b' },
+          { href: '/patient/reports', icon: FileSymlink, label: 'My Reports', desc: 'View uploaded reports and scans', bg: 'bg-[#eeeaff]', color: '#5c4a9c', textColor: '#5c4a9c' },
+        ].map(({ href, icon: Icon, label, desc, bg, color, textColor }) => (
+          <Link
+            key={href}
+            href={href as any}
+            className={`${bg} p-4 rounded-2xl relative overflow-hidden flex flex-col justify-between min-h-[140px] shadow-sm hover:shadow-md transition-shadow active:scale-[0.98]`}
+          >
+            <div>
+              <div
+                className="w-8 h-8 mb-2 flex items-center justify-center border-2 rounded-lg"
+                style={{ borderColor: color, color }}
+              >
+                <Icon className="w-5 h-5" />
+              </div>
+              <h3 className="font-bold text-sm" style={{ color: textColor }}>{label}</h3>
+              <p className="text-[10px] leading-tight mt-1 italic" style={{ color: `${color}cc` }}>{desc}</p>
+            </div>
+            <div
+              className="absolute bottom-3 right-3 w-6 h-6 bg-white rounded-full flex items-center justify-center text-xs font-bold shadow-sm"
+              style={{ color }}
+            >
+              →
+            </div>
+          </Link>
+        ))}
+      </div>
+
+      <p className="text-sm text-slate-400 italic font-serif text-center px-4 pb-4">
+        "A healthier you for a brighter tomorrow" <span className="text-pink-300">❤</span>
+      </p>
+    </div>
+  )
+}
