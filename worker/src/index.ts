@@ -3,6 +3,7 @@
  * ES imports are hoisted, so a `dotenv.config()` call at the top of this file
  * would still run AFTER `core/config/env` had been evaluated and thrown on the
  * missing variables. The flag loads them before any module executes.
+ */
 import { providerEnv } from '../../src/core/config/env'
 import { serviceClient } from '../../src/core/db/clients'
 import { ocrIsFixture } from '../../src/core/ocr'

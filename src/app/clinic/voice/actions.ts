@@ -1,13 +1,10 @@
 'use server'
 
-import { revalidatePath } from 'next'
+import { revalidatePath } from 'next/cache'
 
 import { resolveSession } from '@core/auth/session'
-import { recordVoiceNote } from '@modules/voice/voice.service'
-import * as repo from '@modules/voice/voice.repository'
-import { serviceClient, userClient } from '@core/db/clients'
-import { AssociateVoiceQuerySchema, ACCEPTED_AUDIO } from '@modules/voice/voice.schema'
-import { requirePermission } from '@core/auth/actor'
+import { associateWithPatient, recordVoiceNote } from '@modules/voice/voice.service'
+import { ACCEPTED_AUDIO } from '@modules/voice/voice.schema'
 
 export type UploadState =
   | { readonly status: 'idle' }
@@ -31,7 +28,7 @@ export async function uploadVoiceNoteAction(
   }
 
   // Next.js FormData File object has a `type` property containing the mime type
-  if (!ACCEPTED_AUDIO.includes(file.type as any)) {
+  if (!(ACCEPTED_AUDIO as readonly string[]).includes(file.type)) {
     return { status: 'error', message: `Unsupported audio format: ${file.type}. Supported formats are: ${ACCEPTED_AUDIO.join(', ')}` }
   }
 
@@ -75,18 +72,9 @@ export async function associateVoiceNoteAction(
   }
 
   try {
-    requirePermission(session.actor, 'query.associate')
-
-    // Call the repository to associate the query with the patient
-    const db = await userClient()
-    await repo.associate(db, {
-      clinicId: session.actor.clinicId,
-      actorStaffUserId: session.actor.staffUserId,
-      requestId: session.actor.requestId,
-      voiceQueryId: queryId,
-      patientId,
-      contactId: null,
-    })
+    // Through the service, which holds the permission check and validates the
+    // patient id before anything is written (ARCH-1).
+    await associateWithPatient(session.actor, queryId, { patientId })
 
     revalidatePath('/clinic/voice')
     revalidatePath(`/clinic/patients/${patientId}`)

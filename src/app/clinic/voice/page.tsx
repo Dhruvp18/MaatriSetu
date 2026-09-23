@@ -1,6 +1,7 @@
 import { resolveSession } from '@core/auth/session'
 import { redirect } from 'next/navigation'
 import { listUnassociated } from '@modules/voice/voice.service'
+import { describeRouting } from '@modules/voice/voice.types'
 import { VoiceUploadForm } from './upload-form'
 import { AssociateNoteForm } from './associate-form'
 
@@ -31,7 +32,7 @@ export default async function VoiceQueuePage() {
         <div>
           <h1 className="text-2xl font-semibold text-slate-900">Voice Intake Queue</h1>
           <p className="mt-2 text-sm text-slate-600">
-            Upload WhatsApp voice notes or view the unassociated queue. Transcribed notes can be assigned to a patient's UUID to surface in their Cockpit.
+            Upload WhatsApp voice notes or view the unassociated queue. Transcribed notes can be assigned to a patient&apos;s UUID to surface in their Cockpit.
           </p>
         </div>
 
@@ -55,17 +56,17 @@ export default async function VoiceQueuePage() {
                     <div>
                       <div className="flex items-center gap-2">
                         <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                          note.triageTag === 'RED_FLAG' ? 'bg-red-100 text-red-800' :
-                          note.triageTag === 'POTENTIAL_RISK' ? 'bg-amber-100 text-amber-800' :
-                          'bg-green-100 text-green-800'
+                          note.routingBucket === 'PRIORITY_REVIEW' ? 'bg-alert-50 text-alert-700' :
+                          note.routingBucket === 'NEEDS_REVIEW' ? 'bg-caution-50 text-caution-700' :
+                          'bg-slate-100 text-slate-600'
                         }`}>
-                          {note.triageTag}
+                          {describeRouting(note.routingBucket)}
                         </span>
                         <span className="text-sm text-slate-500">
-                          {new Date(note.createdAt).toLocaleString()}
+                          {new Date(note.receivedAt).toLocaleString()}
                         </span>
-                        {note.fromPhone && (
-                          <span className="text-sm text-slate-500">• Phone: {note.fromPhone}</span>
+                        {note.fromPhoneE164 && (
+                          <span className="text-sm text-slate-500">• Phone: {note.fromPhoneE164}</span>
                         )}
                       </div>
                       
@@ -73,11 +74,11 @@ export default async function VoiceQueuePage() {
                         <div className="rounded-lg bg-slate-50 p-4">
                           <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-2">Original Audio</p>
                           <audio src={`/api/media/${note.audioObjectKey}`} controls className="w-full" />
-                          <p className="mt-3 text-sm text-slate-700 italic">"{note.transcriptOriginal || 'Transcription pending...'}"</p>
+                          <p className="mt-3 text-sm text-slate-700 italic">&ldquo;{(note.processing.state === 'READY' && note.processing.original) || 'Transcription pending...'}&rdquo;</p>
                         </div>
                         <div className="rounded-lg bg-slate-50 p-4">
                           <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-2">English Translation</p>
-                          <p className="text-sm text-slate-900 font-medium">"{note.transcriptEnglish || 'Translation pending...'}"</p>
+                          <p className="text-sm text-slate-900 font-medium">&ldquo;{(note.processing.state === 'READY' && note.processing.english) || 'Translation pending...'}&rdquo;</p>
                         </div>
                       </div>
                     </div>
