@@ -53,6 +53,47 @@ export interface AddressableQuery {
   readonly summary: string
 }
 
+/**
+ * One extracted value offered for verification.
+ *
+ * `correctionVersion` is what the clinician is actually looking at. It travels
+ * into the save so that a correction made by an assistant between this render
+ * and the commit rejects the save rather than storing a number nobody approved.
+ *
+ * `fromFixture` is carried all the way to the checkbox on purpose. Canned
+ * output must never be mistaken for a reading of a real slip, least of all at
+ * the moment someone is about to make it part of a patient's record.
+ */
+export interface VerifiableCandidate {
+  readonly id: string
+  readonly correctionVersion: number
+  readonly testName: string
+  readonly value: string
+  readonly printedRange: string | null
+  readonly observedDate: string | null
+  readonly confidence: number | null
+  readonly defaultCategory: string
+  readonly reportLabel: string
+  readonly fromFixture: boolean
+}
+
+interface VerifyDraft {
+  accept: boolean
+  category: string
+  flagged: boolean
+  pin: boolean
+  note: string
+}
+
+const OBSERVATION_CATEGORIES: ReadonlyArray<readonly [string, string]> = [
+  ['HEMATOLOGY', 'Haematology'],
+  ['BIOCHEMISTRY', 'Biochemistry'],
+  ['SEROLOGY', 'Serology'],
+  ['URINE', 'Urine'],
+  ['ENDOCRINE', 'Endocrine'],
+  ['OTHER', 'Other'],
+]
+
 function SaveButton() {
   const { pending } = useFormStatus()
   return (
@@ -72,12 +113,14 @@ export function ConsultationForm({
   currentImpression,
   findings,
   queries,
+  candidates,
 }: {
   visitId: string
   expectedVersion: number
   currentImpression: string | null
   findings: readonly PinnableFinding[]
   queries: readonly AddressableQuery[]
+  candidates: readonly VerifiableCandidate[]
 }) {
   const [state, formAction] = useActionState(submitConsultation, initialState)
 
@@ -86,6 +129,30 @@ export function ConsultationForm({
   const [idempotencyKey] = useState(() => crypto.randomUUID())
 
   const [prescriptions, setPrescriptions] = useState<PrescriptionDraft[]>([])
+
+  // Nothing starts accepted. A default of "tick everything" would turn
+  // verification into a formality that a tired clinician clicks past, which is
+  // the exact failure the two-tier model exists to prevent.
+  const [verify, setVerify] = useState<Record<string, VerifyDraft>>(() =>
+    Object.fromEntries(
+      candidates.map((candidate) => [
+        candidate.id,
+        {
+          accept: false,
+          category: candidate.defaultCategory,
+          flagged: false,
+          pin: false,
+          note: '',
+        },
+      ]),
+    ),
+  )
+
+  const setVerifyDraft = (id: string, patch: Partial<VerifyDraft>) =>
+    setVerify((drafts) => {
+      const current = drafts[id]
+      return current ? { ...drafts, [id]: { ...current, ...patch } } : drafts
+    })
 
   const update = (index: number, patch: Partial<PrescriptionDraft>) =>
     setPrescriptions((rows) =>
@@ -106,12 +173,161 @@ export function ConsultationForm({
       durationDays: rx.durationDays ? Number(rx.durationDays) : null,
     }))
 
+  // Only ticked values are sent. An untouched candidate stays a candidate: it
+  // is not rejected, not discarded, and still there at the next visit.
+  const verifyPayload = candidates
+    .filter((candidate) => verify[candidate.id]?.accept)
+    .map((candidate) => {
+      const draft = verify[candidate.id] as VerifyDraft
+
+      return {
+        candidateId: candidate.id,
+        // What was on screen when the clinician read it. The routine compares
+        // this and refuses the save if the value moved underneath them.
+        correctionVersion: candidate.correctionVersion,
+        category: draft.category,
+        testName: candidate.testName,
+        // Sent only when actually flagged. Passing `false` would record a
+        // clinician's judgment that the value is unremarkable, which is not
+        // what leaving a checkbox alone means.
+        flagged: draft.flagged ? true : null,
+        note: draft.note.trim() || null,
+        pin: draft.pin,
+      }
+    })
+
   return (
     <form action={formAction} className="space-y-6">
       <input type="hidden" name="visitId" value={visitId} />
       <input type="hidden" name="expectedVersion" value={expectedVersion} />
       <input type="hidden" name="idempotencyKey" value={idempotencyKey} />
       <input type="hidden" name="prescriptions" value={JSON.stringify(payload)} />
+      <input type="hidden" name="verifyCandidates" value={JSON.stringify(verifyPayload)} />
+
+      {candidates.length > 0 ? (
+        <section className="rounded-lg border border-brand-600/30 bg-brand-50/60 p-3">
+          <span className="mb-1 block text-sm font-medium text-slate-800">
+            New reports · {candidates.length} value
+            {candidates.length === 1 ? '' : 's'} awaiting your verification
+          </span>
+          {/*
+            The only place in the product where an extracted value becomes a
+            clinical fact, and it commits with the rest of the consultation.
+            Ticking a box here is a clinical act; the wording says so rather
+            than calling it "accept" or "import".
+          */}
+          <p className="mb-3 text-xs text-slate-600">
+            Read each value against the slip before you tick it. Anything you
+            leave unticked stays a proposal and will be offered again.
+          </p>
+
+          <ul className="space-y-2">
+            {candidates.map((candidate) => {
+              const draft = verify[candidate.id]
+              if (!draft) return null
+
+              const uncertain = candidate.confidence !== null && candidate.confidence < 0.7
+
+              return (
+                <li
+                  key={candidate.id}
+                  className="rounded-lg border border-slate-200 bg-white px-3 py-2"
+                >
+                  <label className="flex items-start gap-2 text-sm text-slate-800">
+                    <input
+                      type="checkbox"
+                      checked={draft.accept}
+                      onChange={(e) => setVerifyDraft(candidate.id, { accept: e.target.checked })}
+                      className="mt-1"
+                    />
+                    <span>
+                      <span className="font-medium">{candidate.testName}</span>{' '}
+                      <span className="numeric">{candidate.value}</span>
+                      {candidate.printedRange ? (
+                        <span className="numeric text-xs text-slate-500">
+                          {' '}
+                          · slip range {candidate.printedRange}
+                        </span>
+                      ) : null}
+                      <span className="mt-0.5 block text-xs text-slate-500">
+                        {candidate.reportLabel}
+                        {candidate.observedDate ? ` · ${candidate.observedDate}` : ' · no date printed'}
+                        {candidate.confidence !== null
+                          ? ` · ${Math.round(candidate.confidence * 100)}% confidence`
+                          : ''}
+                        {candidate.correctionVersion > 0 ? ' · corrected by staff' : ''}
+                      </span>
+                      {uncertain ? (
+                        <span className="mt-0.5 block text-xs text-caution-700">
+                          Low confidence. Check this one against the paper.
+                        </span>
+                      ) : null}
+                      {candidate.fromFixture ? (
+                        <span className="mt-0.5 block text-xs text-caution-700">
+                          Sample output — no image was read. Do not verify this
+                          as a real result.
+                        </span>
+                      ) : null}
+                    </span>
+                  </label>
+
+                  {draft.accept ? (
+                    <div className="mt-2 grid gap-2 border-t border-slate-100 pt-2 sm:grid-cols-2">
+                      <select
+                        value={draft.category}
+                        onChange={(e) =>
+                          setVerifyDraft(candidate.id, { category: e.target.value })
+                        }
+                        aria-label={`Category for ${candidate.testName}`}
+                        className={FIELD}
+                      >
+                        {OBSERVATION_CATEGORIES.map(([value, label]) => (
+                          <option key={value} value={value}>
+                            {label}
+                          </option>
+                        ))}
+                      </select>
+
+                      <input
+                        value={draft.note}
+                        onChange={(e) => setVerifyDraft(candidate.id, { note: e.target.value })}
+                        placeholder="Your note on this result (optional)"
+                        aria-label={`Note on ${candidate.testName}`}
+                        className={FIELD}
+                      />
+
+                      <label className="flex items-center gap-2 text-sm text-slate-700">
+                        <input
+                          type="checkbox"
+                          checked={draft.flagged}
+                          onChange={(e) =>
+                            setVerifyDraft(candidate.id, { flagged: e.target.checked })
+                          }
+                        />
+                        {/*
+                          Your flag, not the system's. Nothing derives this from
+                          the printed range, and leaving it alone records that
+                          nobody flagged it — not that it is normal.
+                        */}
+                        Flag this result
+                      </label>
+
+                      <label className="flex items-center gap-2 text-sm text-slate-700">
+                        <input
+                          type="checkbox"
+                          checked={draft.pin}
+                          onChange={(e) => setVerifyDraft(candidate.id, { pin: e.target.checked })}
+                        />
+                        Surface on the cockpit
+                      </label>
+                    </div>
+                  ) : null}
+                </li>
+              )
+            })}
+          </ul>
+        </section>
+      ) : null}
 
       <section>
         <label htmlFor="impression" className="mb-1.5 block text-sm font-medium text-slate-700">

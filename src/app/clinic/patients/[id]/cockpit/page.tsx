@@ -13,10 +13,13 @@ import { formatPrescription, type Prescription } from '@modules/orders/order.typ
 import { listOngoingPrescriptions } from '@modules/orders/order.service'
 import { getPatient } from '@modules/patients/patient.service'
 import { getActivePregnancyWithHistory } from '@modules/pregnancies/pregnancy.service'
-import { getPregnancyResults } from '@modules/reports/report.service'
+import { getPregnancyResults, listAwaitingVerification } from '@modules/reports/report.service'
 import {
+  defaultCategoryFor,
+  formatCandidateValue,
   formatObservationValue,
   formatReferenceRange,
+  isFixtureExtraction,
   isOutsidePrintedRange,
   type Observation,
   type ScanReport,
@@ -26,7 +29,11 @@ import { listForPatient as listVoiceQueries } from '@modules/voice/voice.service
 
 import type { VitalsReading } from '@modules/visits/visit.types'
 
-import { ConsultationForm, type PinnableFinding } from './consultation-form'
+import {
+  ConsultationForm,
+  type PinnableFinding,
+  type VerifiableCandidate,
+} from './consultation-form'
 
 /**
  * The consultation cockpit (PRD F3–F7).
@@ -111,7 +118,7 @@ export default async function CockpitPage({ params }: { params: Promise<{ id: st
 
   // Fetched together: the cockpit has to arrive in one pass, and the trend must
   // be derived from the same observation set the tables show.
-  const [results, visits, openVisit, voiceQueries] = await Promise.all([
+  const [results, visits, openVisit, voiceQueries, pendingReports] = await Promise.all([
     getPregnancyResults(actor, pregnancy.id),
     listVisits(actor, pregnancy.id),
     getOpenVisit(actor, pregnancy.id),
@@ -119,6 +126,12 @@ export default async function CockpitPage({ params }: { params: Promise<{ id: st
     // history, not something demanding attention now.
     roleHasPermission(actor.role, 'query.read')
       ? listVoiceQueries(actor, patient.id, false)
+      : Promise.resolve([]),
+    // Read, unreviewed reports. Only a clinician can act on these, so a role
+    // that cannot save a consultation is not shown a verification list it would
+    // be unable to submit.
+    roleHasPermission(actor.role, 'observation.verify')
+      ? listAwaitingVerification(actor, pregnancy.id)
       : Promise.resolve([]),
   ])
 
@@ -145,18 +158,57 @@ export default async function CockpitPage({ params }: { params: Promise<{ id: st
       isPinned: observation.isPinned,
     }))
 
+  // Flattened here rather than in the client component, which cannot be handed
+  // a discriminated union across the server boundary. The correction version
+  // travels with each row: it is what the clinician is looking at, and the save
+  // is refused if it has moved.
+  const verifiableCandidates: VerifiableCandidate[] = pendingReports.flatMap((report) => {
+    // Bound to a local so the narrowing survives into the callback below.
+    const extraction = report.extraction
+    if (extraction.status !== 'READY') return []
+
+    return extraction.candidates.map((candidate) => ({
+      id: candidate.id,
+      correctionVersion: candidate.correctionVersion,
+      // The printed label is preferred over the canonical code: it is what the
+      // slip in the clinician's hand actually says.
+      testName: candidate.printedLabel ?? candidate.testCode,
+      value: formatCandidateValue(candidate.value),
+      printedRange: formatReferenceRange(candidate.referenceRange),
+      observedDate: candidate.observedDate,
+      confidence: candidate.confidence,
+      defaultCategory: defaultCategoryFor(extraction.reportType),
+      reportLabel: `uploaded ${report.upload.uploadedAt.slice(0, 10)}`,
+      fromFixture: isFixtureExtraction(extraction),
+    }))
+  })
+
   return (
     <Shell>
       <div className="no-print mb-3 flex items-center justify-between">
         <Link href={`/clinic/patients/${id}`} className="text-sm text-brand-600 hover:underline">
           ← {patient.fullName}
         </Link>
-        <Link
-          href={`/clinic/patients/${id}/visit`}
-          className="text-sm text-brand-600 hover:underline"
-        >
-          Today’s visit
-        </Link>
+        <div className="flex items-center gap-4">
+          <Link
+            href={`/clinic/patients/${id}/reports`}
+            className="text-sm text-brand-600 hover:underline"
+          >
+            Reports
+            {/*
+              The count is on the link because the verification list is at the
+              bottom of the sixth accordion. A doctor who never scrolls that far
+              would otherwise not know a slip was waiting.
+            */}
+            {verifiableCandidates.length > 0 ? ` (${pendingReports.length} new)` : ''}
+          </Link>
+          <Link
+            href={`/clinic/patients/${id}/visit`}
+            className="text-sm text-brand-600 hover:underline"
+          >
+            Today’s visit
+          </Link>
+        </div>
       </div>
 
       <HeaderBanner
@@ -346,6 +398,7 @@ export default async function CockpitPage({ params }: { params: Promise<{ id: st
                     ? q.processing.english || q.processing.original
                     : 'Not transcribed',
               }))}
+              candidates={verifiableCandidates}
             />
           )}
         </Accordion>

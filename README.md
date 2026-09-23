@@ -165,6 +165,24 @@ gestational age are actually computed, that the seeded patient with no dating
 anchor reads "Dating not established" rather than showing an invented
 gestation, and that an assistant's search results carry no demographics.
 
+### Verifying the report pipeline
+
+```bash
+pnpm worker:dev            # in one terminal
+node tools/check-ocr.mjs   # in another
+```
+
+It stores a real image in the private bucket, records it through
+`record_report_upload`, waits for the worker to read it, and checks what came
+back — every numeric candidate carrying the unit as printed, the verbatim
+provider response kept, the audit row naming a worker rather than a person.
+
+Its last assertion is the one that matters: after a successful extraction,
+`observations` must be untouched. The worker proposes. Only a clinician, inside
+Save & Next, turns a proposal into a clinical fact, and a regression that let
+the worker write an observation would be the worst defect this project could
+ship.
+
 Run `pnpm verify:schema` before every migration commit.
 
 ---
@@ -196,7 +214,7 @@ patient-safety or medico-legal defect:
 
 1. **Every measurement carries its unit.** A bare number crossing a boundary is a bug.
 2. **"Unknown" is a value, not an absence.** An empty allergy field must never render as "no allergies".
-3. **Nothing enters the permanent record without clinician verification.** Extraction output is a *candidate*.
+3. **Nothing enters the permanent record without clinician verification.** Extraction output is a *candidate*. Staff may correct one; only a doctor, inside Save & Next, turns it into an observation.
 4. **Clinical history is corrected by superseding, never by overwriting.**
 5. **No automatic diagnosis, abnormality classification, or risk labelling.** If a label requires clinical judgment, a clinician enters it.
 6. **Every clinical write is audited**, append-only, with actor and provenance.

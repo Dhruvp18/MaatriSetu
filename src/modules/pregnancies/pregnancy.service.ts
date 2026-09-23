@@ -66,6 +66,26 @@ export async function getPregnancy(
  * Returns null when there is no active episode. That is a normal state, not an
  * error: the caller offers "start a pregnancy".
  */
+/**
+ * The patient's current episode, without her obstetric history.
+ *
+ * For callers that need only the episode a document or a visit hangs off —
+ * report intake, in particular, which an assistant reaches. They hold
+ * `pregnancy.read` because attaching a slip requires knowing which episode it
+ * belongs to, and that is not a reason to load a woman's prior stillbirths onto
+ * the screen of someone who only has to photograph a lab report.
+ *
+ * Returns null when there is no active episode. A normal state, not an error.
+ */
+export async function getActivePregnancy(
+  actor: ActorContext,
+  patientId: string,
+): Promise<Pregnancy | null> {
+  requirePermission(actor, 'pregnancy.read')
+
+  return repo.findActivePregnancy(await userClient(), actor.clinicId, patientId)
+}
+
 export async function getActivePregnancyWithHistory(
   actor: ActorContext,
   patientId: string,

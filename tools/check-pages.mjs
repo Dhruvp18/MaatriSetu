@@ -340,6 +340,9 @@ const nurseEarly = await signIn('nurse@maatrisetu.local')
   const DOCTOR = '33333333-3333-4333-8333-000000000001'
   const SUNITA_PREGNANCY = '55555555-5555-4555-8555-00000000000a'
   let openedVisitId = null
+  // The ingestion fixture below, torn down in the finally.
+  let uploadId = null
+  let runId = null
 
   try {
     const { data, error } = await admin.rpc('open_or_reuse_visit', {
@@ -352,7 +355,122 @@ const nurseEarly = await signIn('nurse@maatrisetu.local')
     if (error) throw new Error(error.message)
     openedVisitId = data.visit_id
 
+    // A read report awaiting verification, built through the real routines so
+    // this exercises the ingestion path rather than a hand-written row. No
+    // storage object is created: nothing on these screens downloads the image.
+    {
+      const { data: id, error: uploadError } = await admin.rpc('record_report_upload', {
+        p_clinic_id: CLINIC,
+        p_actor_staff_user_id: DOCTOR,
+        p_request_id: 'pagecheck-upload',
+        p_patient_id: SUNITA,
+        p_pregnancy_id: SUNITA_PREGNANCY,
+        p_visit_id: openedVisitId,
+        p_object_key: `pagecheck/${crypto.randomUUID()}.jpg`,
+        p_content_type: 'image/jpeg',
+        p_byte_size: 204800,
+        p_sha256: `\\x${'ab'.repeat(32)}`,
+      })
+      if (uploadError) throw new Error(uploadError.message)
+      uploadId = id
+
+      const { data: run, error: runError } = await admin.rpc('start_extraction_run', {
+        p_clinic_id: CLINIC,
+        p_worker: 'pagecheck',
+        p_request_id: 'pagecheck-run',
+        p_upload_id: uploadId,
+        p_provider: 'fixture',
+        p_model: 'fixture',
+        p_prompt_version: 'fixture-v1',
+      })
+      if (runError) throw new Error(runError.message)
+      runId = run
+
+      const { error: completeError } = await admin.rpc('complete_extraction_run', {
+        p_clinic_id: CLINIC,
+        p_worker: 'pagecheck',
+        p_request_id: 'pagecheck-complete',
+        p_run_id: runId,
+        p_raw_output: { note: 'page check' },
+        p_report_type: 'CBC',
+        p_candidates: [
+          {
+            testCode: 'hb',
+            printedLabel: 'Haemoglobin (Hb%)',
+            valueNumeric: 8.6,
+            unit: 'g/dL',
+            referenceLow: 11,
+            referenceHigh: 15,
+            observedDate: '2026-09-14',
+            confidence: 0.97,
+          },
+          {
+            // Deliberately low confidence and an Indian-convention unit: both
+            // are things the screen has to surface rather than smooth over.
+            testCode: 'platelets',
+            printedLabel: 'Platelet count',
+            valueNumeric: 1.85,
+            unit: 'lakhs/cumm',
+            confidence: 0.41,
+          },
+        ],
+      })
+      if (completeError) throw new Error(completeError.message)
+    }
+
+    {
+      const { status, body } = await get(`/clinic/patients/${SUNITA}/reports`, doctor)
+      report(status === 200, 'reports page renders', `status ${status}`)
+      report(body.includes('Photograph of the report'), 'offers the camera capture field')
+      report(body.includes('Haemoglobin (Hb%)'), 'shows the printed label from the slip')
+      report(body.includes('8.6 g/dL'), 'shows the extracted value with its unit')
+      report(body.includes('lakhs/cumm'), 'keeps the printed unit rather than converting it')
+      // Matched without the label: React puts a comment marker between static
+      // text and an interpolated value, so "slip range" and the range itself
+      // are not contiguous in the HTML.
+      report(body.includes('11 – 15'), 'shows the range the lab printed')
+      report(
+        body.includes('low confidence') || body.includes('41%'),
+        'surfaces the uncertain reading',
+      )
+      report(
+        body.includes('Sample output'),
+        'labels fixture output as not a reading of the photograph',
+      )
+      report(
+        body.includes('Nothing on this page is part of the patient'),
+        'states that nothing here is in the record',
+      )
+      // The whole safety claim, checked at the read path: candidate values must
+      // not have leaked into the verified tables.
+      report(!body.includes('★'), 'no candidate is rendered as a verified finding')
+    }
+
+    {
+      // An assistant holds upload.create and upload.read but not patient.read.
+      // The page has to work for her without putting demographics on screen.
+      const assistantEarly = await signIn('assistant@maatrisetu.local')
+      const { status, body } = await get(`/clinic/patients/${SUNITA}/reports`, assistantEarly)
+      report(status === 200, 'assistant may open report intake', `status ${status}`)
+      report(body.includes('Photograph of the report'), 'assistant may upload a slip')
+      report(!body.includes('Sunita Devi'), 'no name is shown to the assistant')
+      report(!body.includes('Penicillin'), 'no clinical detail leaks on the reports page')
+    }
+
     const { body } = await get(`/clinic/patients/${SUNITA}/cockpit`, doctor)
+
+    report(
+      body.includes('awaiting your verification'),
+      'cockpit offers the extracted values for verification',
+    )
+    report(
+      body.includes('stays a proposal'),
+      'cockpit says an unticked value is not rejected',
+    )
+    report(
+      body.includes('name="verifyCandidates"'),
+      'verification travels inside the same save',
+    )
     report(body.includes('Save &amp; next patient'), 'consultation form offers Save & Next')
     report(body.includes('Impression'), 'form takes an impression')
     report(body.includes('Add drug'), 'form can add a prescription')
@@ -379,6 +497,12 @@ const nurseEarly = await signIn('nurse@maatrisetu.local')
       'nurse is told why the commit is unavailable',
     )
   } finally {
+    // Torn down innermost-first: candidates cascade from the run, but the
+    // upload's foreign keys are RESTRICT, so nothing can be left pointing at it.
+    if (runId) await admin.from('report_candidates').delete().eq('extraction_run_id', runId)
+    if (runId) await admin.from('extraction_runs').delete().eq('id', runId)
+    if (uploadId) await admin.from('report_uploads').delete().eq('id', uploadId)
+
     if (openedVisitId) {
       const { data: v } = await admin
         .from('visits')

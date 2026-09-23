@@ -204,6 +204,14 @@ export default async function PatientPage({
                     Today’s visit
                   </Link>
                 ) : null}
+                {roleHasPermission(actor.role, 'upload.read') ? (
+                  <Link
+                    href={`/clinic/patients/${patient.id}/reports`}
+                    className="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 transition hover:bg-slate-50"
+                  >
+                    Reports
+                  </Link>
+                ) : null}
                 {/*
                   Reachable without an open visit, deliberately. A woman
                   deteriorating in the corridor is not inside a consultation,

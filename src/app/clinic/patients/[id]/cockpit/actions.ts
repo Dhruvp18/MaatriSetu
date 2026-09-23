@@ -58,17 +58,34 @@ export async function submitConsultation(
     return { status: 'error', message: 'This consultation could not be identified.', retryable: false }
   }
 
-  // Prescriptions are a dynamic list, so they travel as JSON from the client
-  // rather than as indexed form fields. Parsed defensively: the service
-  // validates the contents, but a malformed string should read as a form error
-  // rather than a crash.
-  let prescriptions: unknown = []
-  const raw = text(formData, 'prescriptions')
-  if (raw) {
+  // Prescriptions and verifications are dynamic lists, so they travel as JSON
+  // from the client rather than as indexed form fields. Parsed defensively: the
+  // service validates the contents, but a malformed string should read as a
+  // form error rather than a crash.
+  const parseList = (key: string): unknown[] | null => {
+    const raw = text(formData, key)
+    if (!raw) return []
     try {
-      prescriptions = JSON.parse(raw)
+      return JSON.parse(raw) as unknown[]
     } catch {
-      return { status: 'error', message: 'The prescription list could not be read.', retryable: false }
+      return null
+    }
+  }
+
+  const prescriptions = parseList('prescriptions')
+  if (prescriptions === null) {
+    return { status: 'error', message: 'The prescription list could not be read.', retryable: false }
+  }
+
+  // The values the clinician ticked. This is the only route by which an
+  // extracted reading becomes part of a patient's record, and it commits in the
+  // same transaction as everything else on this form.
+  const verifyCandidates = parseList('verifyCandidates')
+  if (verifyCandidates === null) {
+    return {
+      status: 'error',
+      message: 'The list of results you verified could not be read. Nothing was saved.',
+      retryable: false,
     }
   }
 
@@ -82,6 +99,7 @@ export async function submitConsultation(
     expectedVersion,
     impression: text(formData, 'impression'),
     prescriptions,
+    verifyCandidates,
     advice: {
       dfkcCounselled: checked(formData, 'dfkcCounselled'),
       nutritionCounselled: checked(formData, 'nutritionCounselled'),

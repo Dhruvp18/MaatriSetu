@@ -2,9 +2,13 @@ import type { Database } from '@core/db/database.types'
 import { internal } from '@core/errors/app-error'
 
 import type {
+  CandidateValue,
+  ExtractionState,
   Observation,
   ObservationValue,
   ReferenceRange,
+  ReportCandidate,
+  ReportUpload,
   ScanReport,
   TrendPoint,
   TrendSeries,
@@ -29,6 +33,9 @@ type Tables = Database['public']['Tables']
 
 export type ObservationRow = Tables['observations']['Row']
 export type ScanReportRow = Tables['scan_reports']['Row']
+export type ReportUploadRow = Tables['report_uploads']['Row']
+export type ExtractionRunRow = Tables['extraction_runs']['Row']
+export type ReportCandidateRow = Tables['report_candidates']['Row']
 
 /* -------------------------------------------------------------------------- */
 /* Values                                                                     */
@@ -61,7 +68,19 @@ export function toValue(row: ObservationRow): ObservationValue {
   throw internal(`Observation ${row.id} has neither a numeric nor a text value.`)
 }
 
-export function toReferenceRange(row: ObservationRow): ReferenceRange {
+/**
+ * The interval as the slip printed it.
+ *
+ * Takes the columns rather than a named row type, because an observation and
+ * the candidate it came from carry the identical three fields and must read
+ * them identically. A reference range that changed shape on verification would
+ * mean the clinician approved one thing and the record kept another.
+ */
+export function toReferenceRange(row: {
+  reference_text: string | null
+  reference_low: string | number | null
+  reference_high: string | number | null
+}): ReferenceRange {
   if (row.reference_text !== null) return { kind: 'TEXT', text: row.reference_text }
 
   if (row.reference_low !== null || row.reference_high !== null) {
@@ -130,6 +149,114 @@ export function toScanReport(row: ScanReportRow, pinnedIds: ReadonlySet<string>)
     verifiedBy: row.verified_by,
     verifiedAt: row.verified_at,
     isPinned: pinnedIds.has(row.id),
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Ingestion rows to domain                                                   */
+/* -------------------------------------------------------------------------- */
+
+export function toReportUpload(row: ReportUploadRow): ReportUpload {
+  return {
+    id: row.id,
+    patientId: row.patient_id,
+    pregnancyId: row.pregnancy_id,
+    visitId: row.visit_id,
+    objectKey: row.object_key,
+    contentType: row.content_type,
+    byteSize: row.byte_size,
+    assignmentStatus: row.assignment_status,
+    quarantineReason: row.quarantine_reason,
+    uploadedBy: row.uploaded_by,
+    uploadedAt: row.uploaded_at,
+  }
+}
+
+/**
+ * A proposed value.
+ *
+ * Refuses a numeric candidate with no unit, exactly as `toValue` refuses a
+ * unitless observation. `report_candidates_numeric_has_units` makes it
+ * unreachable, and it is checked anyway: this is the tier where a unit is most
+ * likely to be lost, since it is the one a model filled in.
+ */
+export function toReportCandidate(row: ReportCandidateRow): ReportCandidate {
+  let value: CandidateValue
+
+  if (row.value_numeric !== null) {
+    if (row.unit_original === null) {
+      throw internal(
+        `Candidate ${row.id} has a numeric value with no unit. It cannot be offered for verification.`,
+      )
+    }
+    value = { kind: 'NUMERIC', value: Number(row.value_numeric), unit: row.unit_original }
+  } else if (row.value_text !== null) {
+    value = { kind: 'TEXT', text: row.value_text }
+  } else {
+    throw internal(`Candidate ${row.id} has neither a numeric nor a text value.`)
+  }
+
+  return {
+    id: row.id,
+    testCode: row.test_code,
+    printedLabel: row.printed_label,
+    value,
+    referenceRange: toReferenceRange(row),
+    observedDate: row.observed_date,
+    confidence: row.confidence !== null ? Number(row.confidence) : null,
+    correctionVersion: row.correction_version,
+    isDiscarded: row.discarded_at !== null,
+  }
+}
+
+/**
+ * What state an upload's extraction is in.
+ *
+ * `null` for the run means the worker has not reached it — a distinct state
+ * from a run that finished with nothing, and rendered as a distinct sentence.
+ *
+ * `QUEUED` and `NEEDS_CORRECTION` both collapse into IN_PROGRESS here. Neither
+ * is something a reviewer can act on, and offering two flavours of "wait" on a
+ * consultation screen is noise at eighty patients a shift.
+ */
+export function toExtractionState(
+  run: ExtractionRunRow | null,
+  candidates: readonly ReportCandidateRow[],
+): ExtractionState {
+  if (run === null) return { status: 'NOT_STARTED' }
+
+  if (run.status === 'FAILED') {
+    return {
+      status: 'FAILED',
+      runId: run.id,
+      attemptNo: run.attempt_no,
+      // `extraction_runs_failure_explained` guarantees a code exists. The
+      // fallback keeps a screen from rendering "undefined" if it ever does not.
+      errorCode: run.error_code ?? 'UNKNOWN',
+      errorMessage: run.error_message,
+    }
+  }
+
+  if (run.status !== 'READY_FOR_REVIEW') {
+    return {
+      status: 'IN_PROGRESS',
+      runId: run.id,
+      attemptNo: run.attempt_no,
+      startedAt: run.started_at,
+    }
+  }
+
+  return {
+    status: 'READY',
+    runId: run.id,
+    attemptNo: run.attempt_no,
+    provider: run.provider,
+    model: run.model,
+    promptVersion: run.prompt_version,
+    reportType: run.detected_report_type,
+    // Discarded rows are dropped here rather than in the query, so that a
+    // repository reading candidates for any other purpose still sees them.
+    candidates: candidates.filter((row) => row.discarded_at === null).map(toReportCandidate),
   }
 }
 

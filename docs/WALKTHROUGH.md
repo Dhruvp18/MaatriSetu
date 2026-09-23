@@ -78,7 +78,7 @@ process often holds 3000 and Next silently moves to 3001.
 ### The database is hosted, not local
 
 Development runs against a hosted Supabase project in **`ap-south-1` (Mumbai)**,
-chosen so patient data stays in India under the DPDP Act. All 22 migrations are
+chosen so patient data stays in India under the DPDP Act. All 23 migrations are
 already applied there.
 
 `supabase start` does **not** work on the current dev machine — Docker is
@@ -144,12 +144,13 @@ Password for all four: `maatrisetu`
 | `pnpm worker:dev` | Background worker (voice, extraction) |
 | `pnpm typecheck` | `next typegen` then `tsc --noEmit` |
 | `pnpm lint` | ESLint, including the architecture import rules |
-| `pnpm test` | 239 unit tests |
+| `pnpm test` | 260 unit tests |
 | `pnpm verify:schema` | Every migration + seed + 63 invariants on a throwaway Postgres |
-| `node tools/check-pages.mjs [url]` | 90 checks on rendered authenticated screens |
+| `node tools/check-pages.mjs [url]` | 113 checks on rendered authenticated screens |
 | `node tools/check-session.mjs` | All four roles resolve to an actor |
 | `node tools/smoke-live.mjs` | Live end-to-end write path |
 | `node tools/check-voice.mjs` | Live Sarvam round trip |
+| `node tools/check-ocr.mjs` | Live report pipeline, and that it wrote no observation |
 
 ---
 
@@ -279,11 +280,71 @@ It synthesises a Marathi danger-sign phrase with Sarvam's own TTS, stores it as
 the app would, and waits for the worker — exercising storage, the queue, STT in
 both transcribe and translate modes, the routing lexicon and the audit trail.
 
-### Step 9 — Save & Next
+### Step 9 — Photograph a lab slip
+
+Her record → **Reports**, or the link at the top of the cockpit. This is the
+counter's screen, and an assistant can reach it: she holds `upload.create` and
+`upload.read` but not `patient.read`, so the page works without demographics and
+shows the file number alone. Sign in as `assistant@maatrisetu.local` to see it.
+
+Upload a photograph. On a phone the field opens the rear camera directly, which
+is how it is actually used — the assistant is holding the paper, not browsing a
+file system.
+
+Start the worker and it gets read:
+
+```bash
+pnpm worker:dev
+```
+
+What comes back is a list of **proposals**, and the page says so in as many
+words. Each row shows:
+
+- **the label as printed**, beside the canonical code — when a slip says `Hb%`
+  and the extraction claims `hb`, the person holding the paper needs both to
+  judge whether that mapping was right
+- **the unit exactly as printed**. Platelets stay in `lakhs/cumm`; converting to
+  10⁹/L here would be the screen making a clinical translation nobody asked for
+- **the confidence**, which draws attention and gates nothing
+- **the range the laboratory printed**, as a transcribed fact
+
+**Fix this** lets staff correct a misread digit. Correcting is *not* verifying:
+the value is still a candidate afterwards, it is still absent from her history,
+and the routine records a correction version rather than overwriting. Discarding
+is recorded too, not deleted — a row somebody threw away is itself worth being
+able to look at.
+
+With `OCR_PROVIDER="fixture"` every value carries a **"Sample output — no image
+was read"** banner, all the way to the verification checkbox in the cockpit.
+
+To prove the whole chain rather than read about it:
+
+```bash
+pnpm worker:dev            # in one terminal
+node tools/check-ocr.mjs   # in another
+```
+
+It stores a real image, records the upload through `record_report_upload`, waits
+for the worker, and then asserts the thing that matters most: **nothing was
+written to `observations`**. The worker proposes. It cannot verify.
+
+### Step 10 — Save & Next
 
 The sixth accordion. Write an impression, add a drug, tick advice, set a
 follow-up, choose what to surface, tick which messages you answered — then
 **Save & next patient**, which lands you back at the scanner for the next file.
+
+If a report was read and nobody has reviewed it, its values appear at the top of
+this accordion under **"New reports · N values awaiting your verification"**.
+Nothing is pre-ticked. A default of "accept everything" would turn verification
+into a formality clicked past at eighty patients a shift, which is the exact
+failure the two-tier model exists to prevent. Anything left unticked is not
+rejected — it stays a proposal and is offered again next visit.
+
+Ticking one is the only act in the product that turns an extracted reading into
+a clinical fact, and it commits in the same transaction as the impression, the
+orders and the pins. There is no separate "verify" button anywhere, because one
+would write before the save and survive its failure.
 
 Everything commits in **one transaction**. Orders with no impression read as a
 prescription nobody reasoned about; an impression with no orders reads as a
@@ -292,7 +353,7 @@ decision never acted on.
 Double-click the button. Nothing duplicates: the idempotency key is minted once
 per form and reused for every retry.
 
-### Step 10 — The visit slip
+### Step 11 — The visit slip
 
 From the cockpit's earlier-visits list → **print slip** on any saved visit. The
 A5/A4 sheet the mother takes home.
@@ -302,7 +363,7 @@ from it — so the two numbers on the paper agree with each other and a later
 redating cannot move either. Colour is flattened to black: on screen colour
 carries meaning, and none of it survives a mono laser.
 
-### Step 11 — Emergency referral
+### Step 12 — Emergency referral
 
 Her record → **Referral**. Draft it, then issue it.
 
@@ -338,19 +399,14 @@ it is what stops a receiving unit re-loading magnesium sulphate at 2 AM.
 | F6 | Fresh orders, advice, atomic Save & Next | cockpit |
 | F7 | Serial lab sparklines | cockpit |
 | F8 | MCP visit slip print | `/clinic/visits/[visitId]/slip` |
+| F9 | Slip photo upload | `/clinic/patients/[id]/reports` |
+| F10 | Multimodal OCR parse | worker → `/clinic/patients/[id]/reports` |
+| F11 | Review before commit | reports page (correct) → cockpit (verify) |
 | F12 | Voice intake + Sarvam transcription + translation | worker |
 | F13 | Keyword routing (rule-based, explainable) | worker |
 | F14 | Patient queries panel | cockpit |
 | F15 | Emergency referral + tokenised public page | `/clinic/patients/[id]/referral`, `/referral/[token]` |
 | — | Authentication, roles, RLS, audit | throughout |
-
-### Built at the data layer, no UI yet
-
-| # | Feature | State |
-| --- | --- | --- |
-| F9 | Slip photo upload | Routine + storage exist; no upload screen |
-| F10 | Multimodal OCR parse | Claude vision provider + fixture, both working; not wired to a screen |
-| F11 | Review-before-commit | Verification is inside Save & Next and invariant-tested; no review screen |
 
 ### Not started
 
@@ -533,12 +589,22 @@ Worth listing, because they are the argument for the checks:
 Stated plainly, because a demo that implies otherwise is worse than one that
 doesn't.
 
-- **OCR has no screens.** The provider, pipeline and verification path exist and
-  are tested; nothing in the UI reaches them, and no worker job drives
-  extraction.
 - **No check invokes a server action over HTTP.** Form-to-service wiring —
   registration, sticker issue, scan, save — is exercised only up to the service
-  it calls.
+  it calls. `tools/check-ocr.mjs` drives the report pipeline through the real
+  routines and the real worker, but the upload itself is recorded directly
+  rather than posted through the form.
+- **A failed extraction is retried automatically, never by hand.** Up to three
+  attempts, and only for transient causes — a rate limit, a timeout, an image
+  that could not be downloaded. A refusal or an unsupported image is left for a
+  person, with the reason on screen. There is no retry button, and
+  `upload.retry_extraction` is in the permission matrix without a caller.
+- **Scan reports are not extracted.** An ultrasound photographed and uploaded
+  produces lab-shaped candidates, not a `scan_reports` row; the verification
+  path in `save_visit_consultation` writes observations only.
+- **The inbox has no screen.** `listInbox` and `assignUpload` exist for the case
+  where nobody knows whose slip it is, and nothing in the UI calls them — so in
+  practice an upload must be started from a patient's record.
 - **The slip and referral screens have no rendered-page coverage.**
 - **The triage lexicon is unreviewed.** `LEXICON_VERSION` says so, and a test
   asserts it keeps saying so until a clinician signs it off. Given the
