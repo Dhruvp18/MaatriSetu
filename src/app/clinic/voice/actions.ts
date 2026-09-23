@@ -79,7 +79,14 @@ export async function associateVoiceNoteAction(
 
     // Call the repository to associate the query with the patient
     const db = await userClient()
-    await repo.associateVoiceQuery(db, session.actor.clinicId, queryId, { patientId })
+    await repo.associate(db, {
+      clinicId: session.actor.clinicId,
+      actorStaffUserId: session.actor.staffUserId,
+      requestId: session.actor.requestId,
+      voiceQueryId: queryId,
+      patientId,
+      contactId: null,
+    })
 
     revalidatePath('/clinic/voice')
     revalidatePath(`/clinic/patients/${patientId}`)

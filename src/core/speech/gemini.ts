@@ -1,6 +1,6 @@
 import { GoogleGenAI, Type } from '@google/genai'
 
-import { config } from '../config/env'
+import { providerEnv } from '../config/env'
 import type { SpeechProvider, TranscriptionRequest, TranscriptionResult } from './provider'
 
 export class GeminiSpeechProvider implements SpeechProvider {
@@ -8,8 +8,9 @@ export class GeminiSpeechProvider implements SpeechProvider {
   private ai: GoogleGenAI | null = null
 
   constructor() {
-    if (config.GEMINI_API_KEY) {
-      this.ai = new GoogleGenAI({ apiKey: config.GEMINI_API_KEY })
+    const env = providerEnv()
+    if (env.GEMINI_API_KEY) {
+      this.ai = new GoogleGenAI({ apiKey: env.GEMINI_API_KEY })
     }
   }
 
