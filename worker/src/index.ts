@@ -3,7 +3,7 @@
  * ES imports are hoisted, so a `dotenv.config()` call at the top of this file
  * would still run AFTER `core/config/env` had been evaluated and thrown on the
  * missing variables. The flag loads them before any module executes.
- */
+import { providerEnv } from '../../src/core/config/env'
 import { serviceClient } from '../../src/core/db/clients'
 import { ocrIsFixture } from '../../src/core/ocr'
 import { speechIsFixture } from '../../src/core/speech'
@@ -128,7 +128,7 @@ async function tick(): Promise<void> {
 async function main(): Promise<void> {
   console.log('[worker] starting')
   console.log(
-    `[worker] speech provider: ${speechIsFixture() ? 'FIXTURE (canned output, labelled in the UI)' : 'sarvam'}`,
+    `[worker] speech provider: ${speechIsFixture() ? 'FIXTURE (canned output, labelled in the UI)' : providerEnv().SPEECH_PROVIDER}`,
   )
   console.log(
     `[worker] ocr provider:    ${ocrIsFixture() ? 'FIXTURE (canned output, labelled in the UI)' : 'anthropic'}`,
