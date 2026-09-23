@@ -61,6 +61,9 @@ const serverSchema = z.object({
    * token would not give us. Only the lifetime is configurable.
    */
   REFERRAL_TOKEN_TTL_HOURS: z.coerce.number().int().positive().max(168).default(24),
+
+  // Shown on CRITICAL / IMPORTANT chatbot responses as a tel: link.
+  CLINIC_PHONE_NUMBER: z.string().default('+911234567890'),
 })
 
 export type ServerEnv = z.infer<typeof serverSchema>

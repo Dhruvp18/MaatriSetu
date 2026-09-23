@@ -1,10 +1,12 @@
 import type { Route } from 'next'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
+import { AlertTriangle, CalendarHeart, Info } from 'lucide-react'
 
 import type { Permission } from '@core/auth/permissions'
 import { roleHasPermission } from '@core/auth/permissions'
 import { resolveSession } from '@core/auth/session'
+import { getUnreviewedPatientQueries } from './patient-queries'
 
 /**
  * Clinic home.
@@ -54,7 +56,7 @@ const WORKFLOWS: readonly Workflow[] = [
   },
   {
     label: 'Record visit vitals',
-    description: 'Open today’s visit and enter observations. Reached through her record.',
+    description: 'Open today\u2019s visit and enter observations. Reached through her record.',
     permission: 'visit.record_vitals',
     href: '/clinic/patients',
   },
@@ -84,6 +86,22 @@ const WORKFLOWS: readonly Workflow[] = [
   },
 ]
 
+const triageIcon = {
+  CRITICAL: <AlertTriangle className="w-5 h-5 text-rose-500 shrink-0 mt-0.5" />,
+  IMPORTANT: <CalendarHeart className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />,
+  NORMAL: <Info className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />,
+}
+
+const triageBadge: Record<string, string> = {
+  CRITICAL: 'bg-rose-100 text-rose-700',
+  IMPORTANT: 'bg-amber-100 text-amber-700',
+  NORMAL: 'bg-blue-100 text-blue-700',
+}
+
+function formatTime(iso: string) {
+  return new Date(iso).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })
+}
+
 export default async function ClinicHomePage() {
   const session = await resolveSession()
 
@@ -93,6 +111,9 @@ export default async function ClinicHomePage() {
 
   const { actor } = session
   const permitted = WORKFLOWS.filter((w) => roleHasPermission(actor.role, w.permission))
+
+  // Fetch patient triage queries for this clinic — non-fatal if the table isn't ready yet
+  const patientQueries = await getUnreviewedPatientQueries(actor.clinicId).catch(() => [])
 
   return (
     <main className="mx-auto max-w-4xl px-6 py-10">
@@ -105,6 +126,42 @@ export default async function ClinicHomePage() {
           you record is attributed to you and audited.
         </p>
       </header>
+
+      {/* Patient Queries (Triage) Panel */}
+      {patientQueries.length > 0 && (
+        <section className="mb-8">
+          <h2 className="mb-1 text-sm font-semibold tracking-wide text-slate-900 uppercase">
+            Patient Queries — Needs Review
+          </h2>
+          <p className="mb-4 text-sm text-slate-500">
+            Questions submitted by patients via the mobile app. Review before their consultation.
+          </p>
+          <ul className="divide-y divide-slate-200 overflow-hidden rounded-lg border border-slate-200 bg-white">
+            {patientQueries.map((q) => (
+              <li key={q.id} className="flex items-start gap-3 px-4 py-3 hover:bg-slate-50 transition-colors">
+                {triageIcon[q.triageLevel]}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                    <p className="text-sm font-semibold text-slate-900 truncate">{q.patientName}</p>
+                    <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${triageBadge[q.triageLevel]}`}>
+                      {q.triageLevel}
+                    </span>
+                    <span className="shrink-0 text-xs text-slate-400 ml-auto">{formatTime(q.createdAt)}</span>
+                  </div>
+                  <p className="text-sm text-slate-600 italic">&ldquo;{q.queryText}&rdquo;</p>
+                  <p className="text-xs text-slate-400 mt-0.5">Bot: {q.botResponse}</p>
+                </div>
+                <Link
+                  href={`/clinic/patients/${q.patientId}/cockpit` as Route}
+                  className="shrink-0 rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-brand-700"
+                >
+                  Open File
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <section>
         <h2 className="mb-1 text-sm font-semibold tracking-wide text-slate-900 uppercase">
