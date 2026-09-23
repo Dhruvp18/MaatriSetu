@@ -14,7 +14,9 @@ import type { TrendSeries } from '@modules/reports/report.types'
  *
  * Nothing here colours a value by whether it is high or low. The system does not
  * classify findings (PRD §3), so the line is drawn in one neutral colour
- * regardless of direction.
+ * regardless of direction. This is the one place the Stitch reference is not
+ * copied: it prints the same three values in green, amber and red. Those are a
+ * severity judgment, and they are not ours to make.
  */
 
 const WIDTH = 96
@@ -28,10 +30,27 @@ export function Sparkline({ series }: { series: TrendSeries }) {
   const latest = values[values.length - 1]
 
   return (
-    <div className="flex items-center gap-3">
-      <span className="numeric text-sm text-slate-700">
-        {values.join(' → ')}{' '}
-        <span className="text-slate-500">{unit}</span>
+    <div className="flex flex-wrap items-center gap-3">
+      <span className="numeric flex items-center gap-1.5 text-xs">
+        {values.map((value, index) => (
+          <span key={index} className="flex items-center gap-1.5">
+            {index > 0 ? (
+              <span aria-hidden className="text-slate-400">
+                ➔
+              </span>
+            ) : null}
+            <span
+              className={
+                index === values.length - 1
+                  ? 'font-bold text-slate-900'
+                  : 'font-medium text-slate-600'
+              }
+            >
+              {value}
+            </span>
+          </span>
+        ))}
+        <span className="text-[10px] font-normal text-slate-500">{unit}</span>
       </span>
       {points.length > 1 ? <Line values={values} /> : null}
       {points.length === 1 ? (
@@ -66,15 +85,31 @@ function Line({ values }: { values: readonly number[] }) {
 
   const lastCoord = coords[coords.length - 1]?.split(',')
 
+  // An id unique to this series, so two sparklines on one page do not share a
+  // gradient definition.
+  const fillId = `spark-${values.join('-')}`
+
   return (
     <svg
       width={WIDTH}
       height={HEIGHT}
       viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
-      className="shrink-0 overflow-visible"
+      className="shrink-0 overflow-visible text-brand-600"
       aria-hidden
       focusable="false"
     >
+      <defs>
+        {/* The design system's area treatment: indigo at 15% fading out. */}
+        <linearGradient id={fillId} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="currentColor" stopOpacity={0.18} />
+          <stop offset="100%" stopColor="currentColor" stopOpacity={0} />
+        </linearGradient>
+      </defs>
+
+      <polygon
+        points={`${PADDING},${HEIGHT} ${coords.join(' ')} ${WIDTH - PADDING},${HEIGHT}`}
+        fill={`url(#${fillId})`}
+      />
       <polyline
         points={coords.join(' ')}
         fill="none"
@@ -82,16 +117,8 @@ function Line({ values }: { values: readonly number[] }) {
         strokeWidth={1.5}
         strokeLinecap="round"
         strokeLinejoin="round"
-        className="text-slate-400"
       />
-      {lastCoord ? (
-        <circle
-          cx={lastCoord[0]}
-          cy={lastCoord[1]}
-          r={2.5}
-          className="fill-slate-600"
-        />
-      ) : null}
+      {lastCoord ? <circle cx={lastCoord[0]} cy={lastCoord[1]} r={2.5} fill="currentColor" /> : null}
     </svg>
   )
 }

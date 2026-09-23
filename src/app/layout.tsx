@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next'
+import { Inter, JetBrains_Mono, Plus_Jakarta_Sans } from 'next/font/google'
 
 import './globals.css'
 
@@ -8,6 +9,43 @@ import './globals.css'
  * Thin by rule (ARCH-1): structure and chrome only. No data fetching, no
  * authorization, no clinical vocabulary.
  */
+
+/**
+ * The three faces of the Stitch design system, self-hosted.
+ *
+ * Self-hosted rather than linked from Google's CDN, which matters more here
+ * than it usually does: a clinic on a saturated 4G dongle would otherwise get
+ * a consultation screen whose numbers reflow a second after it paints, and the
+ * cockpit is read in the first two seconds or not at all.
+ *
+ * `display: 'swap'` for the same reason — fallback metrics are close enough
+ * that a swap is less disruptive than a blank banner.
+ */
+
+const inter = Inter({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-inter',
+})
+
+const jakarta = Plus_Jakarta_Sans({
+  subsets: ['latin'],
+  display: 'swap',
+  weight: ['500', '600', '700', '800'],
+  variable: '--font-jakarta',
+})
+
+/**
+ * Every clinical number in the product is set in this: gestational ages, blood
+ * pressures, doses, lab trends. Tabular figures are the point — see `.numeric`
+ * in globals.css.
+ */
+const jetbrains = JetBrains_Mono({
+  subsets: ['latin'],
+  display: 'swap',
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-jetbrains',
+})
 
 export const metadata: Metadata = {
   title: {
@@ -50,8 +88,11 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en">
-      <body className="min-h-screen">
+    <html
+      lang="en"
+      className={`${inter.variable} ${jakarta.variable} ${jetbrains.variable}`}
+    >
+      <body className="min-h-screen font-sans">
         {children}
       </body>
     </html>

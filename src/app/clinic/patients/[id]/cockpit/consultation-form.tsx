@@ -1,5 +1,6 @@
 'use client'
 
+import { ArrowRight, Plus, X } from 'lucide-react'
 import { useActionState, useState } from 'react'
 import { useFormStatus } from 'react-dom'
 
@@ -19,8 +20,22 @@ import { submitConsultation, type SaveState } from './actions'
 
 const initialState: SaveState = { status: 'idle' }
 
+/**
+ * Dense by design-system rule: 32px-ish inputs, because a consultation form
+ * that needs scrolling is a consultation form that gets half filled in.
+ */
 const FIELD =
-  'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-brand-600 focus:ring-1 focus:ring-brand-600'
+  'w-full rounded border border-slate-300 bg-white/80 px-2.5 py-1.5 text-xs text-slate-900 outline-none transition-colors focus:border-brand-600 focus:ring-1 focus:ring-brand-600'
+
+/** A white sub-panel inside the indigo-washed orders accordion. */
+const PANE = 'flex flex-col gap-2 rounded-lg border border-slate-200/90 bg-white p-3 shadow-2xs'
+
+const PANE_TITLE = 'font-heading text-xs font-bold uppercase tracking-wider text-slate-800'
+
+const CHECKBOX = 'h-3.5 w-3.5 shrink-0 accent-brand-600'
+
+const CHECK_ROW =
+  'flex cursor-pointer items-center gap-2 rounded border border-slate-200/60 bg-slate-50 p-1.5 text-xs text-slate-700 transition-colors hover:bg-slate-100/60'
 
 interface PrescriptionDraft {
   medicineName: string
@@ -100,9 +115,10 @@ function SaveButton() {
     <button
       type="submit"
       disabled={pending}
-      className="rounded-lg bg-brand-600 px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
+      className="font-heading flex w-full items-center justify-center gap-2 rounded-lg bg-brand-800 px-6 py-2.5 text-xs font-bold text-white shadow-sm transition-all hover:scale-[1.01] hover:bg-brand-700 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:text-sm"
     >
-      {pending ? 'Saving…' : 'Save & next patient'}
+      <span>{pending ? 'Saving…' : 'Save & next patient'}</span>
+      {!pending ? <ArrowRight aria-hidden className="h-4.5 w-4.5" /> : null}
     </button>
   )
 }
@@ -197,7 +213,7 @@ export function ConsultationForm({
     })
 
   return (
-    <form action={formAction} className="space-y-6">
+    <form action={formAction} className="flex flex-col gap-3.5">
       <input type="hidden" name="visitId" value={visitId} />
       <input type="hidden" name="expectedVersion" value={expectedVersion} />
       <input type="hidden" name="idempotencyKey" value={idempotencyKey} />
@@ -206,7 +222,7 @@ export function ConsultationForm({
 
       {candidates.length > 0 ? (
         <section className="rounded-lg border border-brand-600/30 bg-brand-50/60 p-3">
-          <span className="mb-1 block text-sm font-medium text-slate-800">
+          <span className={`${PANE_TITLE} mb-1 block`}>
             New reports · {candidates.length} value
             {candidates.length === 1 ? '' : 's'} awaiting your verification
           </span>
@@ -216,7 +232,7 @@ export function ConsultationForm({
             Ticking a box here is a clinical act; the wording says so rather
             than calling it "accept" or "import".
           */}
-          <p className="mb-3 text-xs text-slate-600">
+          <p className="mb-3 text-[11px] text-slate-600">
             Read each value against the slip before you tick it. Anything you
             leave unticked stays a proposal and will be offered again.
           </p>
@@ -233,23 +249,23 @@ export function ConsultationForm({
                   key={candidate.id}
                   className="rounded-lg border border-slate-200 bg-white px-3 py-2"
                 >
-                  <label className="flex items-start gap-2 text-sm text-slate-800">
+                  <label className="flex items-start gap-2 text-xs text-slate-800">
                     <input
                       type="checkbox"
                       checked={draft.accept}
                       onChange={(e) => setVerifyDraft(candidate.id, { accept: e.target.checked })}
-                      className="mt-1"
+                      className={`${CHECKBOX} mt-0.5`}
                     />
                     <span>
-                      <span className="font-medium">{candidate.testName}</span>{' '}
-                      <span className="numeric">{candidate.value}</span>
+                      <span className="font-semibold">{candidate.testName}</span>{' '}
+                      <span className="numeric font-bold">{candidate.value}</span>
                       {candidate.printedRange ? (
-                        <span className="numeric text-xs text-slate-500">
+                        <span className="numeric text-[11px] text-slate-500">
                           {' '}
                           · slip range {candidate.printedRange}
                         </span>
                       ) : null}
-                      <span className="mt-0.5 block text-xs text-slate-500">
+                      <span className="numeric mt-0.5 block text-[11px] text-slate-500">
                         {candidate.reportLabel}
                         {candidate.observedDate ? ` · ${candidate.observedDate}` : ' · no date printed'}
                         {candidate.confidence !== null
@@ -258,12 +274,12 @@ export function ConsultationForm({
                         {candidate.correctionVersion > 0 ? ' · corrected by staff' : ''}
                       </span>
                       {uncertain ? (
-                        <span className="mt-0.5 block text-xs text-caution-700">
+                        <span className="mt-0.5 block text-[11px] text-caution-700">
                           Low confidence. Check this one against the paper.
                         </span>
                       ) : null}
                       {candidate.fromFixture ? (
-                        <span className="mt-0.5 block text-xs text-caution-700">
+                        <span className="mt-0.5 block text-[11px] text-caution-700">
                           Sample output — no image was read. Do not verify this
                           as a real result.
                         </span>
@@ -296,29 +312,31 @@ export function ConsultationForm({
                         className={FIELD}
                       />
 
-                      <label className="flex items-center gap-2 text-sm text-slate-700">
+                      <label className={CHECK_ROW}>
                         <input
                           type="checkbox"
                           checked={draft.flagged}
                           onChange={(e) =>
                             setVerifyDraft(candidate.id, { flagged: e.target.checked })
                           }
+                          className={CHECKBOX}
                         />
                         {/*
                           Your flag, not the system's. Nothing derives this from
                           the printed range, and leaving it alone records that
                           nobody flagged it — not that it is normal.
                         */}
-                        Flag this result
+                        <span className="font-medium">Flag this result</span>
                       </label>
 
-                      <label className="flex items-center gap-2 text-sm text-slate-700">
+                      <label className={CHECK_ROW}>
                         <input
                           type="checkbox"
                           checked={draft.pin}
                           onChange={(e) => setVerifyDraft(candidate.id, { pin: e.target.checked })}
+                          className={CHECKBOX}
                         />
-                        Surface on the cockpit
+                        <span className="font-medium">Surface on the cockpit</span>
                       </label>
                     </div>
                   ) : null}
@@ -329,8 +347,8 @@ export function ConsultationForm({
         </section>
       ) : null}
 
-      <section>
-        <label htmlFor="impression" className="mb-1.5 block text-sm font-medium text-slate-700">
+      <section className={PANE}>
+        <label htmlFor="impression" className={PANE_TITLE}>
           Impression
         </label>
         <textarea
@@ -339,194 +357,187 @@ export function ConsultationForm({
           rows={3}
           defaultValue={currentImpression ?? ''}
           placeholder="G2P1L1A0 at 32w. Mild anaemia on oral iron. Previous LSCS."
-          className={FIELD}
+          className={`${FIELD} numeric leading-relaxed`}
         />
       </section>
 
-      <section>
-        <div className="mb-2 flex items-center justify-between">
-          <span className="text-sm font-medium text-slate-700">Prescription</span>
-          <button
-            type="button"
-            onClick={() => setPrescriptions((rows) => [...rows, { ...EMPTY_RX }])}
-            className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-700 transition hover:bg-slate-50"
-          >
-            Add drug
-          </button>
-        </div>
+      {/* The reference's two-pane plan: what she will take on the left, what
+          she was told and what comes next on the right. */}
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-12">
+        <section className={`${PANE} lg:col-span-7`}>
+          <div className="flex items-center justify-between">
+            <span className={PANE_TITLE}>Prescription list (Rx)</span>
+            <button
+              type="button"
+              onClick={() => setPrescriptions((rows) => [...rows, { ...EMPTY_RX }])}
+              className="flex items-center gap-1 rounded border border-brand-200/70 bg-brand-50 px-2 py-0.5 text-[11px] font-bold text-brand-800 transition-colors hover:bg-brand-100"
+            >
+              <Plus aria-hidden className="h-3.5 w-3.5" />
+              <span>Add drug</span>
+            </button>
+          </div>
 
-        {prescriptions.length === 0 ? (
-          <p className="text-sm text-slate-500">Nothing prescribed at this visit.</p>
-        ) : (
-          <ul className="space-y-3">
-            {prescriptions.map((rx, index) => (
-              <li key={index} className="rounded-lg border border-slate-200 p-3">
-                <div className="mb-2 flex gap-2">
-                  <input
-                    value={rx.form}
-                    onChange={(e) => update(index, { form: e.target.value })}
-                    aria-label="Form"
-                    className={`${FIELD} w-20`}
-                  />
-                  <input
-                    value={rx.medicineName}
-                    onChange={(e) => update(index, { medicineName: e.target.value })}
-                    placeholder="Medicine"
-                    aria-label="Medicine"
-                    className={FIELD}
-                  />
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setPrescriptions((rows) => rows.filter((_, i) => i !== index))
-                    }
-                    aria-label="Remove"
-                    className="shrink-0 rounded-lg border border-slate-300 px-3 text-sm text-slate-500 transition hover:bg-slate-50"
-                  >
-                    ✕
-                  </button>
-                </div>
+          {prescriptions.length === 0 ? (
+            <p className="text-xs text-slate-500">Nothing prescribed at this visit.</p>
+          ) : (
+            <ul className="flex flex-col gap-1.5">
+              {prescriptions.map((rx, index) => (
+                <li
+                  key={index}
+                  className="rounded border border-slate-200/70 bg-slate-50/90 p-2"
+                >
+                  <div className="mb-1.5 flex items-center gap-2">
+                    <span className="numeric shrink-0 text-xs font-bold text-brand-800">
+                      {index + 1}.
+                    </span>
+                    <input
+                      value={rx.form}
+                      onChange={(e) => update(index, { form: e.target.value })}
+                      aria-label="Form"
+                      className={`${FIELD} w-16 shrink-0`}
+                    />
+                    <input
+                      value={rx.medicineName}
+                      onChange={(e) => update(index, { medicineName: e.target.value })}
+                      placeholder="Medicine"
+                      aria-label="Medicine"
+                      className={FIELD}
+                    />
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setPrescriptions((rows) => rows.filter((_, i) => i !== index))
+                      }
+                      aria-label="Remove"
+                      className="shrink-0 rounded p-1 text-slate-400 transition-colors hover:text-alert-600"
+                    >
+                      <X aria-hidden className="h-4.25 w-4.25" />
+                    </button>
+                  </div>
 
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                  {/* Amount and unit are one field in the domain: the schema
-                      refuses one without the other. */}
-                  <input
-                    value={rx.doseAmount}
-                    onChange={(e) => update(index, { doseAmount: e.target.value })}
-                    type="number"
-                    step="any"
-                    placeholder="Dose"
-                    aria-label="Dose amount"
-                    className={`${FIELD} numeric`}
-                  />
-                  <input
-                    value={rx.doseUnit}
-                    onChange={(e) => update(index, { doseUnit: e.target.value })}
-                    aria-label="Dose unit"
-                    className={FIELD}
-                  />
-                  <select
-                    value={rx.frequency}
-                    onChange={(e) => update(index, { frequency: e.target.value })}
-                    aria-label="Frequency"
-                    className={FIELD}
-                  >
-                    {/* Spelled out, because OD and BD are a known source of
-                        dosing error for everyone who reads the line later. */}
-                    <option value="OD">once daily</option>
-                    <option value="BD">twice daily</option>
-                    <option value="TDS">three times daily</option>
-                    <option value="HS">at night</option>
-                    <option value="WEEKLY">weekly</option>
-                    <option value="SOS">if needed</option>
-                  </select>
-                  <select
-                    value={rx.foodRelation}
-                    onChange={(e) => update(index, { foodRelation: e.target.value })}
-                    aria-label="Relation to food"
-                    className={FIELD}
-                  >
-                    <option value="AFTER_FOOD">after food</option>
-                    <option value="BEFORE_FOOD">before food</option>
-                    <option value="WITH_FOOD">with food</option>
-                    <option value="NOT_SPECIFIED">not specified</option>
-                  </select>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+                  <div className="grid grid-cols-2 gap-1.5 pl-6 sm:grid-cols-4">
+                    {/* Amount and unit are one field in the domain: the schema
+                        refuses one without the other. */}
+                    <input
+                      value={rx.doseAmount}
+                      onChange={(e) => update(index, { doseAmount: e.target.value })}
+                      type="number"
+                      step="any"
+                      placeholder="Dose"
+                      aria-label="Dose amount"
+                      className={`${FIELD} numeric`}
+                    />
+                    <input
+                      value={rx.doseUnit}
+                      onChange={(e) => update(index, { doseUnit: e.target.value })}
+                      aria-label="Dose unit"
+                      className={`${FIELD} numeric`}
+                    />
+                    <select
+                      value={rx.frequency}
+                      onChange={(e) => update(index, { frequency: e.target.value })}
+                      aria-label="Frequency"
+                      className={FIELD}
+                    >
+                      {/* Spelled out, because OD and BD are a known source of
+                          dosing error for everyone who reads the line later. */}
+                      <option value="OD">once daily</option>
+                      <option value="BD">twice daily</option>
+                      <option value="TDS">three times daily</option>
+                      <option value="HS">at night</option>
+                      <option value="WEEKLY">weekly</option>
+                      <option value="SOS">if needed</option>
+                    </select>
+                    <select
+                      value={rx.foodRelation}
+                      onChange={(e) => update(index, { foodRelation: e.target.value })}
+                      aria-label="Relation to food"
+                      className={FIELD}
+                    >
+                      <option value="AFTER_FOOD">after food</option>
+                      <option value="BEFORE_FOOD">before food</option>
+                      <option value="WITH_FOOD">with food</option>
+                      <option value="NOT_SPECIFIED">not specified</option>
+                    </select>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
 
-      <section>
-        <span className="mb-2 block text-sm font-medium text-slate-700">Advice given</span>
-        <div className="grid gap-2 sm:grid-cols-2">
-          <Check name="dfkcCounselled" label="Daily fetal kick count explained" />
-          <Check name="nutritionCounselled" label="Nutrition counselling" />
-          <Check name="leftLateralRest" label="Left lateral rest" />
-          {/* Danger signs are what turn a routine visit into an early
-              presentation. Recorded as counselled, never auto-ticked. */}
-          <Check name="dangerSignsCounselled" label="Danger signs explained" />
-        </div>
-      </section>
+        <section className={`${PANE} lg:col-span-5`}>
+          <span className={PANE_TITLE}>Advice &amp; orders checklist</span>
 
-      <section className="grid gap-3 sm:grid-cols-2">
-        <div>
-          <label htmlFor="labOrders" className="mb-1.5 block text-sm font-medium text-slate-700">
-            Lab orders
-          </label>
-          <input
-            id="labOrders"
-            name="labOrders"
-            placeholder="Repeat CBC in 3 weeks, TSH"
-            className={FIELD}
-          />
-          <p className="mt-1 text-xs text-slate-500">Separate with commas.</p>
-        </div>
-        <div>
-          <label htmlFor="scanOrders" className="mb-1.5 block text-sm font-medium text-slate-700">
-            Scan orders
-          </label>
-          <input
-            id="scanOrders"
-            name="scanOrders"
-            placeholder="36 week growth scan with Doppler"
-            className={FIELD}
-          />
-        </div>
-      </section>
+          <div className="flex flex-col gap-1.5">
+            <Check name="dfkcCounselled" label="Daily fetal kick count explained" />
+            <Check name="nutritionCounselled" label="Nutrition counselling" />
+            <Check name="leftLateralRest" label="Left lateral rest" />
+            {/* Danger signs are what turn a routine visit into an early
+                presentation. Recorded as counselled, never auto-ticked. */}
+            <Check name="dangerSignsCounselled" label="Danger signs explained" />
+          </div>
 
-      <section className="grid gap-3 sm:grid-cols-2">
-        <div>
-          <label
-            htmlFor="nextFollowupDate"
-            className="mb-1.5 block text-sm font-medium text-slate-700"
-          >
-            Next follow-up
-          </label>
-          <input
-            id="nextFollowupDate"
-            name="nextFollowupDate"
-            type="date"
-            className={`${FIELD} numeric`}
-          />
-        </div>
-        <div>
-          <label
-            htmlFor="additionalAdvice"
-            className="mb-1.5 block text-sm font-medium text-slate-700"
-          >
-            Other advice
-          </label>
-          <input id="additionalAdvice" name="additionalAdvice" className={FIELD} />
-        </div>
-      </section>
+          <div className="grid gap-2 border-t border-slate-100 pt-2">
+            <Labelled htmlFor="labOrders" label="Lab orders">
+              <input
+                id="labOrders"
+                name="labOrders"
+                placeholder="Repeat CBC in 3 weeks, TSH"
+                className={FIELD}
+              />
+              <p className="mt-1 text-[10px] text-slate-500">Separate with commas.</p>
+            </Labelled>
+
+            <Labelled htmlFor="scanOrders" label="Scan orders">
+              <input
+                id="scanOrders"
+                name="scanOrders"
+                placeholder="36 week growth scan with Doppler"
+                className={FIELD}
+              />
+            </Labelled>
+
+            <Labelled htmlFor="nextFollowupDate" label="Next follow-up">
+              <input
+                id="nextFollowupDate"
+                name="nextFollowupDate"
+                type="date"
+                className={`${FIELD} numeric`}
+              />
+            </Labelled>
+
+            <Labelled htmlFor="additionalAdvice" label="Other advice">
+              <input id="additionalAdvice" name="additionalAdvice" className={FIELD} />
+            </Labelled>
+          </div>
+        </section>
+      </div>
 
       {findings.length > 0 ? (
-        <section>
-          <span className="mb-1 block text-sm font-medium text-slate-700">
-            Surface on the cockpit
-          </span>
+        <section className={PANE}>
+          <span className={PANE_TITLE}>Surface on the cockpit</span>
           {/*
             A display preference, committed with the consultation and audited
             individually. Unticking hides a finding from the summary; it never
             unverifies it, and the trend still includes every value.
           */}
-          <p className="mb-2 text-xs text-slate-500">
+          <p className="text-[11px] text-slate-500">
             Pinned findings show first next visit. Trends always use every
             verified value, pinned or not.
           </p>
-          <ul className="space-y-1">
+          <ul className="grid gap-1.5 sm:grid-cols-2">
             {findings.map((finding) => (
               <li key={finding.id}>
-                <label className="flex items-center gap-2 text-sm text-slate-700">
+                <label className={CHECK_ROW}>
                   <input
                     type="checkbox"
                     name={finding.isPinned ? 'unpin' : 'pin'}
                     value={finding.id}
                     defaultChecked={false}
+                    className={CHECKBOX}
                   />
-                  <span>
+                  <span className="numeric truncate font-medium">
                     {finding.isPinned ? 'Unpin' : 'Pin'} — {finding.label}
                   </span>
                 </label>
@@ -537,25 +548,28 @@ export function ConsultationForm({
       ) : null}
 
       {queries.length > 0 ? (
-        <section>
-          <span className="mb-1 block text-sm font-medium text-slate-700">
-            Messages addressed
-          </span>
+        <section className={PANE}>
+          <span className={PANE_TITLE}>Messages addressed</span>
           {/*
             Resolution commits with the consultation rather than on its own
             button. Marking a question answered and recording what was said
             about it are the same act, and letting them come apart leaves a
             resolved query with no consultation behind it.
           */}
-          <p className="mb-2 text-xs text-slate-500">
+          <p className="text-[11px] text-slate-500">
             Tick what you have answered during this visit. Anything left unticked
             stays in her queue.
           </p>
-          <ul className="space-y-1">
+          <ul className="flex flex-col gap-1.5">
             {queries.map((query) => (
               <li key={query.id}>
-                <label className="flex items-start gap-2 text-sm text-slate-700">
-                  <input type="checkbox" name="resolveQuery" value={query.id} className="mt-1" />
+                <label className={`${CHECK_ROW} items-start`}>
+                  <input
+                    type="checkbox"
+                    name="resolveQuery"
+                    value={query.id}
+                    className={`${CHECKBOX} mt-0.5`}
+                  />
                   <span>{query.summary}</span>
                 </label>
               </li>
@@ -567,7 +581,7 @@ export function ConsultationForm({
       {state.status === 'error' ? (
         <p
           role="alert"
-          className="rounded-lg border border-alert-600/30 bg-alert-50 px-3 py-2.5 text-sm text-alert-700"
+          className="rounded-lg border border-alert-200 bg-alert-50 px-3 py-2.5 text-xs text-alert-700"
         >
           {state.message}
           {state.retryable ? (
@@ -579,21 +593,44 @@ export function ConsultationForm({
         </p>
       ) : null}
 
-      <div className="flex items-center gap-3 border-t border-slate-100 pt-4">
-        <SaveButton />
-        <span className="text-xs text-slate-500">
+      {/* The reference's bottom action bar. The caveat sits beside the button
+          rather than under it: it is the one thing a clinician should read
+          before pressing save. */}
+      <div className="flex flex-col items-center justify-between gap-2.5 border-t border-brand-100/80 pt-2 sm:flex-row">
+        <span className="text-[11px] text-slate-500">
           Impression, orders, advice and pins are written together, or not at all.
         </span>
+        <SaveButton />
       </div>
     </form>
   )
 }
 
+/** A dense label-over-field pair, as used down the checklist pane. */
+function Labelled({
+  htmlFor,
+  label,
+  children,
+}: {
+  htmlFor: string
+  label: string
+  children: React.ReactNode
+}) {
+  return (
+    <div>
+      <label htmlFor={htmlFor} className="mb-1 block text-[11px] font-medium text-slate-600">
+        {label}
+      </label>
+      {children}
+    </div>
+  )
+}
+
 function Check({ name, label }: { name: string; label: string }) {
   return (
-    <label className="flex items-center gap-2 text-sm text-slate-700">
-      <input type="checkbox" name={name} />
-      {label}
+    <label className={CHECK_ROW}>
+      <input type="checkbox" name={name} className={CHECKBOX} />
+      <span className="font-medium">{label}</span>
     </label>
   )
 }

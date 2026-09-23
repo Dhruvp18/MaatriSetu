@@ -3,46 +3,76 @@
 /* ---------------------------------------------------------------------------
    Design tokens
    ---------------------------------------------------------------------------
-   Tailwind v4 is configured in CSS rather than in a JS config file. The palette
-   matches the Stitch reference: slate neutrals, indigo for the brand and for
-   interactive affordances, and a small set of state colours.
+   Tailwind v4 is configured in CSS rather than in a JS config file. The values
+   below are the Stitch design system ("Clinical Cockpit") transcribed exactly:
+   an #F8FAFC canvas under soft indigo and cyan ambient light, translucent white
+   surfaces, royal indigo for every interactive affordance, and slate neutrals
+   for type.
 
-   A deliberate constraint on the state colours: they mark *provenance and
-   recency*, never clinical severity. Nothing in this product decides that a
-   value is abnormal (PRD §3), so there is no "danger" token that a component
-   could reach for to colour a haemoglobin result red. `--color-alert` exists
-   for facts a clinician recorded — an Rh-negative blood group, a known
-   allergy — and for system failures the user must notice.
+   A deliberate constraint on the state colours, and the one place this palette
+   is used differently from the mock: they mark *provenance and recency*, never
+   clinical severity. Nothing in this product decides that a value is abnormal
+   (PRD §3), so no component may reach for `alert` to colour a haemoglobin
+   result red the way the reference screen does. `--color-alert` exists for
+   facts a clinician recorded — an Rh-negative blood group, a known allergy —
+   and for system failures the user must notice.
 --------------------------------------------------------------------------- */
 
 @theme {
-  --color-brand-50: oklch(0.962 0.018 272.314);
-  --color-brand-100: oklch(0.93 0.034 272.788);
-  --color-brand-600: oklch(0.511 0.262 276.966);
-  --color-brand-700: oklch(0.457 0.24 277.023);
+  /* Royal indigo. 600 is the interactive tone (links, focus, the gestation
+     pill); 800 is the deep "primary" the mock uses for solid brand chips. */
+  --color-brand-50: #eef2ff;
+  --color-brand-100: #e0e7ff;
+  --color-brand-200: #c7d2fe;
+  --color-brand-600: #4f46e5;
+  --color-brand-700: #4338ca;
+  --color-brand-800: #3525cd;
 
   /* Recorded facts that must be impossible to miss on a handover slip. */
-  --color-alert-50: oklch(0.969 0.015 12.422);
-  --color-alert-600: oklch(0.586 0.253 17.585);
-  --color-alert-700: oklch(0.514 0.222 16.935);
+  --color-alert-50: #fef2f2;
+  --color-alert-100: #fee2e2;
+  --color-alert-200: #fecaca;
+  --color-alert-600: #dc2626;
+  --color-alert-700: #b91c1c;
 
   /* Unverified, stale, or awaiting review. */
-  --color-caution-50: oklch(0.987 0.022 95.277);
-  --color-caution-100: oklch(0.962 0.059 95.617);
-  --color-caution-700: oklch(0.555 0.163 48.998);
+  --color-caution-50: #fffbeb;
+  --color-caution-100: #fef3c7;
+  --color-caution-200: #fde68a;
+  --color-caution-600: #d97706;
+  --color-caution-700: #b45309;
+  --color-caution-900: #451a03;
 
   /* Verified by a clinician. */
-  --color-verified-50: oklch(0.979 0.021 166.113);
-  --color-verified-700: oklch(0.508 0.118 165.612);
+  --color-verified-50: #ecfdf5;
+  --color-verified-100: #d1fae5;
+  --color-verified-200: #a7f3d0;
+  --color-verified-500: #10b981;
+  --color-verified-600: #059669;
+  --color-verified-700: #047857;
 
+  /* Diagnostic / imaging accent (Sky-600 in the design system). */
+  --color-diagnostic-600: #0284c7;
+
+  /* The canvas, and the two ambient lights over it. */
+  --color-canvas: #f8fafc;
+
+  /* Inter for body, Plus Jakarta Sans for headings, JetBrains Mono for
+     telemetry. The `--font-*-src` variables are injected by next/font in the
+     root layout; the fallbacks keep the page readable before they resolve. */
   --font-sans:
-    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
-    'Noto Sans', 'Noto Sans Devanagari', sans-serif;
+    var(--font-inter), ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, 'Noto Sans', 'Noto Sans Devanagari', sans-serif;
+
+  --font-heading:
+    var(--font-jakarta), var(--font-inter), ui-sans-serif, system-ui, 'Segoe UI', sans-serif;
 
   /* Tabular figures for anything a clinician compares down a column: lab
      trends, blood pressures, doses. Proportional digits make 11.2 and 8.6 sit
      at different widths, which defeats scanning a series. */
-  --font-numeric: ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, Consolas, monospace;
+  --font-numeric:
+    var(--font-jetbrains), ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, Consolas,
+    monospace;
 }
 
 /* ---------------------------------------------------------------------------
@@ -55,7 +85,15 @@
   }
 
   body {
-    @apply bg-slate-100 text-slate-800 antialiased;
+    @apply bg-canvas text-slate-900 antialiased;
+
+    /* Level 0 of the design system's elevation scale: a flat canvas lit from
+       two corners rather than a flat grey. The gradients are fixed so they
+       stay put while a long cockpit scrolls under them. */
+    background-image:
+      radial-gradient(at 10% 8%, rgb(238 242 255 / 0.75) 0px, transparent 55%),
+      radial-gradient(at 92% 92%, rgb(236 254 255 / 0.75) 0px, transparent 50%);
+    background-attachment: fixed;
   }
 
   /* Any element carrying clinical numbers lines its digits up. */
@@ -70,6 +108,28 @@
   :focus-visible {
     @apply outline-2 outline-offset-2 outline-brand-600;
   }
+}
+
+/* ---------------------------------------------------------------------------
+   Surfaces
+   ---------------------------------------------------------------------------
+   Level 1 of the design system's elevation scale. Depth comes from a
+   translucent surface over the lit canvas plus a hairline border, not from a
+   drop shadow — a heavy shadow under every one of six stacked accordions turns
+   the screen to mud.
+--------------------------------------------------------------------------- */
+
+@utility glass {
+  background-color: rgb(255 255 255 / 0.88);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* Level 2: a panel that sits above the cockpit rather than in it. */
+@utility glass-raised {
+  background-color: rgb(255 255 255 / 0.95);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
 }
 
 /* ---------------------------------------------------------------------------
@@ -99,7 +159,19 @@
   html,
   body {
     background: #fff !important;
+    /* The canvas's ambient indigo and cyan gradients render as two grey
+       smudges on a mono laser. */
+    background-image: none !important;
     color: #000 !important;
+  }
+
+  /* Translucent surfaces print as whatever the renderer guesses is behind
+     them. Flatten every one of them to plain white. */
+  .glass,
+  .glass-raised {
+    background-color: #fff !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
   }
 
   body {

@@ -1,3 +1,4 @@
+import { Activity } from 'lucide-react'
 import { redirect } from 'next/navigation'
 
 import { resolveSession } from '@core/auth/session'
@@ -73,39 +74,59 @@ export default async function ClinicLayout({
 
   return (
     <div className="min-h-screen">
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-6 py-3">
-          <div className="flex items-center gap-3">
-            <span
-              aria-hidden
-              className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-600 text-sm font-semibold text-white"
-            >
-              M
+      {/*
+        The clinical header bar. Sticky and only 56px tall: it is chrome, and
+        every pixel it takes is a pixel of the record the doctor came to read.
+      */}
+      <header className="no-print sticky top-0 z-40 flex h-14 items-center justify-between gap-4 border-b border-slate-200/80 bg-white/90 px-4 shadow-[0_1px_3px_rgb(15_23_42/0.02)] backdrop-blur-md lg:px-6">
+        <div className="flex items-center gap-3">
+          <span
+            aria-hidden
+            className="flex items-center gap-2 rounded-md bg-brand-800 px-2.5 py-1 text-white shadow-sm"
+          >
+            <Activity className="h-4.75 w-4.75" strokeWidth={2.25} />
+            <span className="font-heading text-[13px] font-extrabold tracking-wide">
+              MAATRISETU
             </span>
-            <span className="text-sm font-semibold text-slate-900">MaatriSetu</span>
-          </div>
+          </span>
 
-          <div className="flex items-center gap-4">
-            <div className="text-right">
-              <p className="text-sm font-medium text-slate-900">{actor.displayName}</p>
+          <span aria-hidden className="hidden h-4 w-px bg-slate-300 sm:block" />
+
+          <div className="flex items-center gap-1.5 text-xs text-slate-600">
+            <span className="hidden font-medium whitespace-nowrap text-slate-900 sm:inline">
+              OPD Antenatal Cockpit
+            </span>
+            <span className="hidden text-slate-400 sm:inline">•</span>
+            <span className="numeric hidden text-slate-500 sm:inline">
+              {actor.displayName}
               {/*
                 The acting role is shown at all times. A nurse and a doctor see
                 different screens, and someone who cannot work out which role
                 they are in will read a missing section as missing data.
-              */}
-              <p className="text-xs tracking-wide text-slate-500 uppercase">
-                {actor.role.toLowerCase()}
-              </p>
-            </div>
-            <form action={signOut}>
-              <button
-                type="submit"
-                className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-700 transition hover:bg-slate-50"
-              >
-                Sign out
-              </button>
-            </form>
+              */}{' '}
+              ({actor.role.toLowerCase()})
+            </span>
           </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <form action={signOut}>
+            <button
+              type="submit"
+              className="rounded border border-slate-200 bg-slate-100/90 px-2.5 py-1 text-xs whitespace-nowrap text-slate-600 transition-colors hover:bg-slate-200 hover:text-brand-800"
+            >
+              Sign out
+            </button>
+          </form>
+
+          <span aria-hidden className="hidden h-4 w-px bg-slate-200 sm:block" />
+
+          <span
+            aria-hidden
+            className="flex h-7 w-7 items-center justify-center rounded-full border border-brand-600/20 bg-brand-600/10 text-xs font-bold text-brand-800"
+          >
+            {initials(actor.displayName)}
+          </span>
         </div>
       </header>
 
@@ -114,11 +135,20 @@ export default async function ClinicLayout({
   )
 }
 
+/** `Ananya Rao` → `AR`. Falls back to the first character for a single name. */
+function initials(displayName: string): string {
+  const parts = displayName.trim().split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return '—'
+  const first = parts[0]?.[0] ?? ''
+  const last = parts.length > 1 ? (parts[parts.length - 1]?.[0] ?? '') : ''
+  return (first + last).toUpperCase()
+}
+
 function Centered({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <main className="flex min-h-screen items-center justify-center px-6 py-12">
-      <div className="w-full max-w-md space-y-4 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h1 className="text-lg font-semibold text-slate-900">{title}</h1>
+      <div className="glass w-full max-w-md space-y-4 rounded-xl border border-slate-200/90 p-6 shadow-xs">
+        <h1 className="font-heading text-lg font-bold tracking-tight text-slate-900">{title}</h1>
         {children}
       </div>
     </main>

@@ -1,3 +1,5 @@
+import { AlertTriangle, CalendarDays, ShieldAlert } from 'lucide-react'
+
 import type { CalendarDate } from '@core/obstetrics/dating'
 import {
   estimatedDueDate,
@@ -30,7 +32,13 @@ import type { VitalsReading } from '@modules/visits/visit.types'
  *   Nothing on this banner is computed from a clinical rule. The red pill means
  *   "her blood group is Rh negative", a transcribed fact — not "Anti-D is due",
  *   which depends on gestation, sensitising events and titres and is the
- *   clinician's call (PRD §3).
+ *   clinician's call (PRD §3). The Stitch reference prints "(Anti-D Due)" on
+ *   that pill and marks the vitals "Norm"; both are omitted here for the same
+ *   reason — this product does not decide either of those things.
+ *
+ * Laid out as the reference's hero card: an icon tile, the identity line with
+ * its obstetric and gestation badges, a monospaced record line, the flags
+ * pushed right, and a six-tile vitals ribbon under a hairline.
  */
 
 export function HeaderBanner({
@@ -53,88 +61,205 @@ export function HeaderBanner({
   const previousScar = obstetricHistory.some((entry) => entry.hasUterineScar)
 
   return (
-    <header className="rounded-xl border border-slate-200 bg-white px-5 py-4">
-      {/* Row 1 — identity */}
-      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <h1 className="text-lg font-semibold text-slate-900">{patient.fullName}</h1>
-        <span className="numeric text-sm text-slate-500">
-          {patient.uhid}
-          {age !== null ? ` · ${age} y` : ''}
-        </span>
-        <span className="numeric rounded border border-brand-100 bg-brand-50 px-2 py-0.5 text-xs font-semibold text-brand-700">
-          {formatGpla(pregnancy)}
-        </span>
-      </div>
-
-      {/* Row 2 — where this pregnancy is, and today's numbers */}
-      <div className="mt-2.5 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-sm">
-        {dating.status === 'ESTABLISHED' ? (
-          <>
-            <Field label="POG">
-              {formatGestationalAge(gestationalAge(dating.reference, today))}
-            </Field>
-            <Field label="EDD">{estimatedDueDate(dating.reference)}</Field>
-            {pregnancy.reportedLmp.date ? (
-              <Field label="LMP">{pregnancy.reportedLmp.date}</Field>
-            ) : null}
-          </>
-        ) : (
-          <span className="rounded border border-caution-700/30 bg-caution-50 px-2 py-0.5 text-xs font-medium text-caution-700">
-            Dating not established
+    <header className="glass relative overflow-hidden rounded-xl border border-slate-200/90 p-4 shadow-xs">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        {/* Identity */}
+        <div className="flex items-start gap-3 sm:items-center">
+          <span
+            aria-hidden
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-brand-100 bg-brand-50 text-lg font-bold text-brand-800 shadow-xs"
+          >
+            {patient.fullName.trim().charAt(0).toUpperCase() || '—'}
           </span>
-        )}
 
-        {latestVitals?.bloodPressure ? (
-          <Field label="BP">
-            {latestVitals.bloodPressure.systolicMmHg}/{latestVitals.bloodPressure.diastolicMmHg}{' '}
-            <Unit>mmHg</Unit>
-          </Field>
-        ) : null}
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="font-heading text-base font-bold tracking-tight text-slate-900 sm:text-lg">
+                {patient.fullName}
+              </h1>
 
-        {latestVitals?.pulseBpm !== null && latestVitals?.pulseBpm !== undefined ? (
-          <Field label="Pulse">
-            {latestVitals.pulseBpm} <Unit>bpm</Unit>
-          </Field>
-        ) : null}
+              {age !== null ? (
+                <span className="numeric rounded border border-slate-200 bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600">
+                  {age}Y / F
+                </span>
+              ) : null}
 
-        {latestVitals?.weightKg !== null && latestVitals?.weightKg !== undefined ? (
-          <Field label="Weight">
-            {latestVitals.weightKg} <Unit>kg</Unit>
-            {/* Arithmetic against her own recorded baseline, nothing more. No
-                judgment about whether the gain is appropriate. */}
-            {weightGain !== null ? (
-              <span className="ml-1 text-slate-500">
-                ({weightGain >= 0 ? '+' : ''}
-                {weightGain.toFixed(1)} from booking)
+              <span className="numeric rounded-full bg-brand-800 px-2.5 py-0.5 text-xs font-bold tracking-wider text-white shadow-xs">
+                {formatGpla(pregnancy)}
               </span>
+
+              {dating.status === 'ESTABLISHED' ? (
+                <span className="font-heading flex items-center gap-1 rounded-full bg-brand-600 px-2.5 py-0.5 text-xs font-bold text-white shadow-xs">
+                  <CalendarDays aria-hidden className="h-3.25 w-3.25" />
+                  <span className="numeric">
+                    POG: {formatGestationalAge(gestationalAge(dating.reference, today))}
+                  </span>
+                </span>
+              ) : (
+                <span className="rounded-full border border-caution-200 bg-caution-50 px-2.5 py-0.5 text-xs font-semibold text-caution-700">
+                  Dating not established
+                </span>
+              )}
+            </div>
+
+            {/* The record line: what a clerk reads off the file, in mono. */}
+            <div className="numeric mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+              <span>
+                UHID: <strong className="font-semibold text-slate-800">{patient.uhid}</strong>
+              </span>
+              {pregnancy.reportedLmp.date ? (
+                <>
+                  <span aria-hidden className="text-slate-400">
+                    •
+                  </span>
+                  <span>LMP: {pregnancy.reportedLmp.date}</span>
+                </>
+              ) : null}
+              {dating.status === 'ESTABLISHED' ? (
+                <>
+                  <span aria-hidden className="text-slate-400">
+                    •
+                  </span>
+                  <span>EDD: {estimatedDueDate(dating.reference)}</span>
+                </>
+              ) : null}
+            </div>
+          </div>
+        </div>
+
+        {/* What must not be missed */}
+        <div className="flex flex-wrap items-center gap-2">
+          {patient.bloodGroup && isRhNegative(patient.bloodGroup.value) ? (
+            // Solid red, the one pill on the screen that is allowed to shout.
+            // It states a transcribed blood group and nothing more.
+            <span className="flex items-center gap-1.5 rounded-full bg-alert-600 px-3 py-1 text-xs font-semibold text-white shadow-xs">
+              <AlertTriangle aria-hidden className="h-3.75 w-3.75" />
+              {/* The group already carries its sign ("O−"), so the Rh status
+                  leads and the group follows rather than saying it twice. */}
+              <span className="tracking-tight">
+                <span className="uppercase">Rh-negative</span> ·{' '}
+                {formatBloodGroup(patient.bloodGroup.value)}
+              </span>
+            </span>
+          ) : null}
+
+          {patient.allergies.status === 'KNOWN' ? (
+            <Pill tone="alert" icon={<ShieldAlert aria-hidden className="h-3.75 w-3.75" />}>
+              Allergy · {describeAllergies(patient.allergies)}
+            </Pill>
+          ) : null}
+
+          {/* "Not asked" is shown, not hidden. A blank allergy line on a screen a
+              clinician prescribes from reads as reassurance. */}
+          {patient.allergies.status === 'UNKNOWN' ? (
+            <Pill tone="caution">Allergies not recorded</Pill>
+          ) : null}
+
+          {previousScar ? <Pill tone="caution">Previous uterine scar</Pill> : null}
+
+          {patient.bloodGroup === null ? (
+            <Pill tone="caution">Blood group not recorded</Pill>
+          ) : null}
+        </div>
+      </div>
+
+      {/* Today's numbers, as a dense ribbon under a hairline. */}
+      {latestVitals ? (
+        <div className="mt-3 grid grid-cols-2 gap-2 border-t border-slate-100 pt-3 text-xs sm:grid-cols-4 lg:grid-cols-6">
+          <Tile label="BP">
+            {latestVitals.bloodPressure ? (
+              <>
+                {latestVitals.bloodPressure.systolicMmHg}/
+                {latestVitals.bloodPressure.diastolicMmHg} <Unit>mmHg</Unit>
+              </>
             ) : null}
-          </Field>
-        ) : null}
-      </div>
+          </Tile>
 
-      {/* Row 3 — what must not be missed */}
-      <div className="mt-3 flex flex-wrap gap-2">
-        {patient.bloodGroup && isRhNegative(patient.bloodGroup.value) ? (
-          <Pill tone="alert">Rh negative · {formatBloodGroup(patient.bloodGroup.value)}</Pill>
-        ) : null}
+          <Tile label="Pulse">
+            {latestVitals.pulseBpm !== null ? (
+              <>
+                {latestVitals.pulseBpm} <Unit>bpm</Unit>
+              </>
+            ) : null}
+          </Tile>
 
-        {patient.allergies.status === 'KNOWN' ? (
-          <Pill tone="alert">Allergy · {describeAllergies(patient.allergies)}</Pill>
-        ) : null}
+          <Tile label="Weight">
+            {latestVitals.weightKg !== null ? (
+              <>
+                {latestVitals.weightKg} <Unit>kg</Unit>
+                {/* Arithmetic against her own recorded baseline, nothing more.
+                    No judgment about whether the gain is appropriate. */}
+                {weightGain !== null ? (
+                  <Unit>
+                    {' '}
+                    ({weightGain >= 0 ? '+' : ''}
+                    {weightGain.toFixed(1)})
+                  </Unit>
+                ) : null}
+              </>
+            ) : null}
+          </Tile>
 
-        {/* "Not asked" is shown, not hidden. A blank allergy line on a screen a
-            clinician prescribes from reads as reassurance. */}
-        {patient.allergies.status === 'UNKNOWN' ? (
-          <Pill tone="caution">Allergies not recorded</Pill>
-        ) : null}
+          <Tile label="FHR" accent>
+            {latestVitals.fetalHeartRateBpm !== null ? (
+              <>
+                {latestVitals.fetalHeartRateBpm} <Unit>bpm</Unit>
+              </>
+            ) : null}
+          </Tile>
 
-        {previousScar ? <Pill tone="caution">Previous uterine scar</Pill> : null}
+          <Tile label="Fundal ht">
+            {latestVitals.fundalHeightCm !== null ? (
+              <>
+                {latestVitals.fundalHeightCm} <Unit>cm</Unit>
+              </>
+            ) : null}
+          </Tile>
 
-        {patient.bloodGroup === null ? (
-          <Pill tone="caution">Blood group not recorded</Pill>
-        ) : null}
-      </div>
+          <Tile label="Urine alb.">
+            {latestVitals.urineAlbumin !== null ? latestVitals.urineAlbumin.toLowerCase() : null}
+          </Tile>
+        </div>
+      ) : (
+        <p className="mt-3 border-t border-slate-100 pt-3 text-xs text-slate-500">
+          No vitals recorded at this visit yet.
+        </p>
+      )}
     </header>
+  )
+}
+
+/**
+ * One cell of the vitals ribbon.
+ *
+ * A reading that was never taken prints as an em-dash rather than vanishing.
+ * A six-tile grid that silently becomes four is how a clinician comes away
+ * believing a blood pressure was recorded.
+ */
+function Tile({
+  label,
+  accent = false,
+  children,
+}: {
+  label: string
+  accent?: boolean
+  children: React.ReactNode
+}) {
+  const recorded = children !== null && children !== undefined && children !== false
+
+  return (
+    <div className="flex items-center justify-between gap-2 rounded border border-slate-200/60 bg-slate-50/80 px-2.5 py-1.5">
+      <span className="shrink-0 text-slate-500">{label}</span>
+      {recorded ? (
+        <span
+          className={`numeric truncate font-bold ${accent ? 'text-brand-800' : 'text-slate-800'}`}
+        >
+          {children}
+        </span>
+      ) : (
+        <span className="text-slate-400">—</span>
+      )}
+    </div>
   )
 }
 
@@ -161,27 +286,33 @@ function formatGpla(pregnancy: Pregnancy): string {
   ].join(' ')
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <span className="flex items-baseline gap-1.5">
-      <span className="text-xs tracking-wide text-slate-500 uppercase">{label}</span>
-      <span className="numeric font-medium text-slate-800">{children}</span>
-    </span>
-  )
-}
-
 function Unit({ children }: { children: React.ReactNode }) {
-  return <span className="text-xs font-normal text-slate-500">{children}</span>
+  return <span className="text-[10px] font-normal text-slate-500">{children}</span>
 }
 
-function Pill({ tone, children }: { tone: 'alert' | 'caution'; children: React.ReactNode }) {
+function Pill({
+  tone,
+  icon,
+  children,
+}: {
+  tone: 'alert' | 'caution'
+  icon?: React.ReactNode
+  children: React.ReactNode
+}) {
   const styles =
     tone === 'alert'
-      ? 'border-alert-600/30 bg-alert-50 text-alert-700'
-      : 'border-caution-700/30 bg-caution-50 text-caution-700'
+      ? 'border-alert-200 bg-alert-50 text-alert-700'
+      : 'border-caution-200 bg-caution-50 text-caution-900'
 
   return (
-    <span className={`rounded-full border px-2.5 py-1 text-xs font-medium ${styles}`}>
+    <span
+      className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${styles}`}
+    >
+      {icon ? (
+        <span aria-hidden className={tone === 'alert' ? 'text-alert-600' : 'text-caution-600'}>
+          {icon}
+        </span>
+      ) : null}
       {children}
     </span>
   )

@@ -1,3 +1,5 @@
+import { AudioLines, MessagesSquare } from 'lucide-react'
+
 import {
   describeRouting,
   type RoutingBucket,
@@ -39,27 +41,32 @@ export function QueriesPanel({ queries }: { queries: readonly VoiceQuery[] }) {
 
   return (
     <section
-      className={`rounded-xl border bg-white ${
-        priorityCount > 0 ? 'border-alert-600/40' : 'border-slate-200'
+      className={`glass overflow-hidden rounded-xl border shadow-2xs ${
+        priorityCount > 0 ? 'border-alert-200' : 'border-slate-200/90'
       }`}
     >
-      <header className="flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-3">
-        <h2 className="text-sm font-semibold text-slate-900">
-          Messages from her
-          <span className="ml-2 font-normal text-slate-500">
-            {ordered.length} unresolved
-          </span>
-        </h2>
+      <header className="flex items-center justify-between gap-3 border-b border-slate-100 bg-slate-50/50 px-4 py-2.5">
+        <div className="flex items-center gap-2.5">
+          <MessagesSquare aria-hidden className="h-4.75 w-4.75 shrink-0 text-brand-800" />
+          <div>
+            <h2 className="font-heading text-xs font-semibold text-slate-900 sm:text-sm">
+              Patient queries &amp; voice triage
+            </h2>
+            <p className="numeric text-[11px] text-slate-500">
+              {ordered.length} unresolved · vernacular voice, transcribed
+            </p>
+          </div>
+        </div>
         {priorityCount > 0 ? (
-          <span className="rounded-full border border-alert-600/30 bg-alert-50 px-2.5 py-1 text-xs font-medium text-alert-700">
+          <span className="numeric shrink-0 rounded border border-alert-200 bg-alert-50 px-1.5 py-0.5 text-[10px] font-bold text-alert-700 uppercase">
             {priorityCount} to read first
           </span>
         ) : null}
       </header>
 
-      <ul className="divide-y divide-slate-100">
+      <ul className="flex flex-col gap-2.5 p-3">
         {ordered.map((query) => (
-          <li key={query.id} className="px-5 py-3">
+          <li key={query.id}>
             <QueryRow query={query} />
           </li>
         ))}
@@ -68,23 +75,46 @@ export function QueriesPanel({ queries }: { queries: readonly VoiceQuery[] }) {
   )
 }
 
+/**
+ * One message, as the reference's voice-note card: a tinted shell carrying the
+ * routing decision, a white inset holding her actual words, and the metadata
+ * that produced the decision along the bottom.
+ */
 function QueryRow({ query }: { query: VoiceQuery }) {
   const { processing } = query
+  const bucket = query.routingBucket
+
+  const shell =
+    bucket === 'PRIORITY_REVIEW'
+      ? 'border-alert-200 bg-alert-50/70'
+      : bucket === 'NEEDS_REVIEW'
+        ? 'border-caution-200 bg-caution-50/80'
+        : 'border-slate-200 bg-slate-50'
+
+  const inset =
+    bucket === 'PRIORITY_REVIEW'
+      ? 'border-alert-200/70'
+      : bucket === 'NEEDS_REVIEW'
+        ? 'border-caution-200/70'
+        : 'border-slate-200/80'
 
   return (
-    <div>
-      <div className="mb-1.5 flex flex-wrap items-center gap-2">
-        <RoutingPill bucket={query.routingBucket} />
-        <span className="numeric text-xs text-slate-500">
-          {query.receivedAt.slice(0, 16).replace('T', ' ')}
+    <div className={`flex flex-col gap-2 rounded-xl border p-3.5 shadow-2xs ${shell}`}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
+          <AudioLines aria-hidden className="h-4 w-4 shrink-0 text-brand-800" />
+          <span className="numeric font-medium text-slate-500">
+            {query.receivedAt.slice(0, 16).replace('T', ' ')}
+          </span>
+          {query.acknowledgedAt ? (
+            <span className="font-normal text-slate-400">· seen</span>
+          ) : null}
         </span>
-        {query.acknowledgedAt ? (
-          <span className="text-xs text-slate-500">seen</span>
-        ) : null}
+        <RoutingPill bucket={bucket} />
       </div>
 
       {processing.state === 'PENDING' ? (
-        <p className="text-sm text-slate-500">
+        <p className="rounded-lg border border-slate-200/80 bg-white/90 p-2.5 text-xs text-slate-500">
           Still transcribing. Nothing has been read yet — this is not an empty
           message.
         </p>
@@ -97,28 +127,32 @@ function QueryRow({ query }: { query: VoiceQuery }) {
           listen to it. Defaulting this to "routine" is how a danger sign gets
           buried.
         */
-        <p className="rounded-lg border border-caution-700/30 bg-caution-50 px-3 py-2 text-sm text-caution-700">
+        <p className="rounded-lg border border-caution-200 bg-caution-100/60 p-2.5 text-xs text-caution-900">
           Could not be transcribed — {processing.error} Listen to the recording
           before assuming it was routine.
         </p>
       ) : null}
 
       {processing.state === 'READY' ? (
-        <div className="space-y-1">
-          {/* Her own words first, and larger. See the file header. */}
-          <p className="text-sm leading-relaxed text-slate-900">{processing.original}</p>
-
-          {processing.english ? (
-            <p className="text-sm leading-relaxed text-slate-500 italic">
-              {processing.english}
+        <>
+          <div className={`rounded-lg border bg-white/90 p-2.5 ${inset}`}>
+            {/* Her own words first, and larger. See the file header. */}
+            <p className="text-[13px] leading-relaxed font-bold text-slate-900">
+              {processing.original}
             </p>
-          ) : (
-            <p className="text-xs text-caution-700">
-              Not translated. Read her own words above.
-            </p>
-          )}
 
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-1 text-xs text-slate-500">
+            {processing.english ? (
+              <p className="mt-0.5 text-[11px] leading-relaxed text-slate-500 italic">
+                {processing.english}
+              </p>
+            ) : (
+              <p className="mt-0.5 text-[11px] text-caution-700">
+                Not translated. Read her own words above.
+              </p>
+            )}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-500">
             {processing.detectedLanguage ? (
               <span className="numeric">{processing.detectedLanguage}</span>
             ) : null}
@@ -141,12 +175,12 @@ function QueryRow({ query }: { query: VoiceQuery }) {
                 Canned output must never pass as a real transcription
                 (docs/development-foundation.md §1).
               */
-              <span className="rounded border border-caution-700/30 bg-caution-50 px-1.5 py-0.5 font-medium text-caution-700">
+              <span className="rounded border border-caution-200 bg-caution-50 px-1.5 py-0.5 font-medium text-caution-700">
                 sample text — not a real transcription
               </span>
             ) : null}
           </div>
-        </div>
+        </>
       ) : null}
     </div>
   )
@@ -157,13 +191,13 @@ function RoutingPill({ bucket }: { bucket: RoutingBucket | null }) {
 
   const styles =
     bucket === 'PRIORITY_REVIEW'
-      ? 'border-alert-600/30 bg-alert-50 text-alert-700'
+      ? 'bg-alert-100 text-alert-700'
       : bucket === 'NEEDS_REVIEW'
-        ? 'border-caution-700/30 bg-caution-50 text-caution-700'
-        : 'border-slate-200 bg-slate-50 text-slate-600'
+        ? 'bg-caution-100 text-caution-900'
+        : 'bg-slate-200 text-slate-700'
 
   return (
-    <span className={`rounded-full border px-2.5 py-1 text-xs font-medium ${styles}`}>
+    <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold uppercase ${styles}`}>
       {label}
     </span>
   )
