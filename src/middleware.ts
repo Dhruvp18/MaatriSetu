@@ -27,6 +27,9 @@ import { NextResponse, type NextRequest } from 'next/server'
 /** Paths served without a session, deliberately. */
 const PUBLIC_PREFIXES = [
   '/sign-in',
+  '/patient',
+  // QR token resolver — the token IS the auth mechanism, no session needed.
+  '/patient/resolve',
   // The tokenized emergency handover page. A receiving doctor at 2 AM has no
   // account here; the signed, expiring token is the entire access mechanism.
   '/referral/',
