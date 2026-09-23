@@ -20,6 +20,7 @@ import {
 } from '@modules/patients/patient.types'
 import { getActivePregnancyWithHistory } from '@modules/pregnancies/pregnancy.service'
 import type { PregnancyWithHistory } from '@modules/pregnancies/pregnancy.types'
+import { listVisits } from '@modules/visits/visit.service'
 
 import { StickerPanel } from './sticker-panel'
 
@@ -80,6 +81,10 @@ export default async function PatientPage({
   const episode: PregnancyWithHistory | null = roleHasPermission(actor.role, 'pregnancy.read')
     ? await getActivePregnancyWithHistory(actor, patient.id)
     : null
+
+  const visits = episode && roleHasPermission(actor.role, 'visit.read')
+    ? await listVisits(actor, episode.pregnancy.id)
+    : []
 
   const today = todayIn(actor.clinicTimezone)
   const age = ageInYears(patient.age, today)
@@ -242,6 +247,41 @@ export default async function PatientPage({
             </p>
           )}
         </Panel>
+
+        {episode && (
+          <Panel>
+            <SectionTitle>Visit History</SectionTitle>
+            {visits.length === 0 ? (
+              <p className="text-sm text-slate-600">No visits recorded for this pregnancy.</p>
+            ) : (
+              <ul className="space-y-3">
+                {visits.map(visit => (
+                  <li key={visit.id} className="flex flex-wrap items-center justify-between gap-4 border border-slate-100 bg-slate-50 rounded-lg p-3">
+                    <div>
+                      <p className="text-sm font-medium text-slate-900">
+                        Visit #{visit.id.split('-')[0]} 
+                        <span className="text-slate-500 font-normal ml-2">
+                          {new Date(visit.occurredAt).toLocaleDateString('en-IN')}
+                        </span>
+                      </p>
+                      <p className="text-xs text-slate-500 mt-1 capitalize">{visit.visitType.replace(/_/g, ' ').toLowerCase()} · {visit.status}</p>
+                    </div>
+                    {visit.status === 'SAVED' && (
+                      <Link
+                        href={`/print/mcp/${visit.id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="rounded-lg border border-brand-300 text-brand-600 px-3 py-1.5 text-xs font-semibold bg-white transition hover:bg-brand-50"
+                      >
+                        Print MCP Slip
+                      </Link>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Panel>
+        )}
       </div>
     </Shell>
   )

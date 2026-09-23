@@ -107,8 +107,9 @@ const providerSchema = z.object({
   ANTHROPIC_API_KEY: z.string().optional(),
   GOOGLE_APPLICATION_CREDENTIALS: z.string().optional(),
 
-  SPEECH_PROVIDER: z.enum(['fixture', 'sarvam']).default('fixture'),
+  SPEECH_PROVIDER: z.enum(['fixture', 'sarvam', 'gemini']).default('fixture'),
   SARVAM_API_KEY: z.string().optional(),
+  GEMINI_API_KEY: z.string().optional(),
 
   MESSAGING_PROVIDER: z.enum(['disabled', 'whatsapp']).default('disabled'),
   WHATSAPP_PHONE_NUMBER_ID: z.string().optional(),
@@ -146,6 +147,9 @@ export function providerEnv(): Readonly<ProviderEnv> {
   }
   if (env.SPEECH_PROVIDER === 'sarvam' && !env.SARVAM_API_KEY) {
     throw new Error('SPEECH_PROVIDER is "sarvam" but SARVAM_API_KEY is not set.')
+  }
+  if (env.SPEECH_PROVIDER === 'gemini' && !env.GEMINI_API_KEY) {
+    throw new Error('SPEECH_PROVIDER is "gemini" but GEMINI_API_KEY is not set.')
   }
   if (env.MESSAGING_PROVIDER === 'whatsapp') {
     const missing = (

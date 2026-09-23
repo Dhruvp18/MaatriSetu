@@ -59,6 +59,12 @@ const WORKFLOWS: readonly Workflow[] = [
     href: '/clinic/patients',
   },
   {
+    label: 'Voice Intake Queue',
+    description: 'Listen to and assign pending vernacular voice notes to patients.',
+    permission: 'query.associate',
+    href: '/clinic/voice',
+  },
+  {
     label: 'Upload a report',
     description: 'Photograph a lab slip or scan for review.',
     permission: 'upload.create',

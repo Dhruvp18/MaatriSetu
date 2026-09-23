@@ -3,6 +3,7 @@ import 'server-only'
 import { providerEnv } from '@core/config/env'
 
 import { createFixtureProvider } from './fixture'
+import { GeminiSpeechProvider } from './gemini'
 import type { SpeechProvider } from './provider'
 import { createSarvamProvider } from './sarvam'
 
@@ -30,10 +31,14 @@ export function speechProvider(): SpeechProvider {
     return createSarvamProvider(env.SARVAM_API_KEY as string)
   }
 
+  if (env.SPEECH_PROVIDER === 'gemini') {
+    return new GeminiSpeechProvider()
+  }
+
   return createFixtureProvider()
 }
 
 /** True when transcripts on screen must carry a "not a real transcription" label. */
 export function speechIsFixture(): boolean {
-  return providerEnv().SPEECH_PROVIDER !== 'sarvam'
+  return providerEnv().SPEECH_PROVIDER === 'fixture'
 }

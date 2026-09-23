@@ -522,6 +522,76 @@ const nurseEarly = await signIn('nurse@maatrisetu.local')
   }
 }
 
+{
+  const admin = createClient(URL_, env.SUPABASE_SERVICE_ROLE_KEY, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  })
+  const crypto = await import('node:crypto')
+
+  const CLINIC = '11111111-1111-4111-8111-000000000001'
+  const DOCTOR = '33333333-3333-4333-8333-000000000001'
+  const SUNITA_PREGNANCY = '55555555-5555-4555-8555-00000000000a'
+  let referralId = null
+
+  try {
+    const { data: dId, error: createError } = await admin.rpc('create_referral_draft', {
+      p_clinic_id: CLINIC,
+      p_actor_staff_user_id: DOCTOR,
+      p_request_id: 'pagecheck-ref-create',
+      p_pregnancy_id: SUNITA_PREGNANCY,
+      p_origin_visit_id: null,
+      p_supersedes_id: null,
+      p_indication: 'Pre-eclampsia',
+      p_receiving_facility: 'Civil Hospital'
+    })
+    if (createError) throw new Error(createError.message)
+    referralId = dId
+
+    const draftPage = await get(`/clinic/patients/${SUNITA}/referral`, doctor)
+    report(draftPage.status === 200, 'referral draft page renders')
+    report(draftPage.body.includes('Pre-eclampsia'), 'draft indication is shown')
+
+    const { error: issueError } = await admin.rpc('issue_referral', {
+      p_clinic_id: CLINIC,
+      p_actor_staff_user_id: DOCTOR,
+      p_request_id: 'pagecheck-ref-issue',
+      p_referral_id: referralId,
+      p_expected_version: 1,
+      p_as_of_date: new Date().toISOString().slice(0, 10),
+      p_snapshot_schema_version: 1
+    })
+    if (issueError) throw new Error(issueError.message)
+
+    const printView = await get(`/clinic/patients/${SUNITA}/referral/${referralId}`, doctor)
+    report(printView.status === 200, 'issued referral print view renders')
+    report(printView.body.includes('Civil Hospital'), 'print view shows receiving facility')
+    report(printView.body.includes('Print the slip'), 'print view includes print button')
+
+    const rawToken = 'test_token_' + crypto.randomBytes(16).toString('hex')
+    const tokenHash = crypto.createHash('sha256').update(rawToken, 'utf8').digest('hex')
+
+    const { error: tokenError } = await admin.rpc('create_referral_token', {
+      p_clinic_id: CLINIC,
+      p_actor_staff_user_id: DOCTOR,
+      p_request_id: 'pagecheck-ref-token',
+      p_referral_id: referralId,
+      p_token_hash: tokenHash,
+      p_ttl_minutes: 1440
+    })
+    if (tokenError) throw new Error(tokenError.message)
+
+    // The public token page is accessed without a session
+    const publicView = await get(`/referral/${rawToken}`, null)
+    report(publicView.status === 200, 'public referral page renders without auth')
+    report(publicView.body.includes('Civil Hospital'), 'public view shows receiving facility')
+  } finally {
+    if (referralId) {
+      await admin.from('referral_access_tokens').delete().eq('referral_id', referralId)
+      await admin.from('referrals').delete().eq('id', referralId)
+    }
+  }
+}
+
 /* -------------------------------------------------------------------------- */
 /* Assistant — minimisation                                                   */
 /* -------------------------------------------------------------------------- */
@@ -581,6 +651,26 @@ const nurse = await signIn('nurse@maatrisetu.local')
 {
   const { body } = await get(`/clinic/patients/${SUNITA}/visit`, assistant)
   report(body.includes('Not available to you'), 'assistant cannot open a visit')
+}
+
+/* -------------------------------------------------------------------------- */
+/* Voice Intake Queue                                                         */
+/* -------------------------------------------------------------------------- */
+
+{
+  const { status, body } = await get('/clinic/voice', doctor)
+  report(status === 200, 'doctor may open voice intake queue', `status ${status}`)
+  report(body.includes('Voice Intake Queue'), 'voice queue UI renders')
+}
+
+{
+  const { status } = await get('/clinic/voice', nurse)
+  report(status === 200, 'nurse may open voice intake queue', `status ${status}`)
+}
+
+{
+  const { body } = await get('/clinic/voice', assistant)
+  report(body.includes('Not available to you'), 'assistant cannot open voice queue')
 }
 
 console.log(
