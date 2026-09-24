@@ -265,6 +265,28 @@ export const UpdateDatingSchema = z
 export type UpdateDatingInput = z.infer<typeof UpdateDatingSchema>
 
 /* -------------------------------------------------------------------------- */
+/* Profile — height, marriage, conception                                     */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The facts about this pregnancy that are neither dating nor GPLA. Every field
+ * is nullable because "not asked" is a real state; the form sends all four, so
+ * clearing one is an explicit null.
+ */
+export const UpdatePregnancyProfileSchema = z
+  .object({
+    pregnancyId: z.uuid(),
+    expectedVersion: z.number().int().min(1),
+    heightCm: z.number().min(100, 'A height under 100 cm is almost certainly a typing slip.').max(220).nullable(),
+    marriedYears: z.number().int().min(0).max(60).nullable(),
+    consanguinity: z.enum(['CONSANGUINEOUS', 'NON_CONSANGUINEOUS']).nullable(),
+    conceptionMode: z.enum(['NATURAL', 'IVF']).nullable(),
+  })
+  .strict()
+
+export type UpdatePregnancyProfileInput = z.infer<typeof UpdatePregnancyProfileSchema>
+
+/* -------------------------------------------------------------------------- */
 /* Close                                                                      */
 /* -------------------------------------------------------------------------- */
 

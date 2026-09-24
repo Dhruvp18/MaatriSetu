@@ -699,6 +699,54 @@ export type Database = {
           },
         ]
       }
+      flagged_diagnoses: {
+        Row: {
+          clinic_id: string
+          created_at: string
+          flagged_at: string
+          flagged_by: string | null
+          id: string
+          label: string
+          patient_id: string
+          pregnancy_id: string
+          resolved_at: string | null
+          resolved_by: string | null
+          section: string
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          clinic_id: string
+          created_at?: string
+          flagged_at?: string
+          flagged_by?: string | null
+          id?: string
+          label: string
+          patient_id: string
+          pregnancy_id: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          section: string
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          clinic_id?: string
+          created_at?: string
+          flagged_at?: string
+          flagged_by?: string | null
+          id?: string
+          label?: string
+          patient_id?: string
+          pregnancy_id?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          section?: string
+          updated_at?: string
+          version?: number
+        }
+        Relationships: []
+      }
       idempotency_requests: {
         Row: {
           actor_staff_user_id: string
@@ -932,6 +980,7 @@ export type Database = {
           cycle_regularity: string | null
           duration_days: number | null
           dysmenorrhea: boolean | null
+          bowel_bladder: string | null
           flow: string | null
           id: string
           impacts_activities: boolean | null
@@ -955,6 +1004,7 @@ export type Database = {
           cycle_regularity?: string | null
           duration_days?: number | null
           dysmenorrhea?: boolean | null
+          bowel_bladder?: string | null
           flow?: string | null
           id?: string
           impacts_activities?: boolean | null
@@ -978,6 +1028,7 @@ export type Database = {
           cycle_regularity?: string | null
           duration_days?: number | null
           dysmenorrhea?: boolean | null
+          bowel_bladder?: string | null
           flow?: string | null
           id?: string
           impacts_activities?: boolean | null
@@ -1698,6 +1749,9 @@ export type Database = {
         Row: {
           abortions: number | null
           birth_plan: Json
+          conception_mode: string | null
+          consanguinity: string | null
+          married_years: number | null
           clinic_id: string
           closed_at: string | null
           closed_by: string | null
@@ -1728,6 +1782,9 @@ export type Database = {
         Insert: {
           abortions?: number | null
           birth_plan?: Json
+          conception_mode?: string | null
+          consanguinity?: string | null
+          married_years?: number | null
           clinic_id: string
           closed_at?: string | null
           closed_by?: string | null
@@ -1758,6 +1815,9 @@ export type Database = {
         Update: {
           abortions?: number | null
           birth_plan?: Json
+          conception_mode?: string | null
+          consanguinity?: string | null
+          married_years?: number | null
           clinic_id?: string
           closed_at?: string | null
           closed_by?: string | null
@@ -2931,6 +2991,10 @@ export type Database = {
             | null
           diagnosis: string | null
           examination: string | null
+          chief_complaints: Json | null
+          exam_per_abdomen: string | null
+          exam_per_speculum: string | null
+          exam_per_vaginum: string | null
           ga_days_at_visit: number | null
           id: string
           impression: string | null
@@ -2958,6 +3022,10 @@ export type Database = {
             | null
           diagnosis?: string | null
           examination?: string | null
+          chief_complaints?: Json | null
+          exam_per_abdomen?: string | null
+          exam_per_speculum?: string | null
+          exam_per_vaginum?: string | null
           ga_days_at_visit?: number | null
           id?: string
           impression?: string | null
@@ -2985,6 +3053,10 @@ export type Database = {
             | null
           diagnosis?: string | null
           examination?: string | null
+          chief_complaints?: Json | null
+          exam_per_abdomen?: string | null
+          exam_per_speculum?: string | null
+          exam_per_vaginum?: string | null
           ga_days_at_visit?: number | null
           id?: string
           impression?: string | null
@@ -3390,6 +3462,17 @@ export type Database = {
         }
         Returns: string
       }
+      flag_diagnoses: {
+        Args: {
+          p_actor_staff_user_id: string
+          p_clinic_id: string
+          p_labels: string[]
+          p_pregnancy_id: string
+          p_request_id: string
+          p_section: string
+        }
+        Returns: number
+      }
       issue_patient_qr: {
         Args: {
           p_actor_staff_user_id: string
@@ -3518,6 +3601,15 @@ export type Database = {
         }
         Returns: string
       }
+      resolve_flagged_diagnosis: {
+        Args: {
+          p_actor_staff_user_id: string
+          p_clinic_id: string
+          p_flag_id: string
+          p_request_id: string
+        }
+        Returns: undefined
+      }
       revoke_patient_qr: {
         Args: {
           p_actor_staff_user_id: string
@@ -3587,6 +3679,31 @@ export type Database = {
         }
         Returns: Json
       }
+      save_visit_consultation_ext: {
+        Args: {
+          p_actor_staff_user_id: string
+          p_advice: Json
+          p_as_of_date: string
+          p_clinic_id: string
+          p_diagnosis: string
+          p_examination: string
+          p_expected_version: number
+          p_extras: Json
+          p_idempotency_key: string
+          p_impression: string
+          p_payload_hash: string
+          p_pin_observation_ids: string[]
+          p_prescriptions: Json
+          p_reference: Json
+          p_request_id: string
+          p_resolve_query_ids: string[]
+          p_summary: string
+          p_unpin_observation_ids: string[]
+          p_verify_candidates: Json
+          p_visit_id: string
+        }
+        Returns: Json
+      }
       schedule_appointment: {
         Args: {
           p_actor_staff_user_id: string
@@ -3622,6 +3739,17 @@ export type Database = {
           p_expected_version: number
           p_pregnancy_id: string
           p_reason: string
+          p_request_id: string
+        }
+        Returns: number
+      }
+      update_pregnancy_profile: {
+        Args: {
+          p_actor_staff_user_id: string
+          p_clinic_id: string
+          p_expected_version: number
+          p_pregnancy_id: string
+          p_profile: Json
           p_request_id: string
         }
         Returns: number

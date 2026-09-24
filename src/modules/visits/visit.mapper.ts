@@ -1,6 +1,38 @@
 import type { Database } from '@core/db/database.types'
 
-import type { DoctorReference, Visit, VisitAdvice, VitalsReading } from './visit.types'
+import type {
+  ChiefComplaint,
+  DoctorReference,
+  DurationUnit,
+  Visit,
+  VisitAdvice,
+  VitalsReading,
+} from './visit.types'
+
+const DURATION_UNITS: readonly DurationUnit[] = ['DAYS', 'WEEKS', 'MONTHS', 'YEARS']
+
+/**
+ * The stored complaint list, read defensively: it is jsonb, so an entry
+ * without a complaint is dropped and a malformed duration reads as absent
+ * rather than as a number nobody wrote.
+ */
+export function toChiefComplaints(value: unknown): ChiefComplaint[] {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((item): ChiefComplaint[] => {
+    if (typeof item !== 'object' || item === null) return []
+    const entry = item as Record<string, unknown>
+    const complaint = typeof entry.complaint === 'string' ? entry.complaint.trim() : ''
+    if (!complaint) return []
+    const n = entry.durationValue
+    const unit = entry.durationUnit
+    const durationValue = typeof n === 'number' && Number.isFinite(n) && n > 0 ? n : null
+    const durationUnit =
+      durationValue !== null && typeof unit === 'string' && (DURATION_UNITS as readonly string[]).includes(unit)
+        ? (unit as DurationUnit)
+        : null
+    return [{ complaint, durationValue: durationUnit ? durationValue : null, durationUnit }]
+  })
+}
 
 /**
  * Visit rows, and how they become domain objects.
@@ -46,6 +78,12 @@ export function toVisit(row: VisitRow): Visit {
     datingMethodAtVisit: row.dating_method_at_visit,
     impression: row.impression,
     examination: row.examination,
+    systemicExamination: {
+      perAbdomen: row.exam_per_abdomen,
+      perVaginum: row.exam_per_vaginum,
+      perSpeculum: row.exam_per_speculum,
+    },
+    chiefComplaints: toChiefComplaints(row.chief_complaints),
     diagnosis: row.diagnosis,
     consultationSummary: row.consultation_summary,
     clinicianId: row.clinician_id,

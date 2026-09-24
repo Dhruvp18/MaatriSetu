@@ -89,6 +89,12 @@ export async function submitConsultation(
     }
   }
 
+  const chiefComplaints = parseList('chiefComplaints')
+  const husbandBloodGroupCandidateIds = parseList('husbandBloodGroupCandidateIds')
+  if (chiefComplaints === null || husbandBloodGroupCandidateIds === null) {
+    return { status: 'error', message: 'The chief complaints could not be read.', retryable: false }
+  }
+
   // Checkbox groups arrive as repeated values.
   const pinObservationIds = formData.getAll('pin').filter((v): v is string => typeof v === 'string')
   const unpinObservationIds = formData
@@ -130,6 +136,11 @@ export async function submitConsultation(
     expectedVersion,
     impression: text(formData, 'impression'),
     examination: text(formData, 'examination'),
+    perAbdomen: text(formData, 'perAbdomen'),
+    perVaginum: text(formData, 'perVaginum'),
+    perSpeculum: text(formData, 'perSpeculum'),
+    chiefComplaints,
+    husbandBloodGroupCandidateIds,
     diagnosis: text(formData, 'diagnosis'),
     summary: text(formData, 'summary'),
     reference,

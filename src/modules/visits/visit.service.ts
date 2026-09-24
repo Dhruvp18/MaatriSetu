@@ -343,6 +343,17 @@ export async function saveConsultation(
     diagnosis: data.diagnosis ?? null,
     summary: data.summary ?? null,
     reference: data.reference ?? null,
+    extras: {
+      chiefComplaints: data.chiefComplaints.map((c) => ({
+        complaint: c.complaint,
+        durationValue: c.durationValue ?? null,
+        durationUnit: c.durationUnit ?? null,
+      })),
+      perAbdomen: data.perAbdomen ?? null,
+      perVaginum: data.perVaginum ?? null,
+      perSpeculum: data.perSpeculum ?? null,
+      husbandBloodGroupCandidateIds: [...data.husbandBloodGroupCandidateIds],
+    },
     prescriptions: data.prescriptions,
     advice: data.advice ?? null,
     // Verification lives in this commit and nowhere else: a standalone verify

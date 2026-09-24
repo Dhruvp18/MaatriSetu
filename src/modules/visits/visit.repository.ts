@@ -481,13 +481,14 @@ export async function cancelVisit(
  * with orders and no narrative, or a narrative and no advice checklist.
  */
 type SaveConsultationArgs = Omit<
-  Nullable<Fn['save_visit_consultation']['Args'], 'p_impression' | 'p_advice'>,
-  'p_examination' | 'p_diagnosis' | 'p_summary' | 'p_reference'
+  Nullable<Fn['save_visit_consultation_ext']['Args'], 'p_impression' | 'p_advice'>,
+  'p_examination' | 'p_diagnosis' | 'p_summary' | 'p_reference' | 'p_extras'
 > & {
   readonly p_examination: string | null
   readonly p_diagnosis: string | null
   readonly p_summary: string | null
   readonly p_reference: unknown
+  readonly p_extras: unknown
 }
 
 export interface SaveConsultationResult {
@@ -526,6 +527,8 @@ export async function saveConsultation(
     diagnosis: string | null
     summary: string | null
     reference: unknown
+    /** Chief complaints, P/A, P/V, P/S and husband blood-group relabels (migration 0029). */
+    extras: unknown
     prescriptions: unknown
     advice: unknown
     verifyCandidates: unknown
@@ -548,6 +551,7 @@ export async function saveConsultation(
     p_diagnosis: input.diagnosis,
     p_summary: input.summary,
     p_reference: input.reference,
+    p_extras: input.extras,
     p_prescriptions: input.prescriptions as never,
     p_advice: input.advice as never,
     p_verify_candidates: input.verifyCandidates as never,
@@ -559,9 +563,10 @@ export async function saveConsultation(
     p_payload_hash: `\\x${input.payloadHashHex}`,
   }
 
+  // The 0029 wrapper: the base routine and the fields added since, in one transaction.
   const { data, error } = await db.rpc(
-    'save_visit_consultation',
-    args as Fn['save_visit_consultation']['Args'],
+    'save_visit_consultation_ext',
+    args as Fn['save_visit_consultation_ext']['Args'],
   )
 
   // `translate` maps serialization_failure to a 409 conflict, which is what

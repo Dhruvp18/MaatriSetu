@@ -14,7 +14,7 @@ import {
   isRhNegative,
   type Patient,
 } from '@modules/patients/patient.types'
-import type { ObstetricHistoryEntry, Pregnancy } from '@modules/pregnancies/pregnancy.types'
+import { type ObstetricHistoryEntry, type Pregnancy, SHORT_STATURE_CM } from '@modules/pregnancies/pregnancy.types'
 import type { VitalsReading } from '@modules/visits/visit.types'
 
 /**
@@ -63,6 +63,8 @@ export function HeaderBanner({
   latestVitals,
   baselineWeightKg,
   today,
+  husbandBloodGroup = null,
+  flaggedDiagnoses = null,
 }: {
   patient: Patient
   pregnancy: Pregnancy
@@ -71,6 +73,13 @@ export function HeaderBanner({
   /** Pre-pregnancy weight, or the first weight recorded this pregnancy. */
   baselineWeightKg: number | null
   today: CalendarDate
+  /**
+   * The husband's blood group as printed on a verified report, or null when
+   * none is on file. Shown only beside an Rh-negative mother's pill.
+   */
+  husbandBloodGroup?: string | null
+  /** The diagnoses a clinician flagged, rendered by the caller (they are interactive). */
+  flaggedDiagnoses?: React.ReactNode
 }) {
   const age = ageInYears(patient.age, today)
   const { dating } = pregnancy
@@ -110,6 +119,19 @@ export function HeaderBanner({
                 <>
                   <Dot />
                   <span>EDD: {estimatedDueDate(dating.reference)}</span>
+                </>
+              ) : null}
+              {pregnancy.heightCm !== null ? (
+                <>
+                  <Dot />
+                  {/* Below 150 cm in red, as the OPD asked: the measurement, stated, not a conclusion. */}
+                  <span className={pregnancy.heightCm < SHORT_STATURE_CM ? 'font-bold text-alert-700' : undefined}>
+                    Ht:{' '}
+                    <strong className={pregnancy.heightCm < SHORT_STATURE_CM ? 'font-bold' : 'font-semibold text-slate-800'}>
+                      {Number.isInteger(pregnancy.heightCm) ? pregnancy.heightCm : pregnancy.heightCm.toFixed(1)} cm
+                    </strong>
+                    {pregnancy.heightCm < SHORT_STATURE_CM ? <span> (&lt; {SHORT_STATURE_CM})</span> : null}
+                  </span>
                 </>
               ) : null}
               {weight ? (
@@ -152,6 +174,9 @@ export function HeaderBanner({
                 <span className="tracking-tight">
                   <span className="uppercase">Rh-negative</span> · {formatBloodGroup(patient.bloodGroup.value)}
                 </span>
+                <span className="ml-0.5 border-l border-white/40 pl-1.5 font-normal">
+                  Husband: <strong className="font-bold">{husbandBloodGroup ?? 'not on file'}</strong>
+                </span>
               </span>
             ) : null}
             {patient.allergies.status === 'KNOWN' ? (
@@ -164,6 +189,7 @@ export function HeaderBanner({
             {patient.allergies.status === 'UNKNOWN' ? <Pill tone="caution">Allergies not recorded</Pill> : null}
             {previousScar ? <Pill tone="caution">Previous uterine scar</Pill> : null}
           </div>
+          {flaggedDiagnoses}
         </div>
       </div>
 

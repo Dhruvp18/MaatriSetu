@@ -111,6 +111,15 @@ export interface ObstetricHistoryRecord {
 
 export type CycleRegularity = 'REGULAR' | 'IRREGULAR'
 
+export type BowelBladder = 'NORMAL' | 'DYSURIA' | 'DYSCHEZIA' | 'DYSPAREUNIA'
+
+export const BOWEL_BLADDER_LABELS: Record<BowelBladder, string> = {
+  NORMAL: 'Normal',
+  DYSURIA: 'Dysuria',
+  DYSCHEZIA: 'Dyschezia',
+  DYSPAREUNIA: 'Dyspareunia',
+}
+
 export type MenstrualFlow = 'SCANTY' | 'MODERATE' | 'HEAVY'
 
 export interface MenstrualHistoryRecord {
@@ -129,6 +138,7 @@ export interface MenstrualHistoryRecord {
   readonly pmsPhysical: RecordedList<string>
   readonly impactsActivities: YesNo
   readonly dysmenorrhea: YesNo
+  readonly bowelBladder: BowelBladder | null
   readonly remarks: string | null
   readonly source: HistorySource
 }

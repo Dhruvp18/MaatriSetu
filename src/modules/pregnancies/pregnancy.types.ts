@@ -124,6 +124,16 @@ export interface PregnancyClosure {
   readonly note: string | null
 }
 
+export type Consanguinity = 'CONSANGUINEOUS' | 'NON_CONSANGUINEOUS'
+
+export type PregnancyConceptionMode = 'NATURAL' | 'IVF'
+
+/**
+ * Stature the OPD asked to see flagged on the banner. A recorded height below
+ * it is shown in red; it states the measurement, and draws no conclusion from it.
+ */
+export const SHORT_STATURE_CM = 150
+
 export interface BirthPlan {
   readonly planned_place?: string
   readonly companion_name?: string
@@ -143,6 +153,12 @@ export interface Pregnancy {
   readonly gravidaParity: GravidaParity
   readonly prePregnancyWeightKg: number | null
   readonly heightCm: number | null
+  /** Marriage and conception, as stated at this pregnancy. Each null when not asked. */
+  readonly marriage: {
+    readonly years: number | null
+    readonly consanguinity: Consanguinity | null
+  }
+  readonly conceptionMode: PregnancyConceptionMode | null
   readonly closure: PregnancyClosure
   readonly birthPlan?: BirthPlan | null
   readonly version: number

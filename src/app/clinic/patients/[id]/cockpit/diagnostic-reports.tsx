@@ -383,7 +383,7 @@ function ReportDetailModal({
   canDecide: boolean
   onClose: () => void
 }) {
-  const { decisions, decide } = useConsultationDraft()
+  const { decisions, decide, husbandCandidateIds, setHusband } = useConsultationDraft()
   if (!report) return null
 
   const decision = decisions[report.uploadId] ?? null
@@ -449,7 +449,26 @@ function ReportDetailModal({
                 <tbody>
                   {report.values.map((value) => (
                     <tr key={value.candidateId} className="border-t border-slate-100">
-                      <td className="px-2.5 py-1.5 text-slate-700">{value.label}</td>
+                      <td className="px-2.5 py-1.5 text-slate-700">
+                        {value.label}
+                        {value.testCode === 'husband_blood_group' ? (
+                          <span className="ml-1.5 rounded border border-brand-200 bg-brand-50 px-1 text-[10px] font-bold text-brand-800">
+                            husband&rsquo;s
+                          </span>
+                        ) : value.testCode === 'blood_group' && canDecide ? (
+                          // A blood-group slip may be the husband's. Saying so here files it
+                          // as his when the report is verified, and puts it on her banner.
+                          <label className="ml-2 inline-flex cursor-pointer items-center gap-1 text-[10.5px] font-semibold text-brand-800">
+                            <input
+                              type="checkbox"
+                              checked={husbandCandidateIds.has(value.candidateId)}
+                              onChange={(e) => setHusband(value.candidateId, e.target.checked)}
+                              className="h-3 w-3 accent-brand-600"
+                            />
+                            Husband&rsquo;s
+                          </label>
+                        ) : null}
+                      </td>
                       <td className="px-2.5 py-1.5 font-bold text-slate-900">{value.value}</td>
                       <td className="px-2.5 py-1.5 text-slate-500">
                         {value.printedRange ?? '—'}

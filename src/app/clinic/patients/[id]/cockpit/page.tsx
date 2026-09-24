@@ -26,6 +26,8 @@ import { roleHasPermission } from '@core/auth/permissions'
 import { resolveSession } from '@core/auth/session'
 import { AppError } from '@core/errors/app-error'
 import { formatGestationalAge, splitGestationalAge, todayIn } from '@core/obstetrics/dating'
+import { listOpenFlaggedDiagnoses } from '@modules/diagnoses/diagnosis.service'
+import type { FlaggedDiagnosis } from '@modules/diagnoses/diagnosis.types'
 import { getPatientHistory, type PatientHistory } from '@modules/history/history.service'
 import {
   describeFoodRelation,
@@ -67,9 +69,11 @@ import { describeRouting, type VoiceQuery } from '@modules/voice/voice.types'
 import { ConsultationDraftProvider, type PendingReport } from './consultation-draft'
 import { ConsultationForm } from './consultation-form'
 import { DiagnosticReports, type QueryView, StagedSignificant } from './diagnostic-reports'
+import { DiagnosisFlagger, FlaggedDiagnosisPills } from './flagged-diagnoses'
 import { ImmunizationPanel } from './immunization-history'
 import { MenstrualHistoryPanel } from './menstrual-history'
 import { ObstetricHistoryPanel } from './obstetric-history'
+import { PregnancyProfilePanel } from './pregnancy-profile'
 import { ViewOriginalButton } from './original-viewer'
 import { NextVisitChip, StartConsultationButton } from './visit-buttons'
 
@@ -195,7 +199,7 @@ export default async function CockpitPage({ params }: { params: Promise<{ id: st
 
   // Stage 2 — everything that hangs off the pregnancy, fetched at once. The
   // trend and the tables come from the same observation read.
-  const [results, visits, openVisitWithVitals, pendingReports, references, firstWeightKg, ongoing] =
+  const [results, visits, openVisitWithVitals, pendingReports, references, firstWeightKg, allOngoing, openFlags] =
     await Promise.all([
       getPregnancyResults(actor, pregnancy.id),
       listVisits(actor, pregnancy.id),
@@ -216,7 +220,32 @@ export default async function CockpitPage({ params }: { params: Promise<{ id: st
       roleHasPermission(actor.role, 'prescription.read')
         ? listOngoingPrescriptions(actor, pregnancy.id, today)
         : Promise.resolve<Prescription[]>([]),
+      listOpenFlaggedDiagnoses(actor, pregnancy.id),
     ])
+
+  // One line per medicine: once today's Rx carries an ongoing drug forward, the
+  // earlier order and the new one are both current until the earlier one ends.
+  // The newest is the one in force.
+  const ongoing = [...allOngoing]
+    .sort((a, b) => b.startDate.localeCompare(a.startDate))
+    .filter((rx, i, all) => all.findIndex((o) => o.medicineName.toLowerCase() === rx.medicineName.toLowerCase()) === i)
+
+  // The husband's blood group, from the most recent verified report that carries it.
+  const husbandObservation = results.observations
+    .filter((o) => o.testCode === 'husband_blood_group')
+    .sort((a, b) => b.observedDate.localeCompare(a.observedDate))[0]
+  const husbandBloodGroup = husbandObservation ? formatObservationValue(husbandObservation.value) : null
+
+  const canFlag = canSave
+  const flagger = (section: FlaggedDiagnosis['section']) => (
+    <DiagnosisFlagger
+      patientId={patient.id}
+      pregnancyId={pregnancy.id}
+      section={section}
+      openFlags={openFlags}
+      canFlag={canFlag}
+    />
+  )
 
   const openVisit = openVisitWithVitals.visit
   const latestVitals: VitalsReading | null = openVisitWithVitals.latest
@@ -349,6 +378,8 @@ export default async function CockpitPage({ params }: { params: Promise<{ id: st
         latestVitals={latestVitals}
         baselineWeightKg={baselineWeightKg}
         today={today}
+        husbandBloodGroup={husbandBloodGroup}
+        flaggedDiagnoses={<FlaggedDiagnosisPills patientId={patient.id} flags={openFlags} canResolve={canFlag} />}
       />
 
       {!openVisit && canOpenVisit ? (
@@ -438,6 +469,7 @@ export default async function CockpitPage({ params }: { params: Promise<{ id: st
           >
             <div className="flex flex-col gap-2.5">
               <StagedSignificant reports={reports} kind="LAB" />
+              {flagger('REPORTS')}
               {labs.length === 0 ? <p className="text-xs text-slate-500">No verified results yet.</p> : null}
               <div className="flex flex-col gap-3 lg:flex-row lg:items-start">
                 {hbTrend || afiTrend || bpTrend || sdpTrend || efwTrend || acTrend || glucoseTrends.length > 0 ? (
@@ -556,6 +588,7 @@ export default async function CockpitPage({ params }: { params: Promise<{ id: st
           >
             <div className="flex flex-col gap-2.5">
               <StagedSignificant reports={reports} kind="SCAN" />
+              {flagger('SCANS')}
               {results.scans.length === 0 && flaggedScanFindings.length === 0 ? (
                 <p className="text-xs text-slate-500">No verified scans yet.</p>
               ) : null}
@@ -617,10 +650,17 @@ export default async function CockpitPage({ params }: { params: Promise<{ id: st
           </Accordion>
 
           <Accordion
-            title="Immunization history"
+            title="Immunization, marriage & conception"
             summary={immunizationSummary(history, pregnancy.id)}
             icon={<Syringe className="h-4.75 w-4.75" />}
           >
+            <div className="mb-2.5">
+              <PregnancyProfilePanel
+                patientId={patient.id}
+                pregnancy={pregnancy}
+                canEdit={roleHasPermission(actor.role, 'patient.update')}
+              />
+            </div>
             <ImmunizationPanel
               patientId={patient.id}
               pregnancyId={pregnancy.id}
@@ -686,6 +726,10 @@ export default async function CockpitPage({ params }: { params: Promise<{ id: st
               reports={reports}
               doctors={doctors}
               priorReferences={references}
+              chiefComplaints={openVisit.chiefComplaints}
+              systemicExamination={openVisit.systemicExamination}
+              ongoing={ongoing}
+              examinationFlagger={flagger('EXAMINATION')}
             />
           ) : (
             <>
@@ -798,6 +842,7 @@ function toPendingReport(report: ReportWithExtraction): PendingReport {
       correctionVersion: candidate.correctionVersion,
       // The printed label, because that is what the slip in hand says.
       label: candidate.printedLabel ?? candidate.testCode,
+      testCode: candidate.testCode ?? null,
       value: formatCandidateValue(candidate.value),
       printedRange: formatReferenceRange(candidate.referenceRange),
       outsidePrintedRange:

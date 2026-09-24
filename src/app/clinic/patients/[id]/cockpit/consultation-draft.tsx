@@ -25,6 +25,8 @@ export interface ReportValue {
   readonly candidateId: string
   readonly correctionVersion: number
   readonly label: string
+  /** The OCR test code, when it matched one — `blood_group` enables the husband toggle. */
+  readonly testCode: string | null
   readonly value: string
   readonly printedRange: string | null
   /** Against the range printed on the slip. Never "abnormal" (PRD §3). */
@@ -52,6 +54,9 @@ export interface PendingReport {
 interface Draft {
   readonly decisions: Readonly<Record<string, ReportDecision>>
   readonly addressedQueryIds: ReadonlySet<string>
+  /** Blood-group values the doctor says are the husband's, not hers. */
+  readonly husbandCandidateIds: ReadonlySet<string>
+  setHusband(candidateId: string, isHusband: boolean): void
   decide(uploadId: string, decision: ReportDecision | null): void
   setAddressed(queryId: string, addressed: boolean): void
 }
@@ -61,6 +66,16 @@ const DraftContext = createContext<Draft | null>(null)
 export function ConsultationDraftProvider({ children }: { children: React.ReactNode }) {
   const [decisions, setDecisions] = useState<Record<string, ReportDecision>>({})
   const [addressedQueryIds, setAddressedQueryIds] = useState<ReadonlySet<string>>(new Set())
+  const [husbandCandidateIds, setHusbandCandidateIds] = useState<ReadonlySet<string>>(new Set())
+
+  const setHusband = useCallback((candidateId: string, isHusband: boolean) => {
+    setHusbandCandidateIds((current) => {
+      const next = new Set(current)
+      if (isHusband) next.add(candidateId)
+      else next.delete(candidateId)
+      return next
+    })
+  }, [])
 
   const decide = useCallback((uploadId: string, decision: ReportDecision | null) => {
     setDecisions((current) => {
@@ -81,8 +96,8 @@ export function ConsultationDraftProvider({ children }: { children: React.ReactN
   }, [])
 
   const value = useMemo(
-    () => ({ decisions, addressedQueryIds, decide, setAddressed }),
-    [decisions, addressedQueryIds, decide, setAddressed],
+    () => ({ decisions, addressedQueryIds, husbandCandidateIds, setHusband, decide, setAddressed }),
+    [decisions, addressedQueryIds, husbandCandidateIds, setHusband, decide, setAddressed],
   )
 
   return <DraftContext.Provider value={value}>{children}</DraftContext.Provider>

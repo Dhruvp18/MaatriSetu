@@ -5,10 +5,12 @@ import { useState, useTransition } from 'react'
 
 import { Modal } from '@components/cockpit/modal'
 import {
+  BOWEL_BLADDER_LABELS,
   CYCLE_REGULARITY_LABELS,
   FLOW_LABELS,
   PMS_EMOTIONAL_OPTIONS,
   PMS_PHYSICAL_OPTIONS,
+  type BowelBladder,
   type CycleRegularity,
   type MenstrualFlow,
   type MenstrualHistoryRecord,
@@ -78,6 +80,11 @@ export function MenstrualHistoryPanel({
                   {entry.menarcheAgeYears !== null ? (
                     <span className="numeric text-slate-500">menarche {entry.menarcheAgeYears} y</span>
                   ) : null}
+                  {entry.bowelBladder && entry.bowelBladder !== 'NORMAL' ? (
+                    <span className="rounded border border-slate-200 bg-slate-50 px-1.5 text-[10px] font-semibold text-slate-700">
+                      {BOWEL_BLADDER_LABELS[entry.bowelBladder].toLowerCase()}
+                    </span>
+                  ) : null}
                   {entry.dysmenorrhea === 'YES' ? (
                     <span className="rounded border border-slate-200 bg-slate-50 px-1.5 text-[10px] font-semibold text-slate-700">
                       dysmenorrhoea
@@ -127,6 +134,7 @@ export function MenstrualHistoryPanel({
             <Detail label="Pads per day" value={viewing.padsPerDay} />
             <Detail label="Impact on activities" value={describeYesNo(viewing.impactsActivities)} />
             <Detail label="Dysmenorrhoea" value={describeYesNo(viewing.dysmenorrhea)} />
+            <Detail label="Bowel / bladder" value={viewing.bowelBladder ? BOWEL_BLADDER_LABELS[viewing.bowelBladder] : null} />
             <div className="col-span-2 md:col-span-3">
               <Detail label="Premenstrual symptoms (emotional)" value={describeRecordedList(viewing.pmsEmotional)} />
             </div>
@@ -193,6 +201,7 @@ function MenstrualForm({
   )
   const [impacts, setImpacts] = useState<boolean | null>(entry ? yesNoToBool(entry.impactsActivities) : null)
   const [dysmenorrhea, setDysmenorrhea] = useState<boolean | null>(entry ? yesNoToBool(entry.dysmenorrhea) : null)
+  const [bowelBladder, setBowelBladder] = useState<BowelBladder | ''>(entry?.bowelBladder ?? '')
   const [remarks, setRemarks] = useState(entry?.remarks ?? '')
 
   const asOptions = (options: readonly string[]) => options.map((o) => [o, o] as const)
@@ -216,6 +225,7 @@ function MenstrualForm({
           pmsPhysical,
           impactsActivities: impacts,
           dysmenorrhea,
+          bowelBladder: bowelBladder || null,
           remarks: remarks || null,
         },
       })
@@ -304,12 +314,27 @@ function MenstrualForm({
           <MultiWithNone name="Premenstrual symptoms (physical)" options={asOptions(PMS_PHYSICAL_OPTIONS)} value={pmsPhysical} onChange={setPmsPhysical} />
         </Section>
 
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
           <Section title="Impact on activities">
             <YesNoRow name="Impact on activities" value={impacts} onChange={setImpacts} />
           </Section>
           <Section title="Presence of dysmenorrhoea">
             <YesNoRow name="Presence of dysmenorrhoea" value={dysmenorrhea} onChange={setDysmenorrhea} />
+          </Section>
+          <Section title="Bowel / bladder">
+            <select
+              value={bowelBladder}
+              onChange={(e) => setBowelBladder(e.target.value as BowelBladder | '')}
+              aria-label="Bowel / bladder"
+              className={FIELD}
+            >
+              <option value="">Not asked</option>
+              {Object.entries(BOWEL_BLADDER_LABELS).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
           </Section>
         </div>
 

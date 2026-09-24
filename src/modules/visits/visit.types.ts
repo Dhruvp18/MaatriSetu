@@ -75,6 +75,29 @@ export interface VisitClosure {
   readonly cancellationReason: string | null
 }
 
+export type DurationUnit = 'DAYS' | 'WEEKS' | 'MONTHS' | 'YEARS'
+
+export const DURATION_UNIT_LABELS: Record<DurationUnit, string> = {
+  DAYS: 'days',
+  WEEKS: 'weeks',
+  MONTHS: 'months',
+  YEARS: 'years',
+}
+
+/** One complaint, and how long she has had it. The duration is optional: not every complaint has one. */
+export interface ChiefComplaint {
+  readonly complaint: string
+  readonly durationValue: number | null
+  readonly durationUnit: DurationUnit | null
+}
+
+/** `Headache — 3 days`. The singular when the number is 1. */
+export function describeChiefComplaint(c: ChiefComplaint): string {
+  if (c.durationValue === null || c.durationUnit === null) return c.complaint
+  const unit = DURATION_UNIT_LABELS[c.durationUnit]
+  return `${c.complaint} — ${c.durationValue} ${c.durationValue === 1 ? unit.replace(/s$/, '') : unit}`
+}
+
 export interface Visit {
   readonly id: string
   readonly clinicId: string
@@ -96,6 +119,14 @@ export interface Visit {
   readonly impression: string | null
   /** Clinician-authored examination findings, as dictated or typed. */
   readonly examination: string | null
+  /** Per abdomen, per vaginum and per speculum findings, each null when not written. */
+  readonly systemicExamination: {
+    readonly perAbdomen: string | null
+    readonly perVaginum: string | null
+    readonly perSpeculum: string | null
+  }
+  /** What she came with today, each with how long, as the clinician recorded it. */
+  readonly chiefComplaints: readonly ChiefComplaint[]
   /** Clinician-authored. The system never proposes or derives one (PRD §3). */
   readonly diagnosis: string | null
   readonly consultationSummary: string | null

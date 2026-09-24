@@ -126,6 +126,7 @@ export const MenstrualHistoryInputSchema = z
     pmsPhysical: z.array(Text(64).min(1)).max(20).nullish(),
     impactsActivities: z.boolean().nullish(),
     dysmenorrhea: z.boolean().nullish(),
+    bowelBladder: z.enum(['NORMAL', 'DYSURIA', 'DYSCHEZIA', 'DYSPAREUNIA']).nullish(),
     remarks: Text(1000).nullish(),
   })
   .strict()

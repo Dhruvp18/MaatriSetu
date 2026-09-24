@@ -230,12 +230,34 @@ const ReferenceInputSchema = z
     path: ['toExternalName'],
   })
 
+const ChiefComplaintInputSchema = z
+  .object({
+    complaint: z.string().trim().min(1).max(500),
+    durationValue: z.number().int().positive().max(999).nullish(),
+    durationUnit: z.enum(['DAYS', 'WEEKS', 'MONTHS', 'YEARS']).nullish(),
+  })
+  .strict()
+  .refine((c) => (c.durationValue == null) === (c.durationUnit == null), {
+    message: 'A duration needs both a number and days/weeks/months/years, or neither.',
+    path: ['durationUnit'],
+  })
+
 export const SaveConsultationSchema = z
   .object({
     /** Optimistic concurrency. A mismatch is a 409, never a silent overwrite. */
     expectedVersion: z.number().int().min(1),
     impression: z.string().max(10000).nullish(),
     examination: z.string().max(10000).nullish(),
+    perAbdomen: z.string().max(4000).nullish(),
+    perVaginum: z.string().max(4000).nullish(),
+    perSpeculum: z.string().max(4000).nullish(),
+    chiefComplaints: z.array(ChiefComplaintInputSchema).max(20).default([]),
+    /**
+     * Blood-group values, verified in this same save, that the clinician says
+     * belong to her husband rather than to her. Only meaningful for candidates
+     * also in `verifyCandidates`; any other id changes nothing.
+     */
+    husbandBloodGroupCandidateIds: z.array(z.uuid()).max(10).default([]),
     diagnosis: z.string().max(4000).nullish(),
     summary: z.string().max(10000).nullish(),
     reference: ReferenceInputSchema.nullish(),
@@ -259,6 +281,16 @@ export const SaveConsultationSchema = z
         code: 'custom',
         path: ['unpinObservationIds'],
         message: 'The same finding is both pinned and unpinned in this save.',
+      })
+    }
+
+    // A value can only be relabelled as the husband's in the save that verifies it.
+    const verifying = new Set(value.verifyCandidates.map((c) => c.candidateId))
+    if (value.husbandBloodGroupCandidateIds.some((id) => !verifying.has(id))) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['husbandBloodGroupCandidateIds'],
+        message: 'Mark the report reviewed or flagged to record the husband’s blood group from it.',
       })
     }
   })

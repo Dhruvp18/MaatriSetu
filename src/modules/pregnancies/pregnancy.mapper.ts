@@ -128,6 +128,13 @@ export function toPregnancy(row: PregnancyRow): Pregnancy {
     // component that expects to do arithmetic on it.
     prePregnancyWeightKg: toNumber(row.pre_pregnancy_weight_kg),
     heightCm: toNumber(row.height_cm),
+    marriage: {
+      years: row.married_years,
+      consanguinity: row.consanguinity === 'CONSANGUINEOUS' || row.consanguinity === 'NON_CONSANGUINEOUS'
+        ? row.consanguinity
+        : null,
+    },
+    conceptionMode: row.conception_mode === 'NATURAL' || row.conception_mode === 'IVF' ? row.conception_mode : null,
     closure: {
       outcome: row.outcome,
       outcomeDate: row.outcome_date,

@@ -9,6 +9,7 @@ import type {
   InfantOutcome,
   InfantRecord,
   InfantSex,
+  BowelBladder,
   MenstrualFlow,
   MenstrualHistoryRecord,
   ObstetricHistoryRecord,
@@ -137,6 +138,7 @@ export function toMenstrualHistoryRecord(row: MenstrualHistoryRow): MenstrualHis
     pmsPhysical: toRecordedList<string>(row.pms_physical),
     impactsActivities: toYesNo(row.impacts_activities),
     dysmenorrhea: toYesNo(row.dysmenorrhea),
+    bowelBladder: oneOf<BowelBladder>(row.bowel_bladder, ['NORMAL', 'DYSURIA', 'DYSCHEZIA', 'DYSPAREUNIA']),
     remarks: row.remarks,
     source: row.source,
   }

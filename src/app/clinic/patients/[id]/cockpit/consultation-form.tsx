@@ -21,11 +21,12 @@ import {
   SCAN_INVESTIGATIONS,
   searchInvestigations,
 } from '@modules/orders/investigations'
-import type { DoseFrequency, FoodRelation } from '@modules/orders/order.types'
-import type { ClinicDoctor, DoctorReference } from '@modules/visits/visit.types'
+import type { DoseFrequency, FoodRelation, Prescription } from '@modules/orders/order.types'
+import type { ChiefComplaint, ClinicDoctor, DoctorReference } from '@modules/visits/visit.types'
 
 import { submitConsultation, type SaveState } from './actions'
 import { type PendingReport, useConsultationDraft, verificationPayload } from './consultation-draft'
+import { ChiefComplaintsSection } from './chief-complaints'
 import { DictatedTextarea } from './dictated-textarea'
 
 /**
@@ -100,6 +101,22 @@ const blankRx = (): PrescriptionDraft => ({
   durationDays: '30',
 })
 
+/**
+ * An ongoing prescription, carried into today's Rx so the doctor continues,
+ * edits or removes it rather than retyping it. Nothing is re-ordered unless it
+ * is still on the list when she saves.
+ */
+const fromOngoing = (rx: Prescription): PrescriptionDraft => ({
+  key: nextKey++,
+  medicineName: rx.medicineName,
+  doseAmount: rx.dose.kind === 'SPECIFIED' ? String(rx.dose.amount) : '',
+  doseUnit: rx.dose.kind === 'SPECIFIED' ? rx.dose.unit : '',
+  form: rx.form ?? 'Tab',
+  frequency: rx.frequency,
+  foodRelation: rx.foodRelation,
+  durationDays: rx.durationDays !== null ? String(rx.durationDays) : '',
+})
+
 const fromFormulary = (item: FormularyItem): PrescriptionDraft => ({
   key: nextKey++,
   medicineName: item.medicineName,
@@ -133,6 +150,10 @@ export function ConsultationForm({
   reports,
   doctors,
   priorReferences,
+  chiefComplaints,
+  systemicExamination,
+  ongoing,
+  examinationFlagger,
 }: {
   visitId: string
   visitDate: string
@@ -146,12 +167,18 @@ export function ConsultationForm({
   reports: readonly PendingReport[]
   doctors: readonly ClinicDoctor[]
   priorReferences: readonly DoctorReference[]
+  chiefComplaints: readonly ChiefComplaint[]
+  systemicExamination: { perAbdomen: string | null; perVaginum: string | null; perSpeculum: string | null }
+  /** Ongoing prescriptions, pre-filled into today's Rx. */
+  ongoing: readonly Prescription[]
+  /** The Examination section's "Diagnosis to be flagged" panel, built by the page. */
+  examinationFlagger?: React.ReactNode
 }) {
   const [state, formAction] = useActionState(submitConsultation, initialState)
   const [idempotencyKey] = useState(() => crypto.randomUUID())
-  const { decisions, addressedQueryIds } = useConsultationDraft()
+  const { decisions, addressedQueryIds, husbandCandidateIds } = useConsultationDraft()
 
-  const [prescriptions, setPrescriptions] = useState<PrescriptionDraft[]>([])
+  const [prescriptions, setPrescriptions] = useState<PrescriptionDraft[]>(() => ongoing.map(fromOngoing))
   const [labOrders, setLabOrders] = useState<string[]>([])
   const [scanOrders, setScanOrders] = useState<string[]>([])
 
@@ -192,6 +219,10 @@ export function ConsultationForm({
     }))
 
   const verifyPayload = verificationPayload(reports, decisions)
+  // Only values actually being verified in this save can be filed as the husband's.
+  const husbandPayload = verifyPayload
+    .map((v) => v.candidateId)
+    .filter((id) => husbandCandidateIds.has(id))
 
   return (
     <form action={formAction} className="flex flex-col gap-2.5">
@@ -202,24 +233,53 @@ export function ConsultationForm({
       <input type="hidden" name="verifyCandidates" value={JSON.stringify(verifyPayload)} />
       <input type="hidden" name="labOrdersJson" value={JSON.stringify(labOrders)} />
       <input type="hidden" name="scanOrdersJson" value={JSON.stringify(scanOrders)} />
+      <input type="hidden" name="husbandBloodGroupCandidateIds" value={JSON.stringify(husbandPayload)} />
       {[...addressedQueryIds].map((id) => (
         <input key={id} type="hidden" name="resolveQuery" value={id} />
       ))}
 
-      {/* Examination — replaces the old read-only impression panel. */}
+      <ChiefComplaintsSection current={chiefComplaints} />
+
+      {/* Examination — general findings, then the three systemic examinations side by side. */}
       <Accordion
         title="Examination"
         icon={<Stethoscope className="h-4.75 w-4.75" />}
         defaultOpen
       >
-        <DictatedTextarea
-          name="examination"
-          label="Examination findings"
-          rows={4}
-          defaultValue={current.examination}
-          placeholder="General: afebrile, no pallor, no pedal oedema. P/A: uterus 32 wk size, relaxed, cephalic, FHS regular. P/S, P/V: …"
-          hint="Type, or press Voice and speak. What you dictate is added to the text; the recording is not kept."
-        />
+        <div className="flex flex-col gap-3">
+          <DictatedTextarea
+            name="examination"
+            label="General examination"
+            rows={2}
+            defaultValue={current.examination}
+            placeholder="Afebrile, no pallor, no pedal oedema. BP, pulse as recorded."
+            hint="Type, or press Voice and speak. What you dictate is added to the text; the recording is not kept."
+          />
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+            <DictatedTextarea
+              name="perAbdomen"
+              label="Per abdomen"
+              rows={4}
+              defaultValue={systemicExamination.perAbdomen}
+              placeholder="Uterus 32 wk size, relaxed, cephalic, FHS regular."
+            />
+            <DictatedTextarea
+              name="perVaginum"
+              label="Per vaginum"
+              rows={4}
+              defaultValue={systemicExamination.perVaginum}
+              placeholder="Os closed, cervix uneffaced, no bleeding."
+            />
+            <DictatedTextarea
+              name="perSpeculum"
+              label="Per speculum"
+              rows={4}
+              defaultValue={systemicExamination.perSpeculum}
+              placeholder="Cervix healthy, no discharge, no leak."
+            />
+          </div>
+          {examinationFlagger}
+        </div>
       </Accordion>
 
       {/* Fresh orders & advice — the active plan. */}
@@ -335,6 +395,12 @@ export function ConsultationForm({
                 </div>
               </div>
 
+              {ongoing.length > 0 ? (
+                <p className="text-[10.5px] text-slate-500">
+                  Her {ongoing.length} ongoing medicine{ongoing.length === 1 ? ' is' : 's are'} carried in below —
+                  edit or remove before saving. Whatever is listed is prescribed afresh today.
+                </p>
+              ) : null}
               {prescriptions.length === 0 ? (
                 <p className="text-xs text-slate-500">Nothing prescribed at this visit.</p>
               ) : (

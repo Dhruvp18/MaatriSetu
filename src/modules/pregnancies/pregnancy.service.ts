@@ -10,6 +10,7 @@ import {
   ClosePregnancySchema,
   CreatePregnancySchema,
   UpdateDatingSchema,
+  UpdatePregnancyProfileSchema,
   datingIsPlausibleOn,
   toDatingColumns,
 } from './pregnancy.schema'
@@ -273,6 +274,31 @@ export async function updatePregnancyDating(
   if (!pregnancy) throw notFound('That pregnancy is not recorded at this clinic.')
 
   return pregnancy
+}
+
+/**
+ * Height, marriage and how this pregnancy was conceived.
+ *
+ * Held by `patient.update`, like the rest of the history taken at the counter:
+ * a nurse asks these as often as the doctor does.
+ */
+export async function updatePregnancyProfile(actor: ActorContext, input: unknown): Promise<number> {
+  requirePermission(actor, 'patient.update')
+
+  const parsed = UpdatePregnancyProfileSchema.safeParse(input)
+  if (!parsed.success) {
+    throw validation('These pregnancy details could not be saved.', parsed.error.issues)
+  }
+
+  const { pregnancyId, expectedVersion, ...profile } = parsed.data
+  return repo.updateProfile(serviceClient(), {
+    clinicId: actor.clinicId,
+    actorStaffUserId: actor.staffUserId,
+    requestId: actor.requestId,
+    pregnancyId,
+    expectedVersion,
+    profile,
+  })
 }
 
 /* -------------------------------------------------------------------------- */

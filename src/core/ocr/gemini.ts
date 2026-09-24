@@ -35,7 +35,7 @@ import type {
  */
 
 /** Bump on every change to the instructions or the schema below. */
-const PROMPT_VERSION = 'ocr-gemini-v1'
+const PROMPT_VERSION = 'ocr-gemini-v2'
 
 const TIMEOUT_MS = 120_000
 
@@ -59,8 +59,12 @@ You are a TRANSCRIBER, not a clinician. Follow these rules exactly:
 7. testCode: use one of hb, wbc, platelets, rbc, hct, mcv, ogtt_fasting,
    ogtt_1hr, ogtt_2hr, fbs, ppbs, hba1c, tsh, t3, t4, urea, creatinine, bilirubin,
    sgot, sgpt, hiv, hbsag, vdrl, blood_group, urine_albumin, urine_sugar,
-   urine_pus_cells, efw, afi, presentation, placenta. If nothing fits, set
-   testCode to null and still return the printedLabel and value.
+   urine_pus_cells, efw, afi, presentation, placenta, husband_blood_group. If
+   nothing fits, set testCode to null and still return the printedLabel and value.
+8. Use husband_blood_group instead of blood_group only when the slip itself
+   says the tested person is the husband or partner (for example "Husband",
+   "Partner", or a patient line prefixed "Mr." / sex printed as Male). When in
+   doubt, use blood_group; the clinician confirms it.
 
 Transcribe every result on the page, including ones you consider unremarkable.`
 

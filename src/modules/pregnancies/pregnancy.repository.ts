@@ -312,6 +312,40 @@ export async function updateDating(
   return data
 }
 
+/** Version-checked height / marriage / conception. Returns the new version. */
+export async function updateProfile(
+  db: TypedClient,
+  params: {
+    clinicId: string
+    actorStaffUserId: string
+    requestId: string
+    pregnancyId: string
+    expectedVersion: number
+    profile: {
+      heightCm: number | null
+      marriedYears: number | null
+      consanguinity: string | null
+      conceptionMode: string | null
+    }
+  },
+): Promise<number> {
+  const { data, error } = await db.rpc('update_pregnancy_profile', {
+    p_clinic_id: params.clinicId,
+    p_actor_staff_user_id: params.actorStaffUserId,
+    p_request_id: params.requestId,
+    p_pregnancy_id: params.pregnancyId,
+    p_expected_version: params.expectedVersion,
+    p_profile: params.profile,
+  })
+
+  if (error) translate(error, 'updateProfile')
+  if (typeof data !== 'number') {
+    throw internal('update_pregnancy_profile did not return a version.')
+  }
+
+  return data
+}
+
 /** Version-checked closure. Returns the new version. */
 export async function closePregnancy(
   db: TypedClient,

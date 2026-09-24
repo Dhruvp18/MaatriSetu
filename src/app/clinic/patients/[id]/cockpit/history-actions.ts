@@ -9,6 +9,8 @@ import {
   saveMenstrualHistory,
   saveObstetricHistory,
 } from '@modules/history/history.service'
+import { flagDiagnoses, resolveFlaggedDiagnosis } from '@modules/diagnoses/diagnosis.service'
+import { updatePregnancyProfile } from '@modules/pregnancies/pregnancy.service'
 import { transcribeDictation } from '@modules/voice/voice.service'
 
 /**
@@ -83,6 +85,24 @@ export async function recordImmunizationAction(
   input: unknown,
 ): Promise<ActionResult> {
   return run(patientId, (actor) => recordImmunization(actor, input))
+}
+
+/** Height, marriage and conception — facts about this pregnancy, saved at once. */
+export async function updatePregnancyProfileAction(patientId: string, input: unknown): Promise<ActionResult> {
+  return run(patientId, (actor) => updatePregnancyProfile(actor, input))
+}
+
+/**
+ * Flag diagnoses onto the banner. Written at once rather than with Save & Next:
+ * a flag is a standing fact on her record, and the doctor expects to see it on
+ * the banner as soon as she raises it.
+ */
+export async function flagDiagnosesAction(patientId: string, input: unknown): Promise<ActionResult> {
+  return run(patientId, (actor) => flagDiagnoses(actor, input))
+}
+
+export async function resolveFlaggedDiagnosisAction(patientId: string, flagId: string): Promise<ActionResult> {
+  return run(patientId, (actor) => resolveFlaggedDiagnosis(actor, flagId))
 }
 
 export type DictationResult =

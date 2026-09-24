@@ -29,16 +29,35 @@ export function DictatedTextarea({
   rows = 3,
   hint,
   options,
+  value: controlledValue,
+  onValueChange,
+  id: idProp,
 }: {
-  name: string
+  /** The form field name. Omit when the caller owns the value (see `value`). */
+  name?: string
   label: string
   defaultValue?: string | null
   placeholder?: string
   rows?: number
   hint?: string
   options?: string[]
+  /** Controlled mode: the caller holds the text, e.g. one row of a list. */
+  value?: string
+  onValueChange?: (value: string) => void
+  id?: string
 }) {
-  const [value, setValue] = useState(defaultValue ?? '')
+  const [ownValue, setOwnValue] = useState(defaultValue ?? '')
+  const value = controlledValue ?? ownValue
+  // Functional updates read the latest value, so dictation appended after a
+  // keystroke never drops the keystroke.
+  const latest = useRef(value)
+  latest.current = value
+  const setValue = (next: string | ((current: string) => string)) => {
+    const resolved = typeof next === 'function' ? next(latest.current) : next
+    latest.current = resolved
+    if (onValueChange) onValueChange(resolved)
+    else setOwnValue(resolved)
+  }
   const [phase, setPhase] = useState<Phase>('idle')
   const [seconds, setSeconds] = useState(0)
   const [error, setError] = useState<string | null>(null)
@@ -94,7 +113,7 @@ export function DictatedTextarea({
     setPhase('idle')
   }
 
-  const id = `field-${name}`
+  const id = idProp ?? `field-${name}`
 
   return (
     <div className="flex flex-col gap-1">
