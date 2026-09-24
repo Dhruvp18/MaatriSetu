@@ -488,4 +488,269 @@ insert into pregnancies (
   3, 2, 2, 0, '33333333-3333-4333-8333-000000000002'
 );
 
+-- ---------------------------------------------------------------------------
+-- Patient D — Anaemic Pregnancy
+-- ---------------------------------------------------------------------------
+insert into patients (
+  id, clinic_id, uhid, full_name, estimated_age_years, age_recorded_on,
+  allergy_status, blood_group, blood_group_source, blood_group_recorded_on, created_by
+) values (
+  '44444444-4444-4444-8444-00000000000d',
+  '11111111-1111-4111-8111-000000000001',
+  'MH-2026-90300', 'Sita Sharma', 26, current_date - 170,
+  'NONE_KNOWN', 'B_NEG', 'STAFF_ENTERED', current_date - 170,
+  '33333333-3333-4333-8333-000000000002'
+);
+
+insert into patient_contacts (
+  clinic_id, patient_id, phone_e164, relationship, is_primary, verified_at, verified_by
+) values (
+  '11111111-1111-4111-8111-000000000001', '44444444-4444-4444-8444-00000000000d',
+  '+919876543210', 'SELF', true, now() - interval '170 days',
+  '33333333-3333-4333-8333-000000000002'
+);
+
+-- Dated from LMP, 24 weeks pregnant (approx 168 days)
+insert into pregnancies (
+  id, clinic_id, patient_id, status,
+  dating_reference_date, dating_reference_ga_days, dating_method, dating_certainty,
+  dating_confirmed_by, dating_confirmed_at,
+  reported_lmp, reported_lmp_certainty,
+  gravida, parity, living, abortions, created_by
+) values (
+  '55555555-5555-4555-8555-00000000000d',
+  '11111111-1111-4111-8111-000000000001',
+  '44444444-4444-4444-8444-00000000000d',
+  'ACTIVE',
+  current_date - 168, 0, 'LMP', 'CERTAIN',
+  '33333333-3333-4333-8333-000000000001', now() - interval '168 days',
+  current_date - 168, 'CERTAIN',
+  1, 0, 0, 0, '33333333-3333-4333-8333-000000000002'
+);
+
+-- Hb Investigations (Rising trend: 12 weeks, 16 weeks, 24 weeks)
+insert into observations (
+  id, clinic_id, patient_id, pregnancy_id, category, test_code, test_name,
+  value_numeric, unit_original, unit_normalized, value_normalized,
+  reference_low, reference_high, observed_date, observed_date_precision,
+  source, verified_by, verified_at, flagged_by_clinician
+) values
+  ('66666666-6666-4666-8666-00000000010a', '11111111-1111-4111-8111-000000000001',
+   '44444444-4444-4444-8444-00000000000d', '55555555-5555-4555-8555-00000000000d',
+   'HEMATOLOGY', 'hb', 'Haemoglobin',
+   6.8, 'g/dL', 'g/dL', 6.8, 11.0, 15.0, current_date - 84, 'DAY',
+   'EXTRACTED_VERIFIED', '33333333-3333-4333-8333-000000000001', now() - interval '84 days', true),
+
+  ('66666666-6666-4666-8666-00000000010b', '11111111-1111-4111-8111-000000000001',
+   '44444444-4444-4444-8444-00000000000d', '55555555-5555-4555-8555-00000000000d',
+   'HEMATOLOGY', 'hb', 'Haemoglobin',
+   7.5, 'g/dL', 'g/dL', 7.5, 11.0, 15.0, current_date - 56, 'DAY',
+   'EXTRACTED_VERIFIED', '33333333-3333-4333-8333-000000000001', now() - interval '56 days', true),
+
+  ('66666666-6666-4666-8666-00000000010c', '11111111-1111-4111-8111-000000000001',
+   '44444444-4444-4444-8444-00000000000d', '55555555-5555-4555-8555-00000000000d',
+   'HEMATOLOGY', 'hb', 'Haemoglobin',
+   8.2, 'g/dL', 'g/dL', 8.2, 11.0, 15.0, current_date, 'DAY',
+   'EXTRACTED_VERIFIED', '33333333-3333-4333-8333-000000000001', now(), true);
+
+-- Pin the latest haemoglobin to the cockpit
+insert into finding_pins (clinic_id, pregnancy_id, observation_id, pinned_by) values
+  ('11111111-1111-4111-8111-000000000001', '55555555-5555-4555-8555-00000000000d',
+   '66666666-6666-4666-8666-00000000010c', '33333333-3333-4333-8333-000000000001');
+
+-- Visit for Anaemia
+insert into visits (
+  id, clinic_id, patient_id, pregnancy_id, visit_type, status, occurred_at,
+  ga_days_at_visit, dating_method_at_visit, impression,
+  clinician_id, opened_by, saved_at, saved_by
+) values (
+  '77777777-7777-4777-8777-00000000000d',
+  '11111111-1111-4111-8111-000000000001',
+  '44444444-4444-4444-8444-00000000000d',
+  '55555555-5555-4555-8555-00000000000d',
+  'ANC_OPD', 'SAVED', now(),
+  168, 'LMP',
+  'G1P0L0A0 at 24 weeks. Moderate Anaemia in Pregnancy. Hb improving on Iron supplements.',
+  '33333333-3333-4333-8333-000000000001',
+  '33333333-3333-4333-8333-000000000002',
+  now(),
+  '33333333-3333-4333-8333-000000000001'
+);
+
+insert into visit_vitals (
+  clinic_id, visit_id, bp_systolic_mmhg, bp_diastolic_mmhg, pulse_bpm, weight_kg,
+  fundal_height_cm, fetal_heart_rate_bpm, urine_albumin, sequence_no, recorded_by
+) values (
+  '11111111-1111-4111-8111-000000000001', '77777777-7777-4777-8777-00000000000d',
+  110, 70, 96, 55.0, 24.0, 145, 'NIL', 1,
+  '33333333-3333-4333-8333-000000000002'
+);
+
+insert into visit_advice (
+  clinic_id, visit_id, dfkc_counselled, nutrition_counselled, left_lateral_rest,
+  danger_signs_counselled, lab_orders, next_followup_date, recorded_by
+) values (
+  '11111111-1111-4111-8111-000000000001', '77777777-7777-4777-8777-00000000000d',
+  false, true, false, true,
+  array['Repeat CBC in 4 weeks'], current_date + 28, '33333333-3333-4333-8333-000000000001'
+);
+
+-- ---------------------------------------------------------------------------
+-- Patient E — Diabetic Pregnancy (Gestational Diabetes)
+-- ---------------------------------------------------------------------------
+insert into patients (
+  id, clinic_id, uhid, full_name, estimated_age_years, age_recorded_on,
+  allergy_status, blood_group, blood_group_source, blood_group_recorded_on, created_by
+) values (
+  '44444444-4444-4444-8444-00000000000e',
+  '11111111-1111-4111-8111-000000000001',
+  'MH-2026-90301', 'Meera Patel', 30, current_date - 196,
+  'NONE_KNOWN', 'A_POS', 'STAFF_ENTERED', current_date - 196,
+  '33333333-3333-4333-8333-000000000002'
+);
+
+insert into patient_contacts (
+  clinic_id, patient_id, phone_e164, relationship, is_primary, verified_at, verified_by
+) values (
+  '11111111-1111-4111-8111-000000000001', '44444444-4444-4444-8444-00000000000e',
+  '+919876543211', 'HUSBAND', true, now() - interval '196 days',
+  '33333333-3333-4333-8333-000000000002'
+);
+
+-- Dated from LMP, 28 weeks pregnant (196 days)
+insert into pregnancies (
+  id, clinic_id, patient_id, status,
+  dating_reference_date, dating_reference_ga_days, dating_method, dating_certainty,
+  dating_confirmed_by, dating_confirmed_at,
+  reported_lmp, reported_lmp_certainty,
+  gravida, parity, living, abortions, created_by
+) values (
+  '55555555-5555-4555-8555-00000000000e',
+  '11111111-1111-4111-8111-000000000001',
+  '44444444-4444-4444-8444-00000000000e',
+  'ACTIVE',
+  current_date - 196, 0, 'LMP', 'CERTAIN',
+  '33333333-3333-4333-8333-000000000001', now() - interval '196 days',
+  current_date - 196, 'CERTAIN',
+  2, 1, 1, 0, '33333333-3333-4333-8333-000000000002'
+);
+
+-- High OGTT Lab Report
+insert into observations (
+  id, clinic_id, patient_id, pregnancy_id, category, test_code, test_name,
+  value_numeric, unit_original, unit_normalized, value_normalized,
+  reference_low, reference_high, observed_date, observed_date_precision,
+  source, verified_by, verified_at, flagged_by_clinician
+) values
+  ('66666666-6666-4666-8666-00000000010d', '11111111-1111-4111-8111-000000000001',
+   '44444444-4444-4444-8444-00000000000e', '55555555-5555-4555-8555-00000000000e',
+   'BIOCHEMISTRY', 'ogtt_2hr', 'OGTT 75g — 2 hour',
+   175, 'mg/dL', 'mg/dL', 175, 0, 153, current_date - 10, 'DAY',
+   'EXTRACTED_VERIFIED', '33333333-3333-4333-8333-000000000001', now() - interval '10 days', true);
+
+-- Visit for Diabetes
+insert into visits (
+  id, clinic_id, patient_id, pregnancy_id, visit_type, status, occurred_at,
+  ga_days_at_visit, dating_method_at_visit, impression,
+  clinician_id, opened_by, saved_at, saved_by
+) values (
+  '77777777-7777-4777-8777-00000000000e',
+  '11111111-1111-4111-8111-000000000001',
+  '44444444-4444-4444-8444-00000000000e',
+  '55555555-5555-4555-8555-00000000000e',
+  'ANC_OPD', 'SAVED', now(),
+  196, 'LMP',
+  'G2P1L1A0 at 28 weeks. Gestational Diabetes Mellitus (GDM) detected. Prescribed diabetic diet.',
+  '33333333-3333-4333-8333-000000000001',
+  '33333333-3333-4333-8333-000000000002',
+  now(),
+  '33333333-3333-4333-8333-000000000001'
+);
+
+insert into visit_vitals (
+  clinic_id, visit_id, bp_systolic_mmhg, bp_diastolic_mmhg, pulse_bpm, weight_kg,
+  fundal_height_cm, fetal_heart_rate_bpm, urine_sugar, sequence_no, recorded_by
+) values (
+  '11111111-1111-4111-8111-000000000001', '77777777-7777-4777-8777-00000000000e',
+  118, 76, 84, 68.5, 28.0, 138, 'ONE_PLUS', 1,
+  '33333333-3333-4333-8333-000000000002'
+);
+
+-- ---------------------------------------------------------------------------
+-- Patient F — Hypertensive Pregnancy (Preeclampsia)
+-- ---------------------------------------------------------------------------
+insert into patients (
+  id, clinic_id, uhid, full_name, estimated_age_years, age_recorded_on,
+  allergy_status, blood_group, blood_group_source, blood_group_recorded_on, created_by
+) values (
+  '44444444-4444-4444-8444-00000000000f',
+  '11111111-1111-4111-8111-000000000001',
+  'MH-2026-90302', 'Kavita Desai', 28, current_date - 238,
+  'NONE_KNOWN', 'O_POS', 'STAFF_ENTERED', current_date - 238,
+  '33333333-3333-4333-8333-000000000002'
+);
+
+insert into patient_contacts (
+  clinic_id, patient_id, phone_e164, relationship, is_primary, verified_at, verified_by
+) values (
+  '11111111-1111-4111-8111-000000000001', '44444444-4444-4444-8444-00000000000f',
+  '+919876543212', 'SELF', true, now() - interval '238 days',
+  '33333333-3333-4333-8333-000000000002'
+);
+
+-- Dated from LMP, 34 weeks pregnant (238 days)
+insert into pregnancies (
+  id, clinic_id, patient_id, status,
+  dating_reference_date, dating_reference_ga_days, dating_method, dating_certainty,
+  dating_confirmed_by, dating_confirmed_at,
+  reported_lmp, reported_lmp_certainty,
+  gravida, parity, living, abortions, created_by
+) values (
+  '55555555-5555-4555-8555-00000000000f',
+  '11111111-1111-4111-8111-000000000001',
+  '44444444-4444-4444-8444-00000000000f',
+  'ACTIVE',
+  current_date - 238, 0, 'LMP', 'CERTAIN',
+  '33333333-3333-4333-8333-000000000001', now() - interval '238 days',
+  current_date - 238, 'CERTAIN',
+  1, 0, 0, 0, '33333333-3333-4333-8333-000000000002'
+);
+
+-- Visit for Hypertension
+insert into visits (
+  id, clinic_id, patient_id, pregnancy_id, visit_type, status, occurred_at,
+  ga_days_at_visit, dating_method_at_visit, impression,
+  clinician_id, opened_by, saved_at, saved_by
+) values (
+  '77777777-7777-4777-8777-00000000000f',
+  '11111111-1111-4111-8111-000000000001',
+  '44444444-4444-4444-8444-00000000000f',
+  '55555555-5555-4555-8555-00000000000f',
+  'ANC_OPD', 'SAVED', now(),
+  238, 'LMP',
+  'G1P0L0A0 at 34 weeks. Pregnancy Induced Hypertension / Mild Preeclampsia. Advised rest.',
+  '33333333-3333-4333-8333-000000000001',
+  '33333333-3333-4333-8333-000000000002',
+  now(),
+  '33333333-3333-4333-8333-000000000001'
+);
+
+insert into visit_vitals (
+  clinic_id, visit_id, bp_systolic_mmhg, bp_diastolic_mmhg, pulse_bpm, weight_kg,
+  fundal_height_cm, fetal_heart_rate_bpm, urine_albumin, sequence_no, recorded_by
+) values (
+  '11111111-1111-4111-8111-000000000001', '77777777-7777-4777-8777-00000000000f',
+  150, 100, 88, 72.0, 32.0, 130, 'ONE_PLUS', 1,
+  '33333333-3333-4333-8333-000000000002'
+);
+
+insert into visit_advice (
+  clinic_id, visit_id, dfkc_counselled, nutrition_counselled, left_lateral_rest,
+  danger_signs_counselled, lab_orders, next_followup_date, recorded_by
+) values (
+  '11111111-1111-4111-8111-000000000001', '77777777-7777-4777-8777-00000000000f',
+  true, true, true, true,
+  array['PIH Profile (Uric acid, LFT, Platelets)', 'Obstetric Doppler Scan'], current_date + 7, '33333333-3333-4333-8333-000000000001'
+);
+
 commit;

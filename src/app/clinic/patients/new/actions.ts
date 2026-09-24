@@ -117,8 +117,19 @@ export async function submitRegistration(
         error.code === 'UHID_TAKEN'
           ? 'uhid'
           : firstFieldFromIssues(error.details)
+      
+      console.error('Validation failed with issues:', JSON.stringify(error.details, null, 2))
 
-      return { status: 'error', message: error.message, field }
+      let message = error.message
+      if (error.kind === 'VALIDATION' && Array.isArray(error.details) && error.details.length > 0) {
+        // Zod issues have a 'message' property
+        const issue = error.details[0] as { message?: string }
+        if (issue.message) {
+          message = issue.message
+        }
+      }
+
+      return { status: 'error', message, field }
     }
 
     throw error
