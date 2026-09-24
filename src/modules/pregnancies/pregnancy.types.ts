@@ -124,6 +124,15 @@ export interface PregnancyClosure {
   readonly note: string | null
 }
 
+export interface BirthPlan {
+  readonly planned_place?: string
+  readonly companion_name?: string
+  readonly transport_arranged?: boolean
+  readonly blood_donor_identified?: boolean
+  readonly funds_saved?: boolean
+  readonly special_instructions?: string
+}
+
 export interface Pregnancy {
   readonly id: string
   readonly clinicId: string
@@ -135,6 +144,7 @@ export interface Pregnancy {
   readonly prePregnancyWeightKg: number | null
   readonly heightCm: number | null
   readonly closure: PregnancyClosure
+  readonly birthPlan?: BirthPlan | null
   readonly version: number
   readonly createdAt: string
 }

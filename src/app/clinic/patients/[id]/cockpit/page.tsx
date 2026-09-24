@@ -17,7 +17,9 @@ import {
 import Link, { type LinkProps } from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 
+import { annotateObservationAction } from './report-actions'
 import { Accordion } from '@components/cockpit/accordion'
+import { BirthPlanPanel } from './birth-plan'
 import { HeaderBanner } from '@components/cockpit/header-banner'
 import { Sparkline } from '@components/cockpit/sparkline'
 import { roleHasPermission } from '@core/auth/permissions'
@@ -221,8 +223,8 @@ export default async function CockpitPage({ params }: { params: Promise<{ id: st
   const baselineWeightKg = pregnancy.prePregnancyWeightKg ?? firstWeightKg
 
   const labs = results.observations.filter((o) => o.category !== 'OTHER')
-  const significantLabs = labs.filter((o) => o.isPinned)
-  const flaggedScanFindings = results.observations.filter((o) => o.category === 'OTHER' && o.isPinned)
+  const significantLabs = labs.filter((o) => o.isPinned || o.flaggedByClinician || isOutsidePrintedRange(o.value, o.referenceRange))
+  const flaggedScanFindings = results.observations.filter((o) => o.category === 'OTHER' && (o.isPinned || o.flaggedByClinician || isOutsidePrintedRange(o.value, o.referenceRange)))
   const hbTrend = results.trends.find((t) => t.testCode === 'hb')
 
   const reports = pendingReports.map(toPendingReport)
@@ -369,40 +371,44 @@ export default async function CockpitPage({ params }: { params: Promise<{ id: st
             <div className="flex flex-col gap-2.5">
               <StagedSignificant reports={reports} kind="LAB" />
               {labs.length === 0 ? <p className="text-xs text-slate-500">No verified results yet.</p> : null}
-              {hbTrend ? (
-                <div className="rounded-lg border border-slate-200/60 bg-slate-50/70 p-3">
-                  <p className="font-heading mb-1.5 text-[11px] font-semibold tracking-wider text-slate-700 uppercase">
-                    {hbTrend.testName} trajectory
-                  </p>
-                  <Sparkline series={hbTrend} />
-                  <p className="mt-1.5 text-[11px] text-slate-500">Every verified value in this pregnancy, flagged or not.</p>
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-start">
+                {hbTrend ? (
+                  <div className="flex-1 w-full rounded-lg border border-slate-200/60 bg-slate-50/70 p-3">
+                    <p className="font-heading mb-1.5 text-[11px] font-semibold tracking-wider text-slate-700 uppercase">
+                      {hbTrend.testName} trajectory
+                    </p>
+                    <Sparkline series={hbTrend} />
+                    <p className="mt-1.5 text-[11px] text-slate-500">Every verified value in this pregnancy, flagged or not.</p>
+                  </div>
+                ) : null}
+
+                <div className="flex-1 w-full flex flex-col gap-2">
+                  {significantLabs.length > 0 ? (
+                    <ul className="flex flex-col gap-2">
+                      {significantLabs.map((observation) => (
+                        <LabRow key={observation.id} observation={observation} patientId={patient.id} />
+                      ))}
+                    </ul>
+                  ) : labs.length > 0 ? (
+                    <p className="text-xs text-slate-500">
+                      Nothing flagged as significant yet. Flag a report from the panel above to bring it here.
+                    </p>
+                  ) : null}
+
+                  {labs.length > significantLabs.length ? (
+                    <details className="group rounded-lg border border-slate-200/70 bg-white">
+                      <summary className="cursor-pointer list-none px-3 py-2 text-[11px] font-semibold text-slate-600 select-none hover:text-brand-800 [&::-webkit-details-marker]:hidden">
+                        All verified results ({labs.length})
+                      </summary>
+                      <ul className="flex flex-col gap-2 border-t border-slate-100 p-2.5">
+                        {labs.map((observation) => (
+                          <LabRow key={observation.id} observation={observation} patientId={patient.id} />
+                        ))}
+                      </ul>
+                    </details>
+                  ) : null}
                 </div>
-              ) : null}
-
-              {significantLabs.length > 0 ? (
-                <ul className="grid grid-cols-1 gap-2 md:grid-cols-2">
-                  {significantLabs.map((observation) => (
-                    <LabRow key={observation.id} observation={observation} />
-                  ))}
-                </ul>
-              ) : labs.length > 0 ? (
-                <p className="text-xs text-slate-500">
-                  Nothing flagged as significant yet. Flag a report from the panel above to bring it here.
-                </p>
-              ) : null}
-
-              {labs.length > significantLabs.length ? (
-                <details className="group rounded-lg border border-slate-200/70 bg-white">
-                  <summary className="cursor-pointer list-none px-3 py-2 text-[11px] font-semibold text-slate-600 select-none hover:text-brand-800 [&::-webkit-details-marker]:hidden">
-                    All verified results ({labs.length})
-                  </summary>
-                  <ul className="grid grid-cols-1 gap-2 border-t border-slate-100 p-2.5 md:grid-cols-2">
-                    {labs.map((observation) => (
-                      <LabRow key={observation.id} observation={observation} />
-                    ))}
-                  </ul>
-                </details>
-              ) : null}
+              </div>
             </div>
           </Accordion>
 
@@ -432,7 +438,7 @@ export default async function CockpitPage({ params }: { params: Promise<{ id: st
                   </p>
                   <ul className="grid grid-cols-1 gap-2 md:grid-cols-2">
                     {flaggedScanFindings.map((observation) => (
-                      <LabRow key={observation.id} observation={observation} />
+                      <LabRow key={observation.id} observation={observation} patientId={patient.id} />
                     ))}
                   </ul>
                 </div>
@@ -450,6 +456,14 @@ export default async function CockpitPage({ params }: { params: Promise<{ id: st
               history={history.obstetric}
               canEdit={roleHasPermission(actor.role, 'patient.update')}
             />
+          </Accordion>
+
+          <Accordion
+            title="Birth Preparedness Plan"
+            summary={pregnancy.birthPlan && Object.keys(pregnancy.birthPlan).length > 0 ? 'Recorded' : 'Not recorded'}
+            icon={<ListChecks className="h-4.75 w-4.75" />}
+          >
+            <BirthPlanPanel plan={pregnancy.birthPlan || {}} />
           </Accordion>
 
           <Accordion
@@ -502,12 +516,20 @@ export default async function CockpitPage({ params }: { params: Promise<{ id: st
                     <span className="min-w-0 truncate text-[11px] text-slate-600">· {visit.diagnosis}</span>
                   ) : null}
                   {visit.status === 'SAVED' ? (
-                    <Link
-                      href={`/clinic/visits/${visit.id}/slip`}
-                      className="no-print ml-auto text-[11px] font-medium text-brand-600 hover:underline"
-                    >
-                      print slip
-                    </Link>
+                    <div className="no-print ml-auto flex gap-3">
+                      <Link
+                        href={`/clinic/visits/${visit.id}/slip`}
+                        className="text-[11px] font-medium text-brand-600 hover:underline"
+                      >
+                        preview
+                      </Link>
+                      <Link
+                        href={`/clinic/visits/${visit.id}/slip?print=true`}
+                        className="text-[11px] font-medium text-brand-600 hover:underline"
+                      >
+                        print
+                      </Link>
+                    </div>
                   ) : null}
                 </li>
               ))}
@@ -691,11 +713,13 @@ function immunizationSummary(history: PatientHistory, pregnancyId: string): stri
 /* Rows                                                                       */
 /* -------------------------------------------------------------------------- */
 
-function LabRow({ observation }: { observation: Observation }) {
+function LabRow({ observation, patientId }: { observation: Observation; patientId: string }) {
   const range = formatReferenceRange(observation.referenceRange)
   const outside = isOutsidePrintedRange(observation.value, observation.referenceRange)
   // Red only because a clinician flagged it — never because of the range.
   const flagged = observation.flaggedByClinician === true
+  
+  const onAnnotate = annotateObservationAction.bind(null, observation.id, patientId)
 
   return (
     <li
@@ -720,7 +744,13 @@ function LabRow({ observation }: { observation: Observation }) {
           ) : null}
         </span>
         {observation.clinicianNote ? (
-          <span className="block text-[11px] text-slate-600 italic">{observation.clinicianNote}</span>
+          <span className="block text-[11px] text-slate-600 italic mt-0.5">{observation.clinicianNote}</span>
+        ) : outside || flagged ? (
+          <form action={onAnnotate} className="mt-1">
+            <button className="text-[10px] font-medium text-brand-600 hover:underline">
+              Mark as "Does not require treatment"
+            </button>
+          </form>
         ) : null}
       </span>
 

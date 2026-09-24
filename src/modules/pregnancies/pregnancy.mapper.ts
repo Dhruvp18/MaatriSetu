@@ -134,6 +134,7 @@ export function toPregnancy(row: PregnancyRow): Pregnancy {
       closedBy: row.closed_by,
       note: row.closure_note,
     },
+    birthPlan: (row as any).birth_plan ?? null,
     version: row.version,
     createdAt: row.created_at,
   }
