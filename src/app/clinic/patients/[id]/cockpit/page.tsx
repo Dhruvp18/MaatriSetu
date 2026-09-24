@@ -24,6 +24,7 @@ import { HeaderBanner } from '@components/cockpit/header-banner'
 import { Sparkline } from '@components/cockpit/sparkline'
 import { roleHasPermission } from '@core/auth/permissions'
 import { resolveSession } from '@core/auth/session'
+import { userClient } from '@core/db/clients'
 import { AppError } from '@core/errors/app-error'
 import { formatGestationalAge, splitGestationalAge, todayIn } from '@core/obstetrics/dating'
 import { getPatientHistory, type PatientHistory } from '@modules/history/history.service'
@@ -58,7 +59,7 @@ import {
   listDoctorReferences,
   listVisits,
 } from '@modules/visits/visit.service'
-import type { VitalsReading } from '@modules/visits/visit.types'
+import type { Visit, VitalsReading } from '@modules/visits/visit.types'
 import { listForPatient as listVoiceQueries } from '@modules/voice/voice.service'
 import { listUpcomingAppointments } from '@modules/schedule/schedule.service'
 import { describeRouting, type VoiceQuery } from '@modules/voice/voice.types'
@@ -225,7 +226,76 @@ export default async function CockpitPage({ params }: { params: Promise<{ id: st
   const labs = results.observations.filter((o) => o.category !== 'OTHER')
   const significantLabs = labs.filter((o) => o.isPinned || o.flaggedByClinician || isOutsidePrintedRange(o.value, o.referenceRange))
   const flaggedScanFindings = results.observations.filter((o) => o.category === 'OTHER' && (o.isPinned || o.flaggedByClinician || isOutsidePrintedRange(o.value, o.referenceRange)))
-  const hbTrend = results.trends.find((t) => t.testCode === 'hb')
+  const hbRawTrend = results.trends.find((t) => t.testCode === 'hb' || t.testCode.toLowerCase() === 'haemoglobin')
+  const hbTrend = hbRawTrend && hbRawTrend.points.some(p => p.value < 11.0 || p.value > 16.0) ? hbRawTrend : undefined
+
+  // AFI Trend (Oligo/Poly)
+  const afiPoints = results.scans
+    .filter((s) => s.afiCm !== null)
+    .sort((a: ScanReport, b: ScanReport) => a.scanDate.localeCompare(b.scanDate))
+    .map((s) => ({ observationId: s.id, value: s.afiCm!, unit: 'cm', observedDate: s.scanDate }))
+
+  const afiTrendData = afiPoints.length > 0 ? {
+    testCode: 'afi', testName: 'Amniotic Fluid Index (AFI)', unit: 'cm', points: afiPoints
+  } : null
+  const afiTrend = afiTrendData && afiTrendData.points.some(p => p.value < 5 || p.value > 24) ? afiTrendData : null
+
+  // SDP Trend (Oligo/Poly alternative)
+  const sdpPoints = results.scans
+    .filter((s) => s.deepestPocketCm !== null)
+    .sort((a: ScanReport, b: ScanReport) => a.scanDate.localeCompare(b.scanDate))
+    .map((s) => ({ observationId: s.id, value: s.deepestPocketCm!, unit: 'cm', observedDate: s.scanDate }))
+
+  const sdpTrendData = sdpPoints.length > 0 ? {
+    testCode: 'sdp', testName: 'Single Deepest Pocket (SDP)', unit: 'cm', points: sdpPoints
+  } : null
+  const sdpTrend = sdpTrendData && sdpTrendData.points.some(p => p.value < 2 || p.value > 8) ? sdpTrendData : null
+
+  // EFW Centile Trend (IUGR/FGR)
+  const efwPoints = results.scans
+    .filter((s) => s.efwCentile !== null)
+    .sort((a: ScanReport, b: ScanReport) => a.scanDate.localeCompare(b.scanDate))
+    .map((s) => ({ observationId: s.id, value: s.efwCentile!, unit: 'th', observedDate: s.scanDate }))
+
+  const efwTrendData = efwPoints.length > 0 ? {
+    testCode: 'efw', testName: 'Estimated Fetal Wt (Centile)', unit: 'centile', points: efwPoints
+  } : null
+  const efwTrend = efwTrendData && efwTrendData.points.some(p => p.value < 10) ? efwTrendData : null
+
+  // AC Centile Trend (IUGR/FGR) from observations
+  const acRawTrend = results.trends.find((t) => t.testCode.toLowerCase() === 'ac' || t.testCode.toLowerCase() === 'ac_centile')
+  const acTrend = acRawTrend && acRawTrend.points.some(p => p.value < 10) ? acRawTrend : undefined
+
+  // BP Trend (Hypertension)
+  const { data: vitalsHistory } = await (await userClient())
+    .from('visit_vitals')
+    .select('visit_id, bp_systolic_mmhg, bp_diastolic_mmhg')
+    .in('visit_id', visits.map((v: Visit) => v.id))
+    
+  const bpPoints = (vitalsHistory || [])
+    .filter((v: any) => v.bp_systolic_mmhg !== null)
+    .map((v: any) => {
+      const visit = visits.find((visit: Visit) => visit.id === v.visit_id)
+      return {
+        observationId: v.visit_id, value: v.bp_systolic_mmhg!, diastolic: v.bp_diastolic_mmhg, unit: 'mmHg', observedDate: visit?.occurredAt || ''
+      }
+    })
+    .filter((p: any) => p.observedDate)
+    .sort((a: any, b: any) => a.observedDate.localeCompare(b.observedDate))
+
+  const bpTrendData = bpPoints.length > 0 ? {
+    testCode: 'bp', testName: 'Blood Pressure (Systolic)', unit: 'mmHg', points: bpPoints
+  } : null
+  const bpTrend = bpTrendData && bpTrendData.points.some(p => p.value >= 140 || (p.diastolic && p.diastolic >= 90)) ? bpTrendData : null
+
+  // Glucose Trends (Diabetes)
+  const glucoseCodes = ['fbs', 'ppbs', 'rbs', 'glucose', 'blood glucose', 'hba1c', 'hba1c (%)', 'bs', 'b/s']
+  const glucoseRawTrends = results.trends.filter((t) => glucoseCodes.includes(t.testCode.toLowerCase()))
+  const glucoseTrends = glucoseRawTrends.filter(t => {
+    const isHbA1c = t.testCode.toLowerCase().includes('hba1c')
+    if (isHbA1c) return t.points.some(p => p.value >= 6.5)
+    return t.points.some(p => p.value >= 140 || (t.testCode.toLowerCase() === 'fbs' && p.value >= 95))
+  })
 
   const reports = pendingReports.map(toPendingReport)
   const queries = voiceQueries.map(toQueryView)
@@ -372,13 +442,81 @@ export default async function CockpitPage({ params }: { params: Promise<{ id: st
               <StagedSignificant reports={reports} kind="LAB" />
               {labs.length === 0 ? <p className="text-xs text-slate-500">No verified results yet.</p> : null}
               <div className="flex flex-col gap-3 lg:flex-row lg:items-start">
-                {hbTrend ? (
-                  <div className="flex-1 w-full rounded-lg border border-slate-200/60 bg-slate-50/70 p-3">
-                    <p className="font-heading mb-1.5 text-[11px] font-semibold tracking-wider text-slate-700 uppercase">
-                      {hbTrend.testName} trajectory
-                    </p>
-                    <Sparkline series={hbTrend} />
-                    <p className="mt-1.5 text-[11px] text-slate-500">Every verified value in this pregnancy, flagged or not.</p>
+                {hbTrend || afiTrend || bpTrend || sdpTrend || efwTrend || acTrend || glucoseTrends.length > 0 ? (
+                  <div className="flex flex-col gap-3 flex-1 w-full">
+                    {hbTrend ? (
+                      <div className="w-full rounded-lg border border-slate-200/60 bg-slate-50/70 p-3">
+                        <p className="font-heading mb-1.5 text-[11px] font-semibold tracking-wider text-slate-700 uppercase">
+                          {hbTrend.testName} trajectory
+                        </p>
+                        <Sparkline series={hbTrend} threshold={11.0} thresholdLabel="Normal ≥ 11 g/dL" />
+                        <p className="mt-1.5 text-[11px] text-slate-500">Every verified value in this pregnancy, flagged or not.</p>
+                      </div>
+                    ) : null}
+
+                    {afiTrend ? (
+                      <div className="w-full rounded-lg border border-slate-200/60 bg-slate-50/70 p-3">
+                        <p className="font-heading mb-1.5 text-[11px] font-semibold tracking-wider text-slate-700 uppercase">
+                          {afiTrend.testName} trajectory
+                        </p>
+                        <Sparkline series={afiTrend} threshold={5} thresholdLabel="Normal ≥ 5 cm" />
+                        <p className="mt-1.5 text-[11px] text-slate-500">Every verified AFI in this pregnancy, mapped from scans.</p>
+                      </div>
+                    ) : null}
+
+                    {sdpTrend ? (
+                      <div className="w-full rounded-lg border border-slate-200/60 bg-slate-50/70 p-3">
+                        <p className="font-heading mb-1.5 text-[11px] font-semibold tracking-wider text-slate-700 uppercase">
+                          {sdpTrend.testName} trajectory
+                        </p>
+                        <Sparkline series={sdpTrend} threshold={2} thresholdLabel="Normal ≥ 2 cm" />
+                        <p className="mt-1.5 text-[11px] text-slate-500">Every verified Single Deepest Pocket mapped from scans.</p>
+                      </div>
+                    ) : null}
+
+                    {bpTrend ? (
+                      <div className="w-full rounded-lg border border-slate-200/60 bg-slate-50/70 p-3">
+                        <p className="font-heading mb-1.5 text-[11px] font-semibold tracking-wider text-slate-700 uppercase">
+                          {bpTrend.testName} trajectory
+                        </p>
+                        <Sparkline series={bpTrend} threshold={140} thresholdLabel="Normal < 140 mmHg" />
+                        <p className="mt-1.5 text-[11px] text-slate-500">Systolic Blood Pressure across this pregnancy's visits.</p>
+                      </div>
+                    ) : null}
+
+                    {efwTrend ? (
+                      <div className="w-full rounded-lg border border-slate-200/60 bg-slate-50/70 p-3">
+                        <p className="font-heading mb-1.5 text-[11px] font-semibold tracking-wider text-slate-700 uppercase">
+                          {efwTrend.testName} trajectory
+                        </p>
+                        <Sparkline series={efwTrend} threshold={10} thresholdLabel="Normal ≥ 10th centile" />
+                        <p className="mt-1.5 text-[11px] text-slate-500">Estimated Fetal Weight percentiles mapped from scans.</p>
+                      </div>
+                    ) : null}
+
+                    {acTrend ? (
+                      <div className="w-full rounded-lg border border-slate-200/60 bg-slate-50/70 p-3">
+                        <p className="font-heading mb-1.5 text-[11px] font-semibold tracking-wider text-slate-700 uppercase">
+                          Abdominal Circumference trajectory
+                        </p>
+                        <Sparkline series={acTrend} threshold={10} thresholdLabel="Normal ≥ 10th centile" />
+                        <p className="mt-1.5 text-[11px] text-slate-500">Abdominal Circumference percentiles mapped from observations.</p>
+                      </div>
+                    ) : null}
+
+                    {glucoseTrends.map(t => (
+                      <div key={t.testCode} className="w-full rounded-lg border border-slate-200/60 bg-slate-50/70 p-3">
+                        <p className="font-heading mb-1.5 text-[11px] font-semibold tracking-wider text-slate-700 uppercase">
+                          {t.testName} trajectory
+                        </p>
+                        <Sparkline 
+                          series={t} 
+                          threshold={t.testCode.toLowerCase().includes('hba1c') ? 6.5 : (t.testCode.toLowerCase() === 'fbs' ? 95 : 140)} 
+                          thresholdLabel={t.testCode.toLowerCase().includes('hba1c') ? "Normal < 6.5 %" : (t.testCode.toLowerCase() === 'fbs' ? "Normal < 95 mg/dL" : "Normal < 140 mg/dL")}
+                        />
+                        <p className="mt-1.5 text-[11px] text-slate-500">Every verified value in this pregnancy for this glucose metric.</p>
+                      </div>
+                    ))}
                   </div>
                 ) : null}
 
@@ -719,7 +857,10 @@ function LabRow({ observation, patientId }: { observation: Observation; patientI
   // Red only because a clinician flagged it — never because of the range.
   const flagged = observation.flaggedByClinician === true
   
-  const onAnnotate = annotateObservationAction.bind(null, observation.id, patientId)
+  const onAnnotate = async (formData: FormData) => {
+    'use server'
+    await annotateObservationAction(observation.id, patientId, formData)
+  }
 
   return (
     <li
