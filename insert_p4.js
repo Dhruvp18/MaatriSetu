@@ -21,11 +21,11 @@ insert into menstrual_histories (id, clinic_id, patient_id, recorded_on, lmp, me
 
 -- Normal ANC Visit
 insert into visits (id, clinic_id, patient_id, pregnancy_id, visit_type, status, occurred_at, ga_days_at_visit, dating_method_at_visit, impression, examination, diagnosis, consultation_summary, clinician_id, opened_by, saved_at, saved_by) values 
-('77777777-7777-4777-8777-000000000101', '11111111-1111-4111-8111-000000000001', '44444444-4444-4444-8444-000000000010', '55555555-5555-4555-8555-000000000010', 'ANC_OPD', 'SAVED', now(), 150, 'LMP', 'G1 at 21 weeks 3 days. Normal ANC but mother has Kyphosis.', 'General examination reveals severe kyphosis of the thoracic spine. Fundal height corresponds to dates. FHS regular and normal.', 'Primi with Kyphosis', 'Discussed birth plan with couple. Given the severe kyphosis, regional (spinal/epidural) anesthesia may be difficult or contraindicated. Planned for Elective LSCS under General Anesthesia at term. Referred to anesthetist for pre-anesthesia checkup.', '33333333-3333-4333-8333-000000000001', '33333333-3333-4333-8333-000000000002', now(), '33333333-3333-4333-8333-000000000001')
+('77777777-7777-4777-8777-000000000102', '11111111-1111-4111-8111-000000000001', '44444444-4444-4444-8444-000000000010', '55555555-5555-4555-8555-000000000010', 'ANC_OPD', 'SAVED', now(), 150, 'LMP', 'G1 at 21 weeks 3 days. Normal ANC but mother has Kyphosis.', 'General examination reveals severe kyphosis of the thoracic spine. Fundal height corresponds to dates. FHS regular and normal.', 'Kyphosis', 'Discussed birth plan with couple. Given the severe kyphosis, regional (spinal/epidural) anesthesia may be difficult or contraindicated. Planned for Elective LSCS under General Anesthesia at term. Referred to anesthetist for pre-anesthesia checkup.', '33333333-3333-4333-8333-000000000001', '33333333-3333-4333-8333-000000000002', now(), '33333333-3333-4333-8333-000000000001')
 on conflict (id) do nothing;
 
 insert into visit_vitals (clinic_id, visit_id, bp_systolic_mmhg, bp_diastolic_mmhg, weight_kg, fundal_height_cm, urine_sugar, sequence_no, recorded_by) values 
-('11111111-1111-4111-8111-000000000001', '77777777-7777-4777-8777-000000000101', 110, 70, 52.0, 20, 'NIL', 1, '33333333-3333-4333-8333-000000000002')
+('11111111-1111-4111-8111-000000000001', '77777777-7777-4777-8777-000000000102', 110, 70, 52.0, 20, 'NIL', 1, '33333333-3333-4333-8333-000000000002')
 on conflict do nothing;
 
 -- Normal Labs
