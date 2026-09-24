@@ -4,6 +4,8 @@ import { useState, useRef, useEffect } from 'react'
 import { Bot, User, Send, Mic, AlertTriangle, CalendarHeart, Info } from 'lucide-react'
 import { processPatientQuery } from './actions'
 import type { PatientQueryRow } from '../lib/data'
+import type { Lang } from '../lib/i18n/locales'
+import type { Dict } from '../lib/i18n/dictionaries'
 
 type Message = {
   id: string
@@ -22,25 +24,23 @@ function historyToMessages(history: PatientQueryRow[]): Message[] {
   return msgs
 }
 
-const WELCOME: Message = {
-  id: 'welcome',
-  role: 'bot',
-  text: "Hello! I'm here to help with questions about your pregnancy. I'll let you know if something needs urgent attention, or if it can wait for your next visit. What's on your mind?",
-}
-
 export function ChatInterface({
   patientId,
   clinicId,
   initialHistory,
+  lang,
+  t,
 }: {
   patientId: string | null
   clinicId: string | null
   initialHistory: PatientQueryRow[]
+  lang: Lang
+  t: Dict['chat']
 }) {
-  const [messages, setMessages] = useState<Message[]>(() => [
-    WELCOME,
-    ...historyToMessages(initialHistory),
-  ])
+  // Built from props rather than held in state so it follows a language switch.
+  const welcome: Message = { id: 'welcome', role: 'bot', text: t.welcome }
+  const [conversation, setMessages] = useState<Message[]>(() => historyToMessages(initialHistory))
+  const messages = [welcome, ...conversation]
   const [input, setInput] = useState('')
   const [isTyping, setIsTyping] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -60,7 +60,7 @@ export function ChatInterface({
     setIsTyping(true)
 
     try {
-      const result = await processPatientQuery(text, patientId, clinicId)
+      const result = await processPatientQuery(text, patientId, clinicId, lang)
       const botMsg: Message = {
         id: `b-${Date.now()}`,
         role: 'bot',
@@ -72,7 +72,7 @@ export function ChatInterface({
     } catch {
       setMessages(prev => [
         ...prev,
-        { id: `err-${Date.now()}`, role: 'bot', text: 'Sorry, I had trouble processing that. Please try again.' },
+        { id: `err-${Date.now()}`, role: 'bot', text: t.error },
       ])
     } finally {
       setIsTyping(false)
@@ -80,11 +80,12 @@ export function ChatInterface({
   }
 
   return (
-    <div className="flex flex-col h-[calc(100dvh-70px)] bg-[#fdfcfa]">
+    // 44px language bar above, 70px bottom nav below.
+    <div className="flex flex-col h-[calc(100dvh-114px)] bg-[#fdfcfa]">
       {/* Header */}
       <div className="p-4 pt-8 bg-white border-b border-slate-100 flex-shrink-0">
-        <h1 className="text-xl font-bold text-[#8a3c4a] font-serif mb-0.5">Message Us</h1>
-        <p className="text-xs text-slate-400 italic">Ask · Share · Get Guidance</p>
+        <h1 className="text-xl font-bold text-[#8a3c4a] font-serif mb-0.5">{t.title}</h1>
+        <p className="text-xs text-slate-400 italic">{t.subtitle}</p>
       </div>
 
       {/* Messages */}
@@ -106,7 +107,7 @@ export function ChatInterface({
                   className="mt-2 flex items-center gap-2 bg-rose-600 text-white px-3 py-2 rounded-xl text-xs font-bold hover:bg-rose-700 transition"
                 >
                   <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                  Book an appointment now
+                  {t.bookNow}
                 </a>
               )}
 
@@ -116,13 +117,13 @@ export function ChatInterface({
                   className="mt-2 flex items-center gap-2 bg-amber-500 text-white px-3 py-2 rounded-xl text-xs font-bold hover:bg-amber-600 transition"
                 >
                   <CalendarHeart className="w-3.5 h-3.5 shrink-0" />
-                  Schedule a visit for tomorrow
+                  {t.visitTomorrow}
                 </a>
               )}
 
               {msg.triageLevel === 'NORMAL' && msg.role === 'bot' && msg.id !== 'welcome' && (
                 <div className="mt-2 flex items-center gap-1.5 text-[10px] text-slate-400 italic">
-                  <Info className="w-3 h-3 shrink-0" /> Will be addressed at your next follow-up
+                  <Info className="w-3 h-3 shrink-0" /> {t.nextFollowUp}
                 </div>
               )}
             </div>
@@ -149,7 +150,7 @@ export function ChatInterface({
         <form onSubmit={handleSend} className="flex gap-2 items-center bg-slate-50 rounded-full border border-slate-200 px-4 py-2.5">
           <input
             type="text"
-            placeholder="Type your question..."
+            placeholder={t.placeholder}
             className="flex-1 bg-transparent border-none focus:outline-none text-sm text-slate-700 placeholder:text-slate-400"
             value={input}
             onChange={e => setInput(e.target.value)}
@@ -160,13 +161,13 @@ export function ChatInterface({
               <Send className="w-5 h-5" />
             </button>
           ) : (
-            <button type="button" className="text-[#b84c63]" aria-label="Voice input (not yet enabled)">
+            <button type="button" className="text-[#b84c63]" aria-label={t.voiceInput}>
               <Mic className="w-5 h-5" />
             </button>
           )}
         </form>
         <p className="text-[9px] text-slate-400 text-center mt-1.5 italic px-4">
-          This assistant does not give medical advice. Always consult your doctor.
+          {t.disclaimer}
         </p>
       </div>
     </div>

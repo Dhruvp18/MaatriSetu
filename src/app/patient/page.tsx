@@ -2,22 +2,21 @@ import Link from 'next/link'
 import { User, FileText, UploadCloud, FileSymlink } from 'lucide-react'
 import { getPatientSession } from './lib/session'
 import { getPatientDashboard } from './lib/data'
-
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
-}
+import { getPatientI18n } from './lib/i18n/server'
+import { fmt, formatDate } from './lib/i18n/locales'
 
 export default async function MyANCPage() {
-  const session = await getPatientSession()
+  const [session, { lang, t }] = await Promise.all([getPatientSession(), getPatientI18n()])
+  const h = t.home
 
   // Show a "scan your QR" prompt if not authenticated
   if (!session) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[80vh] p-8 text-center">
         <div className="text-5xl mb-4">📷</div>
-        <h2 className="text-xl font-bold text-[#8a3c4a] font-serif mb-2">Scan Your File QR</h2>
+        <h2 className="text-xl font-bold text-[#8a3c4a] font-serif mb-2">{h.scanTitle}</h2>
         <p className="text-sm text-slate-500 italic leading-relaxed">
-          Scan the QR code on your ANC paper file to view your health records.
+          {h.scanBody}
         </p>
       </div>
     )
@@ -34,12 +33,12 @@ export default async function MyANCPage() {
             <span className="text-xl">🤰</span>
           </div>
           <div>
-            <p className="text-xs text-slate-400 font-medium">Welcome back</p>
+            <p className="text-xs text-slate-400 font-medium">{h.welcome}</p>
             <h1 className="text-base font-bold text-slate-800">{data.fullName}</h1>
           </div>
         </div>
         <div className="text-right">
-          <p className="text-[10px] text-slate-400">UHID</p>
+          <p className="text-[10px] text-slate-400">{h.uhid}</p>
           <p className="text-xs font-mono font-bold text-slate-600">{data.uhid}</p>
         </div>
       </div>
@@ -49,18 +48,18 @@ export default async function MyANCPage() {
         {data.hasActivePregnancy ? (
           <div className="flex justify-between items-center">
             <div>
-              <p className="text-xs text-slate-500 mb-1 italic">Current Pregnancy</p>
+              <p className="text-xs text-slate-500 mb-1 italic">{h.currentPregnancy}</p>
               {data.gestationalAge ? (
                 <p className="text-2xl font-bold text-[#8a3c4a] font-serif">
-                  {data.gestationalAge.weeks}w {data.gestationalAge.days}d
-                  <span className="text-sm font-normal text-slate-500 ml-1">gestation</span>
+                  {fmt(h.gestationAge, { weeks: data.gestationalAge.weeks, days: data.gestationalAge.days })}
+                  <span className="text-sm font-normal text-slate-500 ml-1">{h.gestation}</span>
                 </p>
               ) : (
-                <p className="text-base font-bold text-slate-500 italic">Dating not established</p>
+                <p className="text-base font-bold text-slate-500 italic">{h.datingNotEstablished}</p>
               )}
               {data.edd && (
                 <p className="text-xs text-slate-500 mt-1">
-                  Expected: <span className="font-semibold text-slate-700">{formatDate(data.edd)}</span>
+                  {h.expected} <span className="font-semibold text-slate-700">{formatDate(data.edd, lang)}</span>
                 </p>
               )}
             </div>
@@ -70,7 +69,7 @@ export default async function MyANCPage() {
           </div>
         ) : (
           <div className="text-center py-2">
-            <p className="text-slate-500 italic text-sm">No active pregnancy on record</p>
+            <p className="text-slate-500 italic text-sm">{h.noActivePregnancy}</p>
           </div>
         )}
       </div>
@@ -80,14 +79,14 @@ export default async function MyANCPage() {
         <div className="flex gap-3 mb-6">
           {data.lastVisitDate && (
             <div className="flex-1 bg-slate-50 rounded-xl p-3 border border-slate-100">
-              <p className="text-[10px] text-slate-400 mb-1">Last Visit</p>
-              <p className="text-sm font-bold text-slate-700">{formatDate(data.lastVisitDate)}</p>
+              <p className="text-[10px] text-slate-400 mb-1">{h.lastVisit}</p>
+              <p className="text-sm font-bold text-slate-700">{formatDate(data.lastVisitDate, lang)}</p>
             </div>
           )}
           {data.nextFollowUpDate && (
             <div className="flex-1 bg-amber-50 rounded-xl p-3 border border-amber-100">
-              <p className="text-[10px] text-amber-600 mb-1">Next Follow-up</p>
-              <p className="text-sm font-bold text-amber-700">{formatDate(data.nextFollowUpDate)}</p>
+              <p className="text-[10px] text-amber-600 mb-1">{h.nextFollowUp}</p>
+              <p className="text-sm font-bold text-amber-700">{formatDate(data.nextFollowUpDate, lang)}</p>
             </div>
           )}
         </div>
@@ -96,10 +95,10 @@ export default async function MyANCPage() {
       {/* Grid Menu */}
       <div className="grid grid-cols-2 gap-3 mb-8">
         {[
-          { href: '/patient/profile', icon: User, label: 'My Profile', desc: 'View and manage your details', bg: 'bg-[#ffe8ed]', color: '#b84c63', textColor: '#8a3c4a' },
-          { href: '/patient/prescriptions', icon: FileText, label: 'My Prescriptions', desc: 'View your medicines and advice', bg: 'bg-[#eaf4ff]', color: '#456b9c', textColor: '#456b9c' },
-          { href: '/patient/scan-report', icon: UploadCloud, label: 'Scan New Report', desc: 'Scan and upload your reports', bg: 'bg-[#fff1da]', color: '#a47b3b', textColor: '#a47b3b' },
-          { href: '/patient/reports', icon: FileSymlink, label: 'My Reports', desc: 'View uploaded reports and scans', bg: 'bg-[#eeeaff]', color: '#5c4a9c', textColor: '#5c4a9c' },
+          { href: '/patient/profile', icon: User, ...h.tiles.profile, bg: 'bg-[#ffe8ed]', color: '#b84c63', textColor: '#8a3c4a' },
+          { href: '/patient/prescriptions', icon: FileText, ...h.tiles.prescriptions, bg: 'bg-[#eaf4ff]', color: '#456b9c', textColor: '#456b9c' },
+          { href: '/patient/scan-report', icon: UploadCloud, ...h.tiles.scanReport, bg: 'bg-[#fff1da]', color: '#a47b3b', textColor: '#a47b3b' },
+          { href: '/patient/reports', icon: FileSymlink, ...h.tiles.reports, bg: 'bg-[#eeeaff]', color: '#5c4a9c', textColor: '#5c4a9c' },
         ].map(({ href, icon: Icon, label, desc, bg, color, textColor }) => (
           <Link
             key={href}
@@ -127,7 +126,7 @@ export default async function MyANCPage() {
       </div>
 
       <p className="text-sm text-slate-400 italic font-serif text-center px-4 pb-4">
-        "A healthier you for a brighter tomorrow" <span className="text-pink-300">❤</span>
+        {h.tagline} <span className="text-pink-300">❤</span>
       </p>
     </div>
   )

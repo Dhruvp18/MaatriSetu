@@ -4,14 +4,15 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Home, Info, MessageSquare } from 'lucide-react'
 
-const navItems = [
-  { href: '/patient', label: 'My ANC', icon: Home, activeColor: 'text-[#b84c63]', activeBg: 'bg-rose-50' },
-  { href: '/patient/info', label: 'Information', icon: Info, activeColor: 'text-[#456b9c]', activeBg: 'bg-blue-50' },
-  { href: '/patient/chat', label: 'Message Us', icon: MessageSquare, activeColor: 'text-[#5c4a9c]', activeBg: 'bg-purple-50' },
-]
+type NavLabels = { home: string; info: string; chat: string }
 
-export function BottomNav() {
+export function BottomNav({ labels }: { labels: NavLabels }) {
   const pathname = usePathname()
+  const navItems = [
+    { href: '/patient', label: labels.home, icon: Home, activeColor: 'text-[#b84c63]', activeBg: 'bg-rose-50' },
+    { href: '/patient/info', label: labels.info, icon: Info, activeColor: 'text-[#456b9c]', activeBg: 'bg-blue-50' },
+    { href: '/patient/chat', label: labels.chat, icon: MessageSquare, activeColor: 'text-[#5c4a9c]', activeBg: 'bg-purple-50' },
+  ]
 
   return (
     <nav

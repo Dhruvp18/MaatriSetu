@@ -2,6 +2,8 @@
 
 import { serviceClient } from '@core/db/clients'
 import { serverEnv, providerEnv } from '@core/config/env'
+import { DEFAULT_LANG, isLang, type Lang } from '../lib/i18n/locales'
+import { getDictionary } from '../lib/i18n/dictionaries'
 
 export type TriageLevel = 'CRITICAL' | 'IMPORTANT' | 'NORMAL'
 
@@ -11,9 +13,15 @@ export interface TriageResult {
   clinicPhone: string
 }
 
-const SYSTEM_PROMPT = `You are a helpful maternity care assistant for an antenatal clinic in India. Your job is to:
+const REPLY_LANGUAGE: Record<Lang, string> = {
+  en: 'English',
+  hi: 'Hindi, written in Devanagari script',
+  mr: 'Marathi, written in Devanagari script',
+}
+
+const buildSystemPrompt = (lang: Lang) => `You are a helpful maternity care assistant for an antenatal clinic in India. Your job is to:
 1. Classify the patient's query into exactly one of: CRITICAL, IMPORTANT, or NORMAL
-2. Respond with a brief, empathetic, plain-language reply in English (2-3 sentences max)
+2. Respond with a brief, empathetic, plain-language reply in ${REPLY_LANGUAGE[lang]} (2-3 sentences max). Reply in this language even if the patient writes in another language or in romanised text. Keep the JSON keys and the triage value in English.
 
 RULES — strictly follow these:
 - NEVER prescribe medicines, dosages, or clinical treatments
@@ -34,36 +42,47 @@ RESPONSE FORMAT — reply ONLY with valid JSON, nothing else:
 }`
 
 /** Keyword-based fallback triage when no Gemini key is configured. */
-function keywordTriage(query: string): TriageResult & { clinicPhone: string } {
+function keywordTriage(query: string, lang: Lang): TriageResult & { clinicPhone: string } {
   const q = query.toLowerCase()
   const clinicPhone = serverEnv().CLINIC_PHONE_NUMBER
+  const replies = getDictionary(lang).chat.fallback
 
-  const criticalWords = ['bleeding', 'blood', 'pain', 'fits', 'unconscious', 'faint', 'emergency', 'no movement', 'not moving', 'breathless', 'vision', 'swelling']
-  const importantWords = ['fever', 'vomit', 'headache', 'reduced movement', 'nausea', 'burning', 'discharge', 'itching']
+  // Matched whatever language is selected: a mother may type in any of them.
+  const criticalWords = [
+    'bleeding', 'blood', 'pain', 'fits', 'unconscious', 'faint', 'emergency', 'no movement', 'not moving', 'breathless', 'vision', 'swelling',
+    'खून', 'रक्त', 'दर्द', 'वेदना', 'झटके', 'बेहोश', 'बेशुद्ध', 'हलचल नहीं', 'हालचाल नाही', 'सांस', 'श्वास', 'धुंधला', 'धूसर', 'सूजन', 'सूज',
+  ]
+  const importantWords = [
+    'fever', 'vomit', 'headache', 'reduced movement', 'nausea', 'burning', 'discharge', 'itching',
+    'बुखार', 'ताप', 'उल्टी', 'उलटी', 'सिरदर्द', 'डोकेदुखी', 'मतली', 'मळमळ', 'जलन', 'जळजळ', 'खुजली', 'खाज',
+  ]
 
   if (criticalWords.some(w => q.includes(w))) {
-    return { triageLevel: 'CRITICAL', responseText: 'Your symptoms need immediate attention. Please come to the clinic or call us right away.', clinicPhone }
+    return { triageLevel: 'CRITICAL', responseText: replies.critical, clinicPhone }
   }
   if (importantWords.some(w => q.includes(w))) {
-    return { triageLevel: 'IMPORTANT', responseText: "This should be looked at soon. Please try to visit the clinic tomorrow or call us if it gets worse.", clinicPhone }
+    return { triageLevel: 'IMPORTANT', responseText: replies.important, clinicPhone }
   }
-  return { triageLevel: 'NORMAL', responseText: 'Thank you for reaching out. Our team will address your question at your next scheduled follow-up visit.', clinicPhone }
+  return { triageLevel: 'NORMAL', responseText: replies.normal, clinicPhone }
 }
 
 export async function processPatientQuery(
   query: string,
   patientId: string | null,
   clinicId: string | null,
+  requestedLang?: string,
 ): Promise<TriageResult & { clinicPhone: string }> {
   const clinicPhone = serverEnv().CLINIC_PHONE_NUMBER
   const geminiKey = providerEnv().GEMINI_API_KEY
+  // Server actions take client input; never trust it to be a known language.
+  const lang = isLang(requestedLang) ? requestedLang : DEFAULT_LANG
 
   let triageLevel: TriageLevel
   let responseText: string
 
   if (!geminiKey) {
     // No API key — use keyword fallback (visibly labelled in UI)
-    return keywordTriage(query)
+    return keywordTriage(query, lang)
   }
 
   try {
@@ -73,9 +92,10 @@ export async function processPatientQuery(
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
+          system_instruction: { parts: [{ text: buildSystemPrompt(lang) }] },
           contents: [{ role: 'user', parts: [{ text: query }] }],
-          generationConfig: { responseMimeType: 'application/json', temperature: 0.3, maxOutputTokens: 256 },
+          // Devanagari costs several times more tokens than English; leave room so the JSON is not cut off.
+          generationConfig: { responseMimeType: 'application/json', temperature: 0.3, maxOutputTokens: 512 },
         }),
       },
     )
@@ -94,7 +114,7 @@ export async function processPatientQuery(
     }
   } catch (err) {
     console.error('Gemini triage failed, using keyword fallback:', err)
-    return keywordTriage(query)
+    return keywordTriage(query, lang)
   }
 
   // Persist to database
