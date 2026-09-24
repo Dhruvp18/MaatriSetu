@@ -14,6 +14,8 @@ import {
   SaveConsultationSchema,
 } from './visit.schema'
 import type {
+  ClinicDoctor,
+  DoctorReference,
   OpenedVisit,
   Visit,
   VisitAdvice,
@@ -137,6 +139,46 @@ export async function listVisits(
   requirePermission(actor, 'visit.read')
 
   return repo.listVisitsForPregnancy(await userClient(), actor.clinicId, pregnancyId)
+}
+
+/**
+ * Doctors at this clinic, for naming the recipient of a reference.
+ *
+ * Guarded by `visit.save`: only the clinician finishing a consultation makes a
+ * reference, and a staff directory is not something to hand every role.
+ */
+export async function listClinicDoctors(actor: ActorContext): Promise<ClinicDoctor[]> {
+  requirePermission(actor, 'visit.save')
+
+  const doctors = await repo.listClinicDoctors(await userClient(), actor.clinicId)
+  // Referring a patient to yourself is not a reference.
+  return doctors.filter((doctor) => doctor.staffUserId !== actor.staffUserId)
+}
+
+/** References to other doctors made during this pregnancy, newest first. */
+export async function listDoctorReferences(
+  actor: ActorContext,
+  pregnancyId: string,
+): Promise<DoctorReference[]> {
+  requirePermission(actor, 'visit.read')
+
+  return repo.listDoctorReferences(await userClient(), actor.clinicId, pregnancyId)
+}
+
+/**
+ * The first weight recorded in this pregnancy, or null.
+ *
+ * The baseline the cockpit shows gain against when no pre-pregnancy weight was
+ * taken at booking. Arithmetic on her own readings, never a judgment about
+ * whether the gain is appropriate.
+ */
+export async function getFirstRecordedWeightKg(
+  actor: ActorContext,
+  pregnancyId: string,
+): Promise<number | null> {
+  requirePermission(actor, 'visit.read')
+
+  return repo.findFirstWeightKg(await userClient(), actor.clinicId, pregnancyId)
 }
 
 /* -------------------------------------------------------------------------- */
@@ -286,6 +328,10 @@ export async function saveConsultation(
     // server's UTC clock is the wrong one for several hours each night in IST.
     asOfDate: todayIn(actor.clinicTimezone),
     impression: data.impression ?? null,
+    examination: data.examination ?? null,
+    diagnosis: data.diagnosis ?? null,
+    summary: data.summary ?? null,
+    reference: data.reference ?? null,
     prescriptions: data.prescriptions,
     advice: data.advice ?? null,
     // Verification lives in this commit and nowhere else: a standalone verify

@@ -1,8 +1,6 @@
+import { getProfile } from '@/modules/patient-portal/portal.service'
 import { getPatientSession } from '../lib/session'
-import { findPatientById } from '@/modules/patients/patient.repository'
-import { listObstetricHistory } from '@/modules/pregnancies/pregnancy.repository'
-import { serviceClient } from '@core/db/clients'
-import { User, Phone, MapPin, Droplet, Clock, AlertCircle, LogOut } from 'lucide-react'
+import { User, Phone, Droplet, Clock, AlertCircle, LogOut } from 'lucide-react'
 import { logoutPatient } from './actions'
 import { getPatientI18n } from '../lib/i18n/server'
 import { fmt } from '../lib/i18n/locales'
@@ -14,11 +12,7 @@ export default async function PatientProfilePage() {
     return <div className="p-4 pt-8 text-center text-slate-500">{t.common.sessionExpired}</div>
   }
 
-  const db = serviceClient()
-  const [patient, obsHistory] = await Promise.all([
-    findPatientById(db, session.clinicId, session.patientId),
-    listObstetricHistory(db, session.clinicId, session.patientId),
-  ])
+  const { patient, obstetricHistory: obsHistory } = await getProfile(session)
 
   if (!patient) {
     return <div className="p-4 pt-8 text-center text-slate-500">{p.notFound}</div>

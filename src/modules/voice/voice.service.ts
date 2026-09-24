@@ -194,6 +194,71 @@ export async function acknowledge(actor: ActorContext, voiceQueryId: string): Pr
 }
 
 /* -------------------------------------------------------------------------- */
+/* Clinician dictation                                                        */
+/* -------------------------------------------------------------------------- */
+
+/** Accepted dictation formats. The recorder in the cockpit always sends WAV. */
+const DICTATION_TYPES = new Set(['audio/wav', 'audio/x-wav', 'audio/wave', 'audio/webm', 'audio/ogg', 'audio/mpeg'])
+
+/** ~30 s of 16 kHz mono PCM, with room for a header. The recorder splits longer takes. */
+const MAX_DICTATION_BYTES = 1_100_000
+
+export interface Dictation {
+  readonly text: string
+  /** True when the text is canned sample output, not a transcription. */
+  readonly isFixture: boolean
+}
+
+/**
+ * Turn a doctor's spoken note into text for a consultation field.
+ *
+ * Synchronous and storage-free, unlike a patient's voice note: the audio is
+ * never kept, and the text goes back into the field the doctor dictated into,
+ * where they read it and it commits with the consultation. Nothing here writes
+ * to the record — the transcript is a draft until Save & Next.
+ *
+ * Held by whoever can save a consultation, because dictating into one is part
+ * of saving it.
+ */
+export async function transcribeDictation(
+  actor: ActorContext,
+  audio: Uint8Array,
+  mimeType: string,
+): Promise<Dictation> {
+  requirePermission(actor, 'visit.save')
+
+  const type = mimeType.split(';')[0]?.trim().toLowerCase() ?? ''
+  if (!DICTATION_TYPES.has(type)) {
+    throw validation('That recording format is not supported.')
+  }
+  if (audio.byteLength === 0) throw validation('Nothing was recorded.')
+  if (audio.byteLength > MAX_DICTATION_BYTES) {
+    throw validation('That recording is too long for one piece. Record it in shorter parts.')
+  }
+
+  const result = await speechProvider().transcribe({
+    audio,
+    mimeType: type,
+    fileName: `dictation.${type.split('/')[1]?.replace('x-', '') ?? 'wav'}`,
+    purpose: 'CLINICIAN_DICTATION',
+  })
+
+  if (!result.ok) {
+    throw validation(
+      result.code === 'AUTH'
+        ? 'The transcription service is not configured. Type the note instead.'
+        : `The recording could not be transcribed (${result.message}). Try again, or type the note.`,
+    )
+  }
+
+  const { transcription } = result
+  // English when the provider gave one; otherwise what was said, as said.
+  const text = (transcription.english || transcription.original).trim()
+
+  return { text, isFixture: transcription.provider === 'fixture' }
+}
+
+/* -------------------------------------------------------------------------- */
 /* Worker                                                                     */
 /* -------------------------------------------------------------------------- */
 

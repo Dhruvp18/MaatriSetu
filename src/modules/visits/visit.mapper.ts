@@ -1,6 +1,6 @@
 import type { Database } from '@core/db/database.types'
 
-import type { Visit, VisitAdvice, VitalsReading } from './visit.types'
+import type { DoctorReference, Visit, VisitAdvice, VitalsReading } from './visit.types'
 
 /**
  * Visit rows, and how they become domain objects.
@@ -24,6 +24,9 @@ export type VisitVitalsRow = Tables['visit_vitals']['Row']
 /** `visit_advice` — at most one row per visit, written by the atomic save. */
 export type VisitAdviceRow = Tables['visit_advice']['Row']
 
+/** `doctor_references` — see supabase/migrations/0024_cockpit_clinical_history.sql. */
+export type DoctorReferenceRow = Tables['doctor_references']['Row']
+
 /* -------------------------------------------------------------------------- */
 /* Mapping                                                                    */
 /* -------------------------------------------------------------------------- */
@@ -42,6 +45,9 @@ export function toVisit(row: VisitRow): Visit {
     gaDaysAtVisit: row.ga_days_at_visit,
     datingMethodAtVisit: row.dating_method_at_visit,
     impression: row.impression,
+    examination: row.examination,
+    diagnosis: row.diagnosis,
+    consultationSummary: row.consultation_summary,
     clinicianId: row.clinician_id,
     openedBy: row.opened_by,
     closure: {
@@ -104,6 +110,35 @@ export function toVisitAdvice(row: VisitAdviceRow): VisitAdvice {
     nextFollowupDate: row.next_followup_date,
     additionalAdvice: row.additional_advice,
     recordedBy: row.recorded_by,
+  }
+}
+
+/**
+ * A reference row, with the colleague's name resolved by the caller.
+ *
+ * `doctor_references_has_recipient` guarantees one of the two recipient
+ * columns is present; the external branch is used only when no colleague is
+ * named.
+ */
+export function toDoctorReference(
+  row: DoctorReferenceRow,
+  colleagueNames: ReadonlyMap<string, string>,
+): DoctorReference {
+  return {
+    id: row.id,
+    visitId: row.visit_id,
+    recipient: row.to_staff_user_id
+      ? {
+          kind: 'COLLEAGUE',
+          staffUserId: row.to_staff_user_id,
+          displayName: colleagueNames.get(row.to_staff_user_id) ?? null,
+        }
+      : { kind: 'EXTERNAL', name: row.to_external_name ?? '' },
+    specialty: row.to_specialty,
+    facility: row.to_facility,
+    reason: row.reason,
+    urgency: row.urgency === 'URGENT' ? 'URGENT' : 'ROUTINE',
+    createdAt: row.created_at,
   }
 }
 

@@ -457,15 +457,20 @@ export async function findReviewTimes(
 
 type RecordUploadArgs = Nullable<
   Fn['record_report_upload']['Args'],
-  'p_pregnancy_id' | 'p_visit_id'
+  'p_pregnancy_id' | 'p_visit_id' | 'p_actor_staff_user_id'
 >
 
-/** The photograph arrives. Carries no clinical meaning, and may have no episode. */
+/**
+ * The photograph arrives. Carries no clinical meaning, and may have no episode.
+ *
+ * A null actor is the patient uploading her own slip through the portal; the
+ * routine audits it as `patient-portal` (migration 0027).
+ */
 export async function recordUpload(
   db: TypedClient,
   input: {
     clinicId: string
-    actorStaffUserId: string
+    actorStaffUserId: string | null
     requestId: string
     patientId: string
     pregnancyId: string | null

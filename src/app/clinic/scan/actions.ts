@@ -58,5 +58,6 @@ export async function resolveScan(
 
   // Outside the try: redirect() signals by throwing, and catching it here would
   // swallow the navigation and report a scan failure on a successful scan.
-  redirect(`/clinic/patients/${patientId}` as Route)
+  // Straight into the cockpit: scanning her card is how a consultation begins.
+  redirect(`/clinic/patients/${patientId}/cockpit` as Route)
 }

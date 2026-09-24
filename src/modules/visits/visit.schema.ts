@@ -208,11 +208,37 @@ const VerifyCandidateSchema = z
   })
   .strict()
 
+/**
+ * A reference to another doctor, committed with the consultation.
+ *
+ * Either a colleague at this clinic or a named external doctor. The routine
+ * checks the colleague is an active member of this clinic; this is where the
+ * clinician gets a sentence when neither was given.
+ */
+const ReferenceInputSchema = z
+  .object({
+    toStaffUserId: z.uuid().nullish(),
+    toExternalName: z.string().trim().max(200).nullish(),
+    toSpecialty: z.string().trim().max(120).nullish(),
+    toFacility: z.string().trim().max(200).nullish(),
+    reason: z.string().trim().min(1, 'Say why she is being referred.').max(2000),
+    urgency: z.enum(['ROUTINE', 'URGENT']).default('ROUTINE'),
+  })
+  .strict()
+  .refine((ref) => !!ref.toStaffUserId || !!ref.toExternalName, {
+    message: 'Choose a doctor, or type the name of the doctor she is being referred to.',
+    path: ['toExternalName'],
+  })
+
 export const SaveConsultationSchema = z
   .object({
     /** Optimistic concurrency. A mismatch is a 409, never a silent overwrite. */
     expectedVersion: z.number().int().min(1),
     impression: z.string().max(10000).nullish(),
+    examination: z.string().max(10000).nullish(),
+    diagnosis: z.string().max(4000).nullish(),
+    summary: z.string().max(10000).nullish(),
+    reference: ReferenceInputSchema.nullish(),
     prescriptions: z.array(PrescriptionInputSchema).max(30).default([]),
     verifyCandidates: z.array(VerifyCandidateSchema).max(60).default([]),
     advice: AdviceInputSchema.nullish(),

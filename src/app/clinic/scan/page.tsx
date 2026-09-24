@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import { roleHasPermission } from '@core/auth/permissions'
 import { resolveSession } from '@core/auth/session'
 
+import { CameraScan } from './camera-scan'
 import { ScanCapture } from './scan-capture'
 
 /**
@@ -55,11 +56,14 @@ export default async function ScanPage() {
         <Link href="/clinic" className="text-sm text-brand-600 hover:underline">
           ← Clinic
         </Link>
-        <h1 className="mt-2 text-xl font-semibold text-slate-900">Scan a file</h1>
+        <h1 className="mt-2 text-xl font-semibold text-slate-900">Scan a patient card or file</h1>
       </div>
 
       <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
         <ScanCapture />
+        <div className="mt-4 border-t border-slate-100 pt-4">
+          <CameraScan />
+        </div>
       </div>
     </main>
   )

@@ -24,10 +24,9 @@
     "db:types": "supabase gen types typescript --local > src/core/db/database.types.ts",
     "verify:schema": "bash scripts/verify-schema.sh",
     "worker:dev": "tsx --env-file=.env.local --conditions=react-server watch worker/src/index.ts",
-    "worker:start": "tsx --env-file=.env.local --conditions=react-server worker/src/index.ts"
+    "worker:start": "tsx --env-file-if-exists=.env.local --conditions=react-server worker/src/index.ts"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.127.0",
     "@google/genai": "^2.24.0",
     "@supabase/ssr": "^0.7.0",
     "@supabase/supabase-js": "^2.58.0",

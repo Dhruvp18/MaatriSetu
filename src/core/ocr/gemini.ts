@@ -1,4 +1,4 @@
-import Anthropic from '@anthropic-ai/sdk'
+import { ApiError, GoogleGenAI, Type } from '@google/genai'
 import { z } from 'zod'
 
 import type {
@@ -9,7 +9,7 @@ import type {
 } from './provider'
 
 /**
- * Extraction with Claude.
+ * Extraction with Gemini.
  *
  * A vision model rather than classical OCR because Indian lab slips are not a
  * format — they are hundreds of formats, often photographed at an angle on
@@ -34,10 +34,8 @@ import type {
  * one as readily as a blank.
  */
 
-const MODEL = 'claude-opus-5'
-
 /** Bump on every change to the instructions or the schema below. */
-const PROMPT_VERSION = 'ocr-v1'
+const PROMPT_VERSION = 'ocr-gemini-v1'
 
 const TIMEOUT_MS = 120_000
 
@@ -70,6 +68,11 @@ Transcribe every result on the page, including ones you consider unremarkable.`
 /* Response schema                                                            */
 /* -------------------------------------------------------------------------- */
 
+const REPORT_TYPES = [
+  'CBC', 'OGTT', 'SEROLOGY', 'URINE', 'BLOOD_GROUP', 'THYROID',
+  'LFT', 'RFT', 'HPLC', 'ULTRASOUND', 'OTHER', 'UNRECOGNISED',
+] as const
+
 const FieldSchema = z.object({
   testCode: z.string().nullable(),
   printedLabel: z.string(),
@@ -83,69 +86,61 @@ const FieldSchema = z.object({
 })
 
 const ExtractionSchema = z.object({
-  reportType: z.enum([
-    'CBC', 'OGTT', 'SEROLOGY', 'URINE', 'BLOOD_GROUP', 'THYROID',
-    'LFT', 'RFT', 'HPLC', 'ULTRASOUND', 'OTHER', 'UNRECOGNISED',
-  ]),
+  reportType: z.enum(REPORT_TYPES),
   reportDate: z.string().nullable(),
   fields: z.array(FieldSchema),
 })
 
-/** The same shape, as JSON Schema, for the model's structured output. */
+const nullableString = { type: Type.STRING, nullable: true }
+const nullableNumber = { type: Type.NUMBER, nullable: true }
+
+/** The same shape, in Gemini's schema dialect, for structured output. */
 const OUTPUT_SCHEMA = {
-  type: 'object',
-  additionalProperties: false,
+  type: Type.OBJECT,
   required: ['reportType', 'reportDate', 'fields'],
   properties: {
-    reportType: {
-      type: 'string',
-      enum: [
-        'CBC', 'OGTT', 'SEROLOGY', 'URINE', 'BLOOD_GROUP', 'THYROID',
-        'LFT', 'RFT', 'HPLC', 'ULTRASOUND', 'OTHER', 'UNRECOGNISED',
-      ],
-    },
+    reportType: { type: Type.STRING, enum: [...REPORT_TYPES] },
     reportDate: {
-      type: ['string', 'null'],
+      ...nullableString,
       description: 'Collection or report date as printed, ISO YYYY-MM-DD if unambiguous.',
     },
     fields: {
-      type: 'array',
+      type: Type.ARRAY,
       items: {
-        type: 'object',
-        additionalProperties: false,
+        type: Type.OBJECT,
         required: [
           'testCode', 'printedLabel', 'valueNumeric', 'valueText',
           'unit', 'referenceLow', 'referenceHigh', 'referenceText', 'confidence',
         ],
         properties: {
-          testCode: { type: ['string', 'null'] },
-          printedLabel: { type: 'string' },
-          valueNumeric: { type: ['number', 'null'] },
-          valueText: { type: ['string', 'null'] },
-          unit: { type: ['string', 'null'] },
-          referenceLow: { type: ['number', 'null'] },
-          referenceHigh: { type: ['number', 'null'] },
-          referenceText: { type: ['string', 'null'] },
-          confidence: { type: ['number', 'null'] },
+          testCode: nullableString,
+          printedLabel: { type: Type.STRING },
+          valueNumeric: nullableNumber,
+          valueText: nullableString,
+          unit: nullableString,
+          referenceLow: nullableNumber,
+          referenceHigh: nullableNumber,
+          referenceText: nullableString,
+          confidence: nullableNumber,
         },
       },
     },
   },
-} as const
+}
 
 /* -------------------------------------------------------------------------- */
 
-export function createAnthropicOcrProvider(apiKey: string): OcrProvider {
-  const client = new Anthropic({ apiKey, timeout: TIMEOUT_MS })
+export function createGeminiOcrProvider(apiKey: string, model: string): OcrProvider {
+  const ai = new GoogleGenAI({ apiKey, httpOptions: { timeout: TIMEOUT_MS } })
 
   return {
-    name: 'anthropic',
-    model: MODEL,
+    name: 'gemini',
+    model,
     promptVersion: PROMPT_VERSION,
 
     async extract(request: ExtractionRequest): Promise<ExtractionResult> {
-      const mediaType = normaliseMediaType(request.mimeType)
-      if (!mediaType) {
+      const mimeType = normaliseMimeType(request.mimeType)
+      if (!mimeType) {
         return {
           ok: false,
           code: 'UNSUPPORTED_IMAGE',
@@ -154,34 +149,18 @@ export function createAnthropicOcrProvider(apiKey: string): OcrProvider {
         }
       }
 
-      let response
+      let text: string | undefined
       try {
-        response = await client.messages.create({
-          model: MODEL,
-          max_tokens: 8000,
-          system: SYSTEM_PROMPT,
-          // Adaptive thinking: reading a creased slip at an angle benefits from
-          // the model working before it answers, and the cost is small against
-          // a transcription error reaching a clinician.
-          thinking: { type: 'adaptive' },
-          output_config: {
-            effort: 'high',
-            format: { type: 'json_schema', schema: OUTPUT_SCHEMA },
-          },
-          messages: [
+        const response = await ai.models.generateContent({
+          model,
+          contents: [
             {
               role: 'user',
-              content: [
+              parts: [
+                // A PDF report (the lab's own printout, or a scan emailed to
+                // her) and a photograph both go in as inline data.
+                { inlineData: { mimeType, data: Buffer.from(request.image).toString('base64') } },
                 {
-                  type: 'image',
-                  source: {
-                    type: 'base64',
-                    media_type: mediaType,
-                    data: Buffer.from(request.image).toString('base64'),
-                  },
-                },
-                {
-                  type: 'text',
                   text: request.expectedType
                     ? `Staff believe this is a ${request.expectedType} report. Transcribe what is actually printed; correct them if it is something else.`
                     : 'Transcribe every result printed on this report.',
@@ -189,32 +168,36 @@ export function createAnthropicOcrProvider(apiKey: string): OcrProvider {
               ],
             },
           ],
+          config: {
+            systemInstruction: SYSTEM_PROMPT,
+            responseMimeType: 'application/json',
+            responseSchema: OUTPUT_SCHEMA,
+            temperature: 0,
+          },
         })
+
+        // A safety block is not a transcription failure and must not be retried
+        // as though the connection dropped.
+        const finishReason = response.candidates?.[0]?.finishReason
+        if (response.promptFeedback?.blockReason || finishReason === 'SAFETY') {
+          return {
+            ok: false,
+            code: 'REFUSED',
+            message: 'The model declined to read this image.',
+            retryable: false,
+          }
+        }
+
+        text = response.text
       } catch (error) {
         return mapSdkError(error)
       }
-
-      // A safety decline is not a transcription failure and must not be retried
-      // as though the connection dropped.
-      if (response.stop_reason === 'refusal') {
-        return {
-          ok: false,
-          code: 'REFUSED',
-          message: 'The model declined to read this image.',
-          retryable: false,
-        }
-      }
-
-      const text = response.content
-        .filter((block): block is Anthropic.TextBlock => block.type === 'text')
-        .map((block) => block.text)
-        .join('')
 
       // Provider output is untrusted input, parsed and never cast (ARCH-6).
       // Structured outputs make malformed JSON unlikely, not impossible.
       let parsed
       try {
-        parsed = ExtractionSchema.safeParse(JSON.parse(text))
+        parsed = ExtractionSchema.safeParse(JSON.parse(text ?? ''))
       } catch {
         return {
           ok: false,
@@ -244,8 +227,8 @@ export function createAnthropicOcrProvider(apiKey: string): OcrProvider {
         reportType: parsed.data.reportType,
         reportDate: parsed.data.reportDate,
         fields,
-        provider: 'anthropic',
-        model: MODEL,
+        provider: 'gemini',
+        model,
         promptVersion: PROMPT_VERSION,
         raw: parsed.data,
       }
@@ -255,57 +238,54 @@ export function createAnthropicOcrProvider(apiKey: string): OcrProvider {
   }
 }
 
-function normaliseMediaType(
-  mimeType: string,
-): 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif' | null {
+function normaliseMimeType(mimeType: string): string | null {
   switch (mimeType) {
     case 'image/jpeg':
     case 'image/jpg':
       return 'image/jpeg'
     case 'image/png':
-      return 'image/png'
     case 'image/webp':
-      return 'image/webp'
-    case 'image/gif':
-      return 'image/gif'
+    case 'image/heic':
+    case 'image/heif':
+    case 'application/pdf':
+      return mimeType
     default:
-      // HEIC from an iPhone and PDF both land here. Converting them is a
-      // separate job; failing clearly beats sending bytes the model will reject.
+      // Failing clearly beats sending bytes the model will reject.
       return null
   }
 }
 
 function mapSdkError(error: unknown): Extract<ExtractionResult, { ok: false }> {
-  if (error instanceof Anthropic.AuthenticationError) {
-    return {
-      ok: false,
-      code: 'AUTH',
-      message: 'The extraction API key was rejected.',
-      // Retrying burns the queue against a credential that will not start
-      // working on its own.
-      retryable: false,
+  if (error instanceof ApiError) {
+    if (error.status === 401 || error.status === 403) {
+      return {
+        ok: false,
+        code: 'AUTH',
+        message: 'The extraction API key was rejected.',
+        // Retrying burns the queue against a credential that will not start
+        // working on its own.
+        retryable: false,
+      }
     }
-  }
 
-  if (error instanceof Anthropic.RateLimitError) {
-    return { ok: false, code: 'RATE_LIMIT', message: 'Extraction rate limit reached.', retryable: true }
-  }
-
-  if (error instanceof Anthropic.BadRequestError) {
-    return {
-      ok: false,
-      code: 'UNSUPPORTED_IMAGE',
-      message: 'The image was rejected. It may be too large or corrupt.',
-      retryable: false,
+    if (error.status === 429) {
+      return { ok: false, code: 'RATE_LIMIT', message: 'Extraction rate limit reached.', retryable: true }
     }
-  }
 
-  if (error instanceof Anthropic.APIError) {
+    if (error.status === 400) {
+      return {
+        ok: false,
+        code: 'UNSUPPORTED_IMAGE',
+        message: 'The image was rejected. It may be too large or corrupt.',
+        retryable: false,
+      }
+    }
+
     return {
       ok: false,
       code: 'PROVIDER_ERROR',
       message: `Extraction failed (${error.status}).`,
-      retryable: (error.status ?? 500) >= 500,
+      retryable: error.status >= 500,
     }
   }
 

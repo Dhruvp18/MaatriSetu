@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { Bot, User, Send, Mic, AlertTriangle, CalendarHeart, Info } from 'lucide-react'
 import { processPatientQuery } from './actions'
-import type { PatientQueryRow } from '../lib/data'
+import type { PatientQuery } from '@/modules/patient-portal/portal.types'
 import type { Lang } from '../lib/i18n/locales'
 import type { Dict } from '../lib/i18n/dictionaries'
 
@@ -15,7 +15,7 @@ type Message = {
   clinicPhone?: string
 }
 
-function historyToMessages(history: PatientQueryRow[]): Message[] {
+function historyToMessages(history: readonly PatientQuery[]): Message[] {
   const msgs: Message[] = []
   for (const row of history) {
     msgs.push({ id: `u-${row.id}`, role: 'user', text: row.queryText })
@@ -25,15 +25,11 @@ function historyToMessages(history: PatientQueryRow[]): Message[] {
 }
 
 export function ChatInterface({
-  patientId,
-  clinicId,
   initialHistory,
   lang,
   t,
 }: {
-  patientId: string | null
-  clinicId: string | null
-  initialHistory: PatientQueryRow[]
+  initialHistory: readonly PatientQuery[]
   lang: Lang
   t: Dict['chat']
 }) {
@@ -60,7 +56,8 @@ export function ChatInterface({
     setIsTyping(true)
 
     try {
-      const result = await processPatientQuery(text, patientId, clinicId, lang)
+      // Who is asking comes from the signed session on the server, never from here.
+      const result = await processPatientQuery(text, lang)
       const botMsg: Message = {
         id: `b-${Date.now()}`,
         role: 'bot',

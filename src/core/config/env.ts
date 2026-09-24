@@ -64,6 +64,17 @@ const serverSchema = z.object({
 
   // Shown on CRITICAL / IMPORTANT chatbot responses as a tel: link.
   CLINIC_PHONE_NUMBER: z.string().default('+911234567890'),
+
+  // HMAC key for the patient portal's session cookie. Without a signature the
+  // cookie is a plain patient id that anyone could edit into someone else's.
+  PATIENT_SESSION_SECRET: z.string().min(32, 'Use at least 32 random characters.'),
+
+  // Demo only: a visitor with no session is shown the seeded patient. Leave
+  // off anywhere real patient data could be reached.
+  PATIENT_DEMO_SESSION: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
 })
 
 export type ServerEnv = z.infer<typeof serverSchema>
@@ -106,13 +117,15 @@ export function serverEnv(): Readonly<ServerEnv> {
  * so nobody discovers at judging time that a key was missing.
  */
 const providerSchema = z.object({
-  OCR_PROVIDER: z.enum(['fixture', 'anthropic', 'google']).default('fixture'),
-  ANTHROPIC_API_KEY: z.string().optional(),
+  OCR_PROVIDER: z.enum(['fixture', 'gemini', 'google']).default('fixture'),
   GOOGLE_APPLICATION_CREDENTIALS: z.string().optional(),
 
   SPEECH_PROVIDER: z.enum(['fixture', 'sarvam', 'gemini']).default('fixture'),
   SARVAM_API_KEY: z.string().optional(),
   GEMINI_API_KEY: z.string().optional(),
+  // One model for OCR, speech and the patient chatbot. Google retires model
+  // ids for new keys without notice, so this is configurable, not hard-coded.
+  GEMINI_MODEL: z.string().min(1).default('gemini-3.1-flash-lite'),
 
   MESSAGING_PROVIDER: z.enum(['disabled', 'whatsapp']).default('disabled'),
   WHATSAPP_PHONE_NUMBER_ID: z.string().optional(),
@@ -142,8 +155,8 @@ export function providerEnv(): Readonly<ProviderEnv> {
   // A selected provider without its credential is a misconfiguration, not a
   // reason to quietly fall back — falling back would produce fixture data under
   // a label claiming it was real.
-  if (env.OCR_PROVIDER === 'anthropic' && !env.ANTHROPIC_API_KEY) {
-    throw new Error('OCR_PROVIDER is "anthropic" but ANTHROPIC_API_KEY is not set.')
+  if (env.OCR_PROVIDER === 'gemini' && !env.GEMINI_API_KEY) {
+    throw new Error('OCR_PROVIDER is "gemini" but GEMINI_API_KEY is not set.')
   }
   if (env.OCR_PROVIDER === 'google' && !env.GOOGLE_APPLICATION_CREDENTIALS) {
     throw new Error('OCR_PROVIDER is "google" but GOOGLE_APPLICATION_CREDENTIALS is not set.')

@@ -1,7 +1,5 @@
+import { getReports } from '@/modules/patient-portal/portal.service'
 import { getPatientSession } from '../lib/session'
-import { findActivePregnancy } from '@/modules/pregnancies/pregnancy.repository'
-import { listObservations, listScans } from '@/modules/reports/report.repository'
-import { serviceClient } from '@core/db/clients'
 import { FileText, Activity } from 'lucide-react'
 import { getPatientI18n } from '../lib/i18n/server'
 import { fmt, formatDate } from '../lib/i18n/locales'
@@ -13,10 +11,9 @@ export default async function ReportsPage() {
     return <div className="p-4 pt-8 text-center text-slate-500">{t.common.sessionExpired}</div>
   }
 
-  const db = serviceClient()
-  const pregnancy = await findActivePregnancy(db, session.clinicId, session.patientId)
+  const { hasActivePregnancy, observations, scans } = await getReports(session)
 
-  if (!pregnancy) {
+  if (!hasActivePregnancy) {
     return (
       <div className="p-4 pt-8 text-center">
         <h1 className="text-xl font-bold text-slate-800 font-serif mb-4">{r.title}</h1>
@@ -27,13 +24,6 @@ export default async function ReportsPage() {
       </div>
     )
   }
-
-  // We pass empty Set for pins since patients don't care about pins
-  const emptyPins = new Set<string>()
-  const [observations, scans] = await Promise.all([
-    listObservations(db, session.clinicId, pregnancy.id, emptyPins),
-    listScans(db, session.clinicId, pregnancy.id, emptyPins),
-  ])
 
   return (
     <div className="p-4 pt-8 pb-20">
@@ -110,8 +100,12 @@ export default async function ReportsPage() {
                 </div>
               </div>
               <div className="text-right">
-                <p className="text-lg font-bold text-[#8a3c4a]">{obs.valueNumeric ?? obs.valueText}</p>
-                {obs.unit && <p className="text-[10px] text-slate-400 font-mono uppercase">{obs.unit}</p>}
+                <p className="text-lg font-bold text-[#8a3c4a]">
+                  {obs.value.kind === 'NUMERIC' ? obs.value.value : obs.value.text}
+                </p>
+                {obs.value.kind === 'NUMERIC' && (
+                  <p className="text-[10px] text-slate-400 font-mono uppercase">{obs.value.unit}</p>
+                )}
               </div>
             </div>
           ))}

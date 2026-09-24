@@ -1,7 +1,8 @@
+import type { Route } from 'next'
 import Link from 'next/link'
 import { User, FileText, UploadCloud, FileSymlink } from 'lucide-react'
+import { getDashboard } from '@/modules/patient-portal/portal.service'
 import { getPatientSession } from './lib/session'
-import { getPatientDashboard } from './lib/data'
 import { getPatientI18n } from './lib/i18n/server'
 import { fmt, formatDate } from './lib/i18n/locales'
 
@@ -22,7 +23,7 @@ export default async function MyANCPage() {
     )
   }
 
-  const data = await getPatientDashboard(session)
+  const data = await getDashboard(session)
 
   return (
     <div className="p-4 pt-8">
@@ -102,7 +103,7 @@ export default async function MyANCPage() {
         ].map(({ href, icon: Icon, label, desc, bg, color, textColor }) => (
           <Link
             key={href}
-            href={href as any}
+            href={href as Route}
             className={`${bg} p-4 rounded-2xl relative overflow-hidden flex flex-col justify-between min-h-[140px] shadow-sm hover:shadow-md transition-shadow active:scale-[0.98]`}
           >
             <div>

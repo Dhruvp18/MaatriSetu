@@ -94,6 +94,11 @@ export interface Visit {
   readonly gaDaysAtVisit: number | null
   readonly datingMethodAtVisit: DatingMethod | null
   readonly impression: string | null
+  /** Clinician-authored examination findings, as dictated or typed. */
+  readonly examination: string | null
+  /** Clinician-authored. The system never proposes or derives one (PRD §3). */
+  readonly diagnosis: string | null
+  readonly consultationSummary: string | null
   readonly clinicianId: string | null
   readonly openedBy: string | null
   readonly closure: VisitClosure
@@ -130,6 +135,35 @@ export interface VisitAdvice {
   readonly nextFollowupDate: CalendarDate | null
   readonly additionalAdvice: string | null
   readonly recordedBy: string
+}
+
+/** A doctor at this clinic who can be named as the recipient of a reference. */
+export interface ClinicDoctor {
+  readonly staffUserId: string
+  readonly displayName: string
+  readonly registrationNo: string | null
+}
+
+export type ReferenceUrgency = 'ROUTINE' | 'URGENT'
+
+/**
+ * A reference to another doctor, made during a consultation.
+ *
+ * Distinct from the emergency referral slip (`modules/referrals`), which
+ * travels with a transfer and carries a medication snapshot. This is a note
+ * that another doctor's opinion or care was asked for, and to whom.
+ */
+export interface DoctorReference {
+  readonly id: string
+  readonly visitId: string
+  readonly recipient:
+    | { readonly kind: 'COLLEAGUE'; readonly staffUserId: string; readonly displayName: string | null }
+    | { readonly kind: 'EXTERNAL'; readonly name: string }
+  readonly specialty: string | null
+  readonly facility: string | null
+  readonly reason: string
+  readonly urgency: ReferenceUrgency
+  readonly createdAt: string
 }
 
 /** What `open_or_reuse_visit` did. */

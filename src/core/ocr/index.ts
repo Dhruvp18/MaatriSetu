@@ -2,8 +2,8 @@ import 'server-only'
 
 import { providerEnv } from '@core/config/env'
 
-import { createAnthropicOcrProvider } from './anthropic'
 import { createFixtureOcrProvider } from './fixture'
+import { createGeminiOcrProvider } from './gemini'
 import type { OcrProvider } from './provider'
 
 export type {
@@ -24,18 +24,18 @@ export type {
  * claiming a photograph had been read.
  *
  * Google Document AI is named in the PRD as an alternative and is not
- * implemented; selecting it fails loudly rather than quietly using Claude.
+ * implemented; selecting it fails loudly rather than quietly using Gemini.
  */
 export function ocrProvider(): OcrProvider {
   const env = providerEnv()
 
-  if (env.OCR_PROVIDER === 'anthropic') {
-    return createAnthropicOcrProvider(env.ANTHROPIC_API_KEY as string)
+  if (env.OCR_PROVIDER === 'gemini') {
+    return createGeminiOcrProvider(env.GEMINI_API_KEY as string, env.GEMINI_MODEL)
   }
 
   if (env.OCR_PROVIDER === 'google') {
     throw new Error(
-      'OCR_PROVIDER is "google", but the Document AI provider is not implemented. Use "anthropic" or "fixture".',
+      'OCR_PROVIDER is "google", but the Document AI provider is not implemented. Use "gemini" or "fixture".',
     )
   }
 
@@ -44,5 +44,5 @@ export function ocrProvider(): OcrProvider {
 
 /** True when extracted values on screen must carry a "not a real reading" label. */
 export function ocrIsFixture(): boolean {
-  return providerEnv().OCR_PROVIDER !== 'anthropic'
+  return providerEnv().OCR_PROVIDER !== 'gemini'
 }

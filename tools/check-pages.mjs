@@ -96,6 +96,16 @@ const nurseEarly = await signIn('nurse@maatrisetu.local')
   report(status === 200, 'clinic home renders', `status ${status}`)
   report(body.includes('Dr. Ananya Rao'), 'shows the signed-in clinician')
   report(/acting as/i.test(body) || body.toLowerCase().includes('doctor'), 'shows the acting role')
+  report(body.includes('Today’s patients'), 'home leads with today’s list')
+  report(body.includes('Find a patient'), 'home offers search by name, file number or phone')
+  report(body.includes('Scan QR'), 'home offers a QR scan')
+  report(!body.includes('Not built yet'), 'home offers nothing that is not built')
+}
+
+{
+  const { status, body } = await get(`/clinic/patients/${SUNITA}/card`, doctor)
+  report(status === 200, 'patient card page renders', `status ${status}`)
+  report(body.includes('Generate'), 'patient card is generated on demand, with a fresh QR')
 }
 
 {
@@ -249,37 +259,44 @@ const nurseEarly = await signIn('nurse@maatrisetu.local')
   // Header banner (PRD F3).
   report(body.includes('Sunita Devi'), 'banner names the patient')
   report(/G2 P1 L1 A0/.test(body), 'banner shows the GPLA badge')
-  report(body.includes('Rh negative'), 'banner flags Rh-negative as a recorded fact')
+  report(body.includes('Rh-negative'), 'banner flags Rh-negative as a recorded fact')
+  report(body.includes('Blood grp'), 'banner leads with the colour-coded blood group')
   report(body.includes('Penicillin'), 'banner flags the recorded allergy')
   report(body.includes('Previous uterine scar'), 'banner flags the previous scar')
   report(/\d+w \+ \d+d/.test(body), 'banner computes POG live')
 
   // Presentation belongs to the scan that observed it, dated — never pinned to
   // a banner where it would go stale unnoticed.
-  const bannerEnd = body.indexOf('Ongoing medication')
-  const banner = bannerEnd > 0 ? body.slice(0, bannerEnd) : body
+  // Visible markup only: the page streams behind a loading skeleton, so the
+  // serialized data (which names the scan's presentation) can precede it.
+  const visible = body.replace(/<script[\s\S]*?<\/script>/g, '')
+  const bannerEnd = visible.indexOf('Diagnostic Reports for Current Visit')
+  const banner = bannerEnd > 0 ? visible.slice(0, bannerEnd) : visible
   report(!/cephalic/i.test(banner), 'banner carries no fetal presentation')
   report(/cephalic/i.test(body), 'presentation appears with the scan instead')
 
   // The whole reason observations and finding_pins are separate tables. The
   // seed pins only the latest haemoglobin; all three must still be on the line.
-  report(body.includes('11.2 → 9.8 → 8.6'), 'Hb trend shows every verified value, not just pins')
+  report(/11\.2\s*\S\s*9\.8\s*\S\s*8\.6/.test(body), 'Hb trend shows every verified value, not just pins')
   report(body.includes('g/dL'), 'trend carries its unit')
 
-  // Six accordions (PRD F5).
+  // The read accordions (PRD F5). The writing ones need an open visit and are
+  // checked further down, once one is opened.
   for (const section of [
-    'Ongoing medication',
-    'Significant labs',
+    'Diagnostic Reports for Current Visit',
+    'Active medication',
+    'Significant blood',
     'Significant scans',
     'Previous obstetric history',
-    'Physician impression',
-    'Fresh orders and advice',
+    'Previous menstrual history',
+    'Immunization history',
   ]) {
     report(body.includes(section), `accordion present: ${section}`)
   }
 
   report(body.includes('Ferrous ascorbate'), 'ongoing medication lists the seeded prescription')
-  report(body.includes('once daily'), 'frequency is spelled out, not abbreviated')
+  report(body.includes('1-0-0') && body.includes('(OD)'), 'dosing is written in the pad notation, 1-0-0 (OD)')
+  report(body.includes('Gravida'), 'past pregnancies are listed by gravida')
   report(body.includes('TIFFA'), 'scans are listed')
 
   // The seed leaves her last visit SAVED, so at this point no visit is open.
@@ -287,25 +304,24 @@ const nurseEarly = await signIn('nurse@maatrisetu.local')
   // nothing to record against rather than offering inputs that cannot persist.
   // Her messages, above the record. The seed gives Sunita one unresolved
   // Marathi note about swelling.
-  report(body.includes('Messages from her'), 'voice queries appear on the cockpit')
-  report(body.includes('संध्याकाळी'), 'her own words are shown')
-  report(body.includes('Slight swelling of the feet'), 'the English translation is shown alongside')
-  // Both, always. A live test had Sarvam render a vision-darkening danger sign
-  // as "I feel sleepy", so the translation alone is not safe to act on.
-  report(
-    body.indexOf('संध्याकाळी') < body.indexOf('Slight swelling'),
-    'her own words come first, above the translation',
-  )
-  report(body.includes('Needs a clinician'), 'routing is worded as reading order')
+  // Her messages sit behind the queries widget: purple to address, green
+  // addressed. The messages themselves render in its modal, client-side, which
+  // server HTML cannot show — so the widget and its counts are what is checked.
+  report(body.includes('Patient queries'), 'voice queries widget appears on the cockpit')
+  report(/\d+(<!-- -->)?\s*to address/.test(body), 'widget counts queries still to address')
   report(
     !body.includes('pre-eclampsia') && !body.includes('RED_FLAG'),
     'routing never states what she has',
   )
 
   report(
-    body.includes('No visit is open'),
+    body.includes('No consultation is open today'),
     'fresh orders refuses to collect orders with no open visit',
   )
+  report(body.includes('Start today’s consultation'), 'cockpit offers to start the consultation')
+  report(body.includes('refer to a doctor'), 'reference tab is visible before a visit is open')
+  report(body.includes('Upload reports / scans'), 'cockpit offers report upload')
+  report(body.includes('Patient card'), 'cockpit offers the patient card')
   report(!body.includes('Save &amp; next patient'), 'no commit offered without a visit')
 }
 
@@ -314,7 +330,7 @@ const nurseEarly = await signIn('nurse@maatrisetu.local')
   // independently, by RLS.
   const { status, body } = await get(`/clinic/patients/${SUNITA}/cockpit`, nurseEarly)
   report(status === 200, 'nurse may open the cockpit', `status ${status}`)
-  report(body.includes('Significant labs'), 'nurse sees labs')
+  report(body.includes('Significant blood'), 'nurse sees labs')
   report(
     !body.includes('Ferrous ascorbate'),
     'nurse sees no prescription detail',
@@ -353,6 +369,14 @@ const nurseEarly = await signIn('nurse@maatrisetu.local')
       p_visit_type: 'ANC_OPD',
     })
     if (error) throw new Error(error.message)
+    // open_or_reuse_visit hands back a visit someone already has open. That is
+    // a real consultation in progress: it must never be cancelled by a check,
+    // so the run stops rather than borrowing it.
+    if (!data.created) {
+      throw new Error(
+        'Sunita already has an open visit (someone is using the app). Refusing to reuse and cancel it — close it or rerun later.',
+      )
+    }
     openedVisitId = data.visit_id
 
     // A read report awaiting verification, built through the real routines so
@@ -421,7 +445,7 @@ const nurseEarly = await signIn('nurse@maatrisetu.local')
     {
       const { status, body } = await get(`/clinic/patients/${SUNITA}/reports`, doctor)
       report(status === 200, 'reports page renders', `status ${status}`)
-      report(body.includes('Photograph of the report'), 'offers the camera capture field')
+      report(body.includes('Photograph or PDF of the report'), 'offers the camera capture field')
       report(body.includes('Haemoglobin (Hb%)'), 'shows the printed label from the slip')
       report(body.includes('8.6 g/dL'), 'shows the extracted value with its unit')
       report(body.includes('lakhs/cumm'), 'keeps the printed unit rather than converting it')
@@ -452,7 +476,7 @@ const nurseEarly = await signIn('nurse@maatrisetu.local')
       const assistantEarly = await signIn('assistant@maatrisetu.local')
       const { status, body } = await get(`/clinic/patients/${SUNITA}/reports`, assistantEarly)
       report(status === 200, 'assistant may open report intake', `status ${status}`)
-      report(body.includes('Photograph of the report'), 'assistant may upload a slip')
+      report(body.includes('Photograph or PDF of the report'), 'assistant may upload a slip')
       report(!body.includes('Sunita Devi'), 'no name is shown to the assistant')
       report(!body.includes('Penicillin'), 'no clinical detail leaks on the reports page')
     }
@@ -460,12 +484,12 @@ const nurseEarly = await signIn('nurse@maatrisetu.local')
     const { body } = await get(`/clinic/patients/${SUNITA}/cockpit`, doctor)
 
     report(
-      body.includes('awaiting your verification'),
+      body.includes('Pending Doctor Review'),
       'cockpit offers the extracted values for verification',
     )
     report(
-      body.includes('stays a proposal'),
-      'cockpit says an unticked value is not rejected',
+      body.includes('Flag to Significant Labs') && body.includes('Mark Reviewed'),
+      'each report can be flagged or marked reviewed',
     )
     report(
       body.includes('name="verifyCandidates"'),
@@ -473,10 +497,15 @@ const nurseEarly = await signIn('nurse@maatrisetu.local')
     )
     report(body.includes('Save &amp; next patient'), 'consultation form offers Save & Next')
     report(body.includes('Impression'), 'form takes an impression')
-    report(body.includes('Add drug'), 'form can add a prescription')
+    report(body.includes('New drug'), 'form can add a prescription')
+    report(body.includes('Quick add from clinic list'), 'form offers the clinic quick-pick list')
+    report(body.includes('name="examination"'), 'form takes an examination')
+    report(body.includes('name="diagnosis"') && body.includes('name="summary"'), 'form takes a diagnosis and summary')
+    report(body.includes('Voice'), 'text fields offer dictation')
+    report(body.includes('refer to a doctor'), 'form offers the reference tab')
     report(body.includes('Danger signs explained'), 'advice checklist is present')
     report(body.includes('Next follow-up'), 'form takes a follow-up date')
-    report(body.includes('Surface on the cockpit'), 'pin decisions are part of the same save')
+    report(!body.includes('Surface on the cockpit'), 'the separate pin section is gone')
     report(
       body.includes('written together, or not at all'),
       'form states the commit is atomic',
@@ -631,11 +660,12 @@ const nurse = await signIn('nurse@maatrisetu.local')
 {
   const { status, body } = await get('/clinic', nurse)
   report(status === 200, 'nurse home renders', `status ${status}`)
-  report(body.includes('Register a patient'), 'nurse is offered registration')
+  report(body.includes('New patient'), 'nurse is offered registration')
   // The cockpit is gated on observation.read, which a nurse holds: she takes
   // the vitals and may well need the last haemoglobin. What she does not get is
   // the prescription accordion, checked against the rendered cockpit above.
-  report(body.includes('Consultation cockpit'), 'nurse is offered the cockpit')
+  report(body.includes('Today’s patients'), 'nurse sees today’s list')
+  report(body.includes('Find a patient'), 'nurse can search for a patient')
   report(!body.includes('Emergency referral'), 'nurse is not offered referral issue')
 }
 

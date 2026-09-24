@@ -411,19 +411,23 @@ export async function revokeQrToken(
  *
  * Null covers "no such token", "revoked" and "belongs to another clinic"
  * alike — a scanned value must not be usable to learn which of those it was.
+ *
+ * A null actor is the patient scanning her own sticker; the routine audits it
+ * as `patient-portal` (migration 0027).
  */
 export async function findPatientIdByQrHash(
   db: TypedClient,
   params: {
     clinicId: string
-    actorStaffUserId: string
+    actorStaffUserId: string | null
     requestId: string
     tokenHashHex: string
   },
 ): Promise<string | null> {
   const { data, error } = await db.rpc('find_patient_by_qr', {
     p_clinic_id: params.clinicId,
-    p_actor_staff_user_id: params.actorStaffUserId,
+    // The generated Args type cannot express a nullable parameter.
+    p_actor_staff_user_id: params.actorStaffUserId as string,
     p_request_id: params.requestId,
     p_token_hash: params.tokenHashHex,
   })

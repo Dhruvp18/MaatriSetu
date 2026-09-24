@@ -118,5 +118,6 @@ export async function submitPregnancy(
     throw error
   }
 
-  redirect(`/clinic/patients/${patientId}` as Route)
+  // Booked: straight into her cockpit, where her existing reports are added.
+  redirect(`/clinic/patients/${patientId}/cockpit` as Route)
 }

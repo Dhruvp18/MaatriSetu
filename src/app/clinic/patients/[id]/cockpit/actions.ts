@@ -95,9 +95,44 @@ export async function submitConsultation(
     .getAll('unpin')
     .filter((v): v is string => typeof v === 'string')
 
+  // Orders come from the type-ahead as a JSON list, because a test name can
+  // itself contain a comma ("PT / INR, aPTT"). The comma-separated field is
+  // still read when the list is absent.
+  const orders = (jsonKey: string, textKey: string): unknown[] | null => {
+    if (formData.get(jsonKey) === null) return list(formData, textKey)
+    return parseList(jsonKey)
+  }
+  const labOrders = orders('labOrdersJson', 'labOrders')
+  const scanOrders = orders('scanOrdersJson', 'scanOrders')
+  if (labOrders === null || scanOrders === null) {
+    return { status: 'error', message: 'The list of orders could not be read.', retryable: false }
+  }
+
+  // A reference is made only when the doctor named someone or wrote a reason.
+  // A half-filled one is still sent, so the service can say what is missing
+  // rather than silently dropping it.
+  const refStaffUserId = text(formData, 'refStaffUserId')
+  const refExternalName = text(formData, 'refExternalName')
+  const refReason = text(formData, 'refReason')
+  const reference =
+    refStaffUserId || refExternalName || refReason
+      ? {
+          toStaffUserId: refStaffUserId,
+          toExternalName: refExternalName,
+          toSpecialty: text(formData, 'refSpecialty'),
+          toFacility: text(formData, 'refFacility'),
+          reason: refReason ?? '',
+          urgency: text(formData, 'refUrgency') === 'URGENT' ? 'URGENT' : 'ROUTINE',
+        }
+      : null
+
   const input = {
     expectedVersion,
     impression: text(formData, 'impression'),
+    examination: text(formData, 'examination'),
+    diagnosis: text(formData, 'diagnosis'),
+    summary: text(formData, 'summary'),
+    reference,
     prescriptions,
     verifyCandidates,
     advice: {
@@ -105,8 +140,8 @@ export async function submitConsultation(
       nutritionCounselled: checked(formData, 'nutritionCounselled'),
       leftLateralRest: checked(formData, 'leftLateralRest'),
       dangerSignsCounselled: checked(formData, 'dangerSignsCounselled'),
-      labOrders: list(formData, 'labOrders'),
-      scanOrders: list(formData, 'scanOrders'),
+      labOrders,
+      scanOrders,
       nextFollowupDate: text(formData, 'nextFollowupDate'),
       additionalAdvice: text(formData, 'additionalAdvice'),
     },
@@ -121,6 +156,15 @@ export async function submitConsultation(
     await saveConsultation(session.actor, visitId, idempotencyKey, input)
   } catch (error) {
     if (error instanceof AppError) {
+      // Validation carries zod issues; the first one's message is the sentence
+      // a doctor can act on ("Say why she is being referred.").
+      if (error.kind === 'VALIDATION') {
+        const issues = error.details
+        const first = Array.isArray(issues) ? (issues[0] as { message?: unknown } | undefined) : undefined
+        if (typeof first?.message === 'string') {
+          return { status: 'error', message: `${error.message} ${first.message}`, retryable: false }
+        }
+      }
       // A conflict means the visit moved under the editor, or an identical save
       // is already in flight. Either way the draft on screen is preserved — the
       // clinician refreshes and reconciles rather than losing what they typed.

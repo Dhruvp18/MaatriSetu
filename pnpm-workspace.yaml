@@ -7,5 +7,7 @@
 #   esbuild        the bundler vitest runs tests through
 #   unrs-resolver  the module resolver used by the ESLint import rules
 allowBuilds:
+  '@google/genai': false
   esbuild: true
+  protobufjs: false
   unrs-resolver: true

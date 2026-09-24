@@ -101,6 +101,70 @@ export type Database = {
           },
         ]
       }
+      appointments: {
+        Row: {
+          clinic_id: string
+          created_at: string
+          created_by: string
+          id: string
+          patient_id: string
+          pregnancy_id: string | null
+          purpose: string | null
+          scheduled_on: string
+          status: string
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          clinic_id: string
+          created_at?: string
+          created_by: string
+          id?: string
+          patient_id: string
+          pregnancy_id?: string | null
+          purpose?: string | null
+          scheduled_on: string
+          status?: string
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          clinic_id?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          patient_id?: string
+          pregnancy_id?: string | null
+          purpose?: string | null
+          scheduled_on?: string
+          status?: string
+          updated_at?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appointments_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointments_patient_fk"
+            columns: ["clinic_id", "patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["clinic_id", "id"]
+          },
+          {
+            foreignKeyName: "appointments_pregnancy_fk"
+            columns: ["clinic_id", "pregnancy_id"]
+            isOneToOne: false
+            referencedRelation: "pregnancies"
+            referencedColumns: ["clinic_id", "id"]
+          },
+        ]
+      }
       audit_events: {
         Row: {
           action: string
@@ -387,6 +451,96 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "outbox_events"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      doctor_references: {
+        Row: {
+          clinic_id: string
+          created_at: string
+          created_by: string
+          id: string
+          patient_id: string
+          pregnancy_id: string
+          reason: string
+          to_external_name: string | null
+          to_facility: string | null
+          to_specialty: string | null
+          to_staff_user_id: string | null
+          updated_at: string
+          urgency: string
+          version: number
+          visit_id: string
+        }
+        Insert: {
+          clinic_id: string
+          created_at?: string
+          created_by: string
+          id?: string
+          patient_id: string
+          pregnancy_id: string
+          reason: string
+          to_external_name?: string | null
+          to_facility?: string | null
+          to_specialty?: string | null
+          to_staff_user_id?: string | null
+          updated_at?: string
+          urgency?: string
+          version?: number
+          visit_id: string
+        }
+        Update: {
+          clinic_id?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          patient_id?: string
+          pregnancy_id?: string
+          reason?: string
+          to_external_name?: string | null
+          to_facility?: string | null
+          to_specialty?: string | null
+          to_staff_user_id?: string | null
+          updated_at?: string
+          urgency?: string
+          version?: number
+          visit_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "doctor_references_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "doctor_references_patient_fk"
+            columns: ["clinic_id", "patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["clinic_id", "id"]
+          },
+          {
+            foreignKeyName: "doctor_references_pregnancy_fk"
+            columns: ["clinic_id", "pregnancy_id"]
+            isOneToOne: false
+            referencedRelation: "pregnancies"
+            referencedColumns: ["clinic_id", "id"]
+          },
+          {
+            foreignKeyName: "doctor_references_to_staff_user_id_fkey"
+            columns: ["to_staff_user_id"]
+            isOneToOne: false
+            referencedRelation: "staff_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "doctor_references_visit_fk"
+            columns: ["clinic_id", "visit_id"]
+            isOneToOne: false
+            referencedRelation: "visits"
+            referencedColumns: ["clinic_id", "id"]
           },
         ]
       }
@@ -770,6 +924,93 @@ export type Database = {
           },
         ]
       }
+      menstrual_histories: {
+        Row: {
+          clinic_id: string
+          created_at: string
+          cycle_length_days: number | null
+          cycle_regularity: string | null
+          duration_days: number | null
+          dysmenorrhea: boolean | null
+          flow: string | null
+          id: string
+          impacts_activities: boolean | null
+          lmp: string | null
+          menarche_age_years: number | null
+          pads_per_day: number | null
+          patient_id: string
+          pms_emotional: string[] | null
+          pms_physical: string[] | null
+          recorded_by: string | null
+          recorded_on: string
+          remarks: string | null
+          source: Database["public"]["Enums"]["data_source"]
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          clinic_id: string
+          created_at?: string
+          cycle_length_days?: number | null
+          cycle_regularity?: string | null
+          duration_days?: number | null
+          dysmenorrhea?: boolean | null
+          flow?: string | null
+          id?: string
+          impacts_activities?: boolean | null
+          lmp?: string | null
+          menarche_age_years?: number | null
+          pads_per_day?: number | null
+          patient_id: string
+          pms_emotional?: string[] | null
+          pms_physical?: string[] | null
+          recorded_by?: string | null
+          recorded_on: string
+          remarks?: string | null
+          source?: Database["public"]["Enums"]["data_source"]
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          clinic_id?: string
+          created_at?: string
+          cycle_length_days?: number | null
+          cycle_regularity?: string | null
+          duration_days?: number | null
+          dysmenorrhea?: boolean | null
+          flow?: string | null
+          id?: string
+          impacts_activities?: boolean | null
+          lmp?: string | null
+          menarche_age_years?: number | null
+          pads_per_day?: number | null
+          patient_id?: string
+          pms_emotional?: string[] | null
+          pms_physical?: string[] | null
+          recorded_by?: string | null
+          recorded_on?: string
+          remarks?: string | null
+          source?: Database["public"]["Enums"]["data_source"]
+          updated_at?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "menstrual_histories_patient_fk"
+            columns: ["clinic_id", "patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["clinic_id", "id"]
+          },
+          {
+            foreignKeyName: "menstrual_histories_recorded_by_fkey"
+            columns: ["recorded_by"]
+            isOneToOne: false
+            referencedRelation: "staff_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       observations: {
         Row: {
           category: Database["public"]["Enums"]["observation_category"]
@@ -911,23 +1152,34 @@ export type Database = {
       }
       obstetric_history: {
         Row: {
+          baby_position: string | null
           birth_weight_grams: number | null
           child_alive: Database["public"]["Enums"]["known_status"]
           clinic_id: string
           complications: string | null
+          conception_mode: string | null
+          conception_remarks: string | null
           created_at: string
           delivery_mode: Database["public"]["Enums"]["delivery_mode"]
           event_date: string | null
           event_date_precision: Database["public"]["Enums"]["date_precision"]
+          gestation_category: string | null
           gestation_weeks_at_delivery: number | null
           has_uterine_scar: boolean
           id: string
+          induced_complications: string[] | null
+          induced_complications_remarks: string | null
           outcome: Database["public"]["Enums"]["pregnancy_outcome"]
           patient_id: string
           place_of_event: string | null
+          plurality: string | null
+          plurality_other: string | null
           pregnancy_id: string | null
           recorded_at: string
           recorded_by: string | null
+          related_complications: string[] | null
+          related_complications_remarks: string | null
+          remarks: string | null
           scar_indication: string | null
           sequence_no: number
           source: Database["public"]["Enums"]["data_source"]
@@ -936,23 +1188,34 @@ export type Database = {
           year_of_event: number | null
         }
         Insert: {
+          baby_position?: string | null
           birth_weight_grams?: number | null
           child_alive?: Database["public"]["Enums"]["known_status"]
           clinic_id: string
           complications?: string | null
+          conception_mode?: string | null
+          conception_remarks?: string | null
           created_at?: string
           delivery_mode?: Database["public"]["Enums"]["delivery_mode"]
           event_date?: string | null
           event_date_precision?: Database["public"]["Enums"]["date_precision"]
+          gestation_category?: string | null
           gestation_weeks_at_delivery?: number | null
           has_uterine_scar?: boolean
           id?: string
+          induced_complications?: string[] | null
+          induced_complications_remarks?: string | null
           outcome?: Database["public"]["Enums"]["pregnancy_outcome"]
           patient_id: string
           place_of_event?: string | null
+          plurality?: string | null
+          plurality_other?: string | null
           pregnancy_id?: string | null
           recorded_at?: string
           recorded_by?: string | null
+          related_complications?: string[] | null
+          related_complications_remarks?: string | null
+          remarks?: string | null
           scar_indication?: string | null
           sequence_no: number
           source?: Database["public"]["Enums"]["data_source"]
@@ -961,23 +1224,34 @@ export type Database = {
           year_of_event?: number | null
         }
         Update: {
+          baby_position?: string | null
           birth_weight_grams?: number | null
           child_alive?: Database["public"]["Enums"]["known_status"]
           clinic_id?: string
           complications?: string | null
+          conception_mode?: string | null
+          conception_remarks?: string | null
           created_at?: string
           delivery_mode?: Database["public"]["Enums"]["delivery_mode"]
           event_date?: string | null
           event_date_precision?: Database["public"]["Enums"]["date_precision"]
+          gestation_category?: string | null
           gestation_weeks_at_delivery?: number | null
           has_uterine_scar?: boolean
           id?: string
+          induced_complications?: string[] | null
+          induced_complications_remarks?: string | null
           outcome?: Database["public"]["Enums"]["pregnancy_outcome"]
           patient_id?: string
           place_of_event?: string | null
+          plurality?: string | null
+          plurality_other?: string | null
           pregnancy_id?: string | null
           recorded_at?: string
           recorded_by?: string | null
+          related_complications?: string[] | null
+          related_complications_remarks?: string | null
+          remarks?: string | null
           scar_indication?: string | null
           sequence_no?: number
           source?: Database["public"]["Enums"]["data_source"]
@@ -1006,6 +1280,71 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff_users"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      obstetric_history_infants: {
+        Row: {
+          apgar_1_min: number | null
+          apgar_10_min: number | null
+          apgar_5_min: number | null
+          birth_weight_grams: number | null
+          clinic_id: string
+          created_at: string
+          delivered_on: string | null
+          delivered_time: string | null
+          fetus_no: number
+          history_id: string
+          id: string
+          outcome: string | null
+          outcome_remarks: string | null
+          sex: string | null
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          apgar_1_min?: number | null
+          apgar_10_min?: number | null
+          apgar_5_min?: number | null
+          birth_weight_grams?: number | null
+          clinic_id: string
+          created_at?: string
+          delivered_on?: string | null
+          delivered_time?: string | null
+          fetus_no: number
+          history_id: string
+          id?: string
+          outcome?: string | null
+          outcome_remarks?: string | null
+          sex?: string | null
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          apgar_1_min?: number | null
+          apgar_10_min?: number | null
+          apgar_5_min?: number | null
+          birth_weight_grams?: number | null
+          clinic_id?: string
+          created_at?: string
+          delivered_on?: string | null
+          delivered_time?: string | null
+          fetus_no?: number
+          history_id?: string
+          id?: string
+          outcome?: string | null
+          outcome_remarks?: string | null
+          sex?: string | null
+          updated_at?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "obstetric_history_infants_history_fk"
+            columns: ["clinic_id", "history_id"]
+            isOneToOne: false
+            referencedRelation: "obstetric_history"
+            referencedColumns: ["clinic_id", "id"]
           },
         ]
       }
@@ -1201,6 +1540,70 @@ export type Database = {
           {
             foreignKeyName: "patient_contacts_verified_by_fkey"
             columns: ["verified_by"]
+            isOneToOne: false
+            referencedRelation: "staff_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      patient_queries: {
+        Row: {
+          bot_response: string
+          clinic_id: string
+          created_at: string
+          id: string
+          is_reviewed: boolean
+          patient_id: string
+          pregnancy_id: string | null
+          query_text: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          triage_level: Database["public"]["Enums"]["triage_level"]
+        }
+        Insert: {
+          bot_response: string
+          clinic_id: string
+          created_at?: string
+          id?: string
+          is_reviewed?: boolean
+          patient_id: string
+          pregnancy_id?: string | null
+          query_text: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          triage_level: Database["public"]["Enums"]["triage_level"]
+        }
+        Update: {
+          bot_response?: string
+          clinic_id?: string
+          created_at?: string
+          id?: string
+          is_reviewed?: boolean
+          patient_id?: string
+          pregnancy_id?: string | null
+          query_text?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          triage_level?: Database["public"]["Enums"]["triage_level"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_queries_patient_fk"
+            columns: ["clinic_id", "patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["clinic_id", "id"]
+          },
+          {
+            foreignKeyName: "patient_queries_pregnancy_fk"
+            columns: ["clinic_id", "pregnancy_id"]
+            isOneToOne: false
+            referencedRelation: "pregnancies"
+            referencedColumns: ["clinic_id", "id"]
+          },
+          {
+            foreignKeyName: "patient_queries_reviewed_by_fkey"
+            columns: ["reviewed_by"]
             isOneToOne: false
             referencedRelation: "staff_users"
             referencedColumns: ["id"]
@@ -2518,10 +2921,13 @@ export type Database = {
           cancelled_by: string | null
           clinic_id: string
           clinician_id: string | null
+          consultation_summary: string | null
           created_at: string
           dating_method_at_visit:
             | Database["public"]["Enums"]["dating_method"]
             | null
+          diagnosis: string | null
+          examination: string | null
           ga_days_at_visit: number | null
           id: string
           impression: string | null
@@ -2542,10 +2948,13 @@ export type Database = {
           cancelled_by?: string | null
           clinic_id: string
           clinician_id?: string | null
+          consultation_summary?: string | null
           created_at?: string
           dating_method_at_visit?:
             | Database["public"]["Enums"]["dating_method"]
             | null
+          diagnosis?: string | null
+          examination?: string | null
           ga_days_at_visit?: number | null
           id?: string
           impression?: string | null
@@ -2566,10 +2975,13 @@ export type Database = {
           cancelled_by?: string | null
           clinic_id?: string
           clinician_id?: string | null
+          consultation_summary?: string | null
           created_at?: string
           dating_method_at_visit?:
             | Database["public"]["Enums"]["dating_method"]
             | null
+          diagnosis?: string | null
+          examination?: string | null
           ga_days_at_visit?: number | null
           id?: string
           impression?: string | null
@@ -2830,6 +3242,15 @@ export type Database = {
         }
         Returns: undefined
       }
+      cancel_appointment: {
+        Args: {
+          p_actor_staff_user_id: string
+          p_appointment_id: string
+          p_clinic_id: string
+          p_request_id: string
+        }
+        Returns: undefined
+      }
       cancel_visit: {
         Args: {
           p_actor_staff_user_id: string
@@ -2997,6 +3418,21 @@ export type Database = {
         }
         Returns: Json
       }
+      record_immunization: {
+        Args: {
+          p_actor_staff_user_id: string
+          p_administered_on: string
+          p_batch_number: string
+          p_clinic_id: string
+          p_facility: string
+          p_pregnancy_id: string
+          p_request_id: string
+          p_source: Database["public"]["Enums"]["data_source"]
+          p_status: Database["public"]["Enums"]["immunization_status"]
+          p_vaccine: string
+        }
+        Returns: string
+      }
       record_report_upload: {
         Args: {
           p_actor_staff_user_id: string
@@ -3090,25 +3526,66 @@ export type Database = {
         }
         Returns: boolean
       }
+      save_menstrual_history: {
+        Args: {
+          p_actor_staff_user_id: string
+          p_clinic_id: string
+          p_entry: Json
+          p_expected_version: number
+          p_history_id: string
+          p_patient_id: string
+          p_recorded_on: string
+          p_request_id: string
+        }
+        Returns: string
+      }
+      save_obstetric_history_entry: {
+        Args: {
+          p_actor_staff_user_id: string
+          p_clinic_id: string
+          p_entry: Json
+          p_expected_version: number
+          p_history_id: string
+          p_patient_id: string
+          p_request_id: string
+        }
+        Returns: string
+      }
       save_visit_consultation: {
         Args: {
           p_actor_staff_user_id: string
           p_advice: Json
           p_as_of_date: string
           p_clinic_id: string
+          p_diagnosis?: string
+          p_examination?: string
           p_expected_version: number
           p_idempotency_key: string
           p_impression: string
           p_payload_hash: string
           p_pin_observation_ids: string[]
           p_prescriptions: Json
+          p_reference?: Json
           p_request_id: string
           p_resolve_query_ids: string[]
+          p_summary?: string
           p_unpin_observation_ids: string[]
           p_verify_candidates: Json
           p_visit_id: string
         }
         Returns: Json
+      }
+      schedule_appointment: {
+        Args: {
+          p_actor_staff_user_id: string
+          p_clinic_id: string
+          p_patient_id: string
+          p_pregnancy_id: string
+          p_purpose: string
+          p_request_id: string
+          p_scheduled_on: string
+        }
+        Returns: string
       }
       start_extraction_run: {
         Args: {
@@ -3324,6 +3801,7 @@ export type Database = {
         | "GROWTH_DOPPLER"
         | "BPP"
         | "OTHER"
+      triage_level: "CRITICAL" | "IMPORTANT" | "NORMAL"
       upload_assignment_status: "ASSIGNED" | "UNASSIGNED" | "QUARANTINED"
       visit_status: "OPEN" | "SAVED" | "CANCELLED"
       visit_type: "ANC_OPD" | "FOLLOW_UP" | "EMERGENCY" | "OTHER"
@@ -3632,6 +4110,7 @@ export const Constants = {
         "BPP",
         "OTHER",
       ],
+      triage_level: ["CRITICAL", "IMPORTANT", "NORMAL"],
       upload_assignment_status: ["ASSIGNED", "UNASSIGNED", "QUARANTINED"],
       visit_status: ["OPEN", "SAVED", "CANCELLED"],
       visit_type: ["ANC_OPD", "FOLLOW_UP", "EMERGENCY", "OTHER"],

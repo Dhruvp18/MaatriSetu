@@ -49,6 +49,24 @@ export function createFixtureProvider(): SpeechProvider {
     name: 'fixture',
 
     async transcribe(request: TranscriptionRequest): Promise<TranscriptionResult> {
+      if (request.purpose === 'CLINICIAN_DICTATION') {
+        // A clinician dictating gets a clinical-sounding sample rather than a
+        // patient's message, so a demo of the dictation button reads sensibly.
+        // It is still labelled as sample output wherever it lands.
+        const note = 'P/A: uterus corresponds to dates, relaxed. FHS regular. No pedal oedema.'
+        return {
+          ok: true,
+          transcription: {
+            original: note,
+            english: note,
+            detectedLanguage: 'en-IN',
+            confidence: null,
+            provider: 'fixture',
+            model: 'fixture',
+          },
+        }
+      }
+
       // Chosen from the audio's own length so the same file always yields the
       // same sample. A random pick would make a demo unrepeatable and a failing
       // check impossible to reproduce.

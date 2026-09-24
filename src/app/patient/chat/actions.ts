@@ -1,11 +1,12 @@
 'use server'
 
-import { serviceClient } from '@core/db/clients'
 import { serverEnv, providerEnv } from '@core/config/env'
+import { TriageReplySchema } from '@/modules/patient-portal/portal.schema'
+import { recordQuestion } from '@/modules/patient-portal/portal.service'
+import type { TriageLevel } from '@/modules/patient-portal/portal.types'
 import { DEFAULT_LANG, isLang, type Lang } from '../lib/i18n/locales'
 import { getDictionary } from '../lib/i18n/dictionaries'
-
-export type TriageLevel = 'CRITICAL' | 'IMPORTANT' | 'NORMAL'
+import { getPatientSession } from '../lib/session'
 
 export interface TriageResult {
   triageLevel: TriageLevel
@@ -68,34 +69,58 @@ function keywordTriage(query: string, lang: Lang): TriageResult & { clinicPhone:
 
 export async function processPatientQuery(
   query: string,
-  patientId: string | null,
-  clinicId: string | null,
   requestedLang?: string,
 ): Promise<TriageResult & { clinicPhone: string }> {
   const clinicPhone = serverEnv().CLINIC_PHONE_NUMBER
-  const geminiKey = providerEnv().GEMINI_API_KEY
+  const { GEMINI_API_KEY: geminiKey, GEMINI_MODEL: geminiModel } = providerEnv()
   // Server actions take client input; never trust it to be a known language.
   const lang = isLang(requestedLang) ? requestedLang : DEFAULT_LANG
 
-  let triageLevel: TriageLevel
-  let responseText: string
+  const result = geminiKey
+    ? await geminiTriage(query, lang, geminiKey, geminiModel, clinicPhone)
+    : // No API key — keyword fallback (visibly labelled in UI).
+      keywordTriage(query, lang)
 
-  if (!geminiKey) {
-    // No API key — use keyword fallback (visibly labelled in UI)
-    return keywordTriage(query, lang)
+  // Logged whichever path answered: a CRITICAL question caught by the keyword
+  // fallback matters to the clinic as much as one Gemini classified.
+  const session = await getPatientSession()
+  if (session) {
+    try {
+      await recordQuestion(session, {
+        queryText: query,
+        botResponse: result.responseText,
+        triageLevel: result.triageLevel,
+      })
+    } catch (err) {
+      // Non-fatal: the patient still gets a response even if saving fails.
+      console.error('Failed to save patient query:', err)
+    }
   }
 
+  return result
+}
+
+async function geminiTriage(
+  query: string,
+  lang: Lang,
+  apiKey: string,
+  model: string,
+  clinicPhone: string,
+): Promise<TriageResult & { clinicPhone: string }> {
   try {
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        // In a header rather than the URL, so it never lands in a request log.
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
         body: JSON.stringify({
           system_instruction: { parts: [{ text: buildSystemPrompt(lang) }] },
           contents: [{ role: 'user', parts: [{ text: query }] }],
-          // Devanagari costs several times more tokens than English; leave room so the JSON is not cut off.
-          generationConfig: { responseMimeType: 'application/json', temperature: 0.3, maxOutputTokens: 512 },
+          // Gemini 3 models spend thinking tokens from this budget, and
+          // Devanagari costs several times more than English; 512 cut the
+          // JSON off mid-string.
+          generationConfig: { responseMimeType: 'application/json', temperature: 0.3, maxOutputTokens: 2048 },
         }),
       },
     )
@@ -103,36 +128,14 @@ export async function processPatientQuery(
     if (!res.ok) throw new Error(`Gemini API error: ${res.status}`)
 
     const json = await res.json()
-    const text = json.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
-    const parsed = JSON.parse(text)
+    const parts: { text?: string; thought?: boolean }[] = json.candidates?.[0]?.content?.parts ?? []
+    const text = parts.filter((p) => !p.thought).map((p) => p.text ?? '').join('')
 
-    triageLevel = parsed.triage as TriageLevel
-    responseText = parsed.response as string
-
-    if (!['CRITICAL', 'IMPORTANT', 'NORMAL'].includes(triageLevel)) {
-      throw new Error('Invalid triage level from Gemini')
-    }
+    // Model output is untrusted input (ARCH-6).
+    const parsed = TriageReplySchema.parse(JSON.parse(text))
+    return { triageLevel: parsed.triage, responseText: parsed.response, clinicPhone }
   } catch (err) {
     console.error('Gemini triage failed, using keyword fallback:', err)
     return keywordTriage(query, lang)
   }
-
-  // Persist to database
-  if (patientId && clinicId) {
-    try {
-      const db = serviceClient()
-      await db.from('patient_queries').insert({
-        clinic_id: clinicId,
-        patient_id: patientId,
-        query_text: query,
-        bot_response: responseText,
-        triage_level: triageLevel,
-      })
-    } catch (err) {
-      // Non-fatal: the patient still gets a response even if saving fails
-      console.error('Failed to save patient query to database:', err)
-    }
-  }
-
-  return { triageLevel, responseText, clinicPhone }
 }

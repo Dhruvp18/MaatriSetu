@@ -1,5 +1,5 @@
+import { getDashboard } from '@/modules/patient-portal/portal.service'
 import { getPatientSession } from '../lib/session'
-import { getPatientDashboard } from '../lib/data'
 import { getPatientI18n } from '../lib/i18n/server'
 import type { GuideSlug } from '../lib/i18n/locales'
 import {
@@ -31,7 +31,7 @@ export default async function InfoPage() {
   let trimesterTip: string | null = null
 
   if (session) {
-    const data = await getPatientDashboard(session)
+    const data = await getDashboard(session)
     if (data.trimester) trimesterTip = info.trimesterTips[data.trimester]
   }
 

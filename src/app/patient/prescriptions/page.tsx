@@ -1,7 +1,5 @@
+import { getPrescriptions } from '@/modules/patient-portal/portal.service'
 import { getPatientSession } from '../lib/session'
-import { findActivePregnancy } from '@/modules/pregnancies/pregnancy.repository'
-import { listPrescriptions } from '@/modules/orders/order.repository'
-import { serviceClient } from '@core/db/clients'
 import { Pill, Calendar, Clock, AlertTriangle } from 'lucide-react'
 import { getPatientI18n } from '../lib/i18n/server'
 import { fmt, formatDate } from '../lib/i18n/locales'
@@ -13,10 +11,9 @@ export default async function PrescriptionsPage() {
     return <div className="p-4 pt-8 text-center text-slate-500">{t.common.sessionExpired}</div>
   }
 
-  const db = serviceClient()
-  const pregnancy = await findActivePregnancy(db, session.clinicId, session.patientId)
+  const { hasActivePregnancy, prescriptions } = await getPrescriptions(session)
 
-  if (!pregnancy) {
+  if (!hasActivePregnancy) {
     return (
       <div className="p-4 pt-8 text-center">
         <h1 className="text-xl font-bold text-slate-800 font-serif mb-4">{rx.title}</h1>
@@ -27,8 +24,6 @@ export default async function PrescriptionsPage() {
       </div>
     )
   }
-
-  const prescriptions = await listPrescriptions(db, session.clinicId, pregnancy.id)
 
   const today = new Date().toISOString().slice(0, 10)
   const ongoing = prescriptions.filter(p => !p.endDate || p.endDate >= today)

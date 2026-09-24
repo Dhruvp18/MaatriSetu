@@ -126,6 +126,62 @@ export function formatPrescription(prescription: Prescription): string {
 }
 
 /**
+ * The morning–noon–night tablet pattern Indian prescriptions are written in.
+ *
+ * Only the schedules that map onto a daily pattern have one. SOS, STAT and
+ * weekly doses have no pattern, and inventing one ("0-0-0") would read as a
+ * drug that is not to be taken at all.
+ */
+export const DOSING_PATTERN: Partial<Record<DoseFrequency, string>> = {
+  OD: '1-0-0',
+  BD: '1-0-1',
+  TDS: '1-1-1',
+  QID: '1-1-1-1',
+  HS: '0-0-1',
+}
+
+/** The abbreviation a clinician writes, as opposed to the words a slip prints. */
+export const FREQUENCY_CODES: Record<DoseFrequency, string> = {
+  OD: 'OD',
+  BD: 'BD',
+  TDS: 'TDS',
+  QID: 'QID',
+  HS: 'HS',
+  SOS: 'SOS',
+  PRN: 'PRN',
+  STAT: 'STAT',
+  WEEKLY: 'Weekly',
+  OTHER: 'As directed',
+}
+
+export function describeFrequency(frequency: DoseFrequency): string {
+  return FREQUENCY_LABELS[frequency]
+}
+
+export function describeFoodRelation(relation: FoodRelation): string | null {
+  return FOOD_LABELS[relation] || null
+}
+
+/** `1-0-1 (BD)`, or just the code when the schedule has no daily pattern. */
+export function formatDosing(frequency: DoseFrequency): string {
+  const pattern = DOSING_PATTERN[frequency]
+  return pattern ? `${pattern} (${FREQUENCY_CODES[frequency]})` : FREQUENCY_CODES[frequency]
+}
+
+/** `Tab. Ferrous ascorbate 100 mg` — the drug, without its schedule. */
+export function formatDrug(prescription: Prescription): string {
+  return [
+    prescription.form ? `${prescription.form}.` : null,
+    prescription.medicineName,
+    prescription.dose.kind === 'SPECIFIED'
+      ? `${prescription.dose.amount} ${prescription.dose.unit}`
+      : null,
+  ]
+    .filter(Boolean)
+    .join(' ')
+}
+
+/**
  * Is this order still running on the given day?
  *
  * Derived from status and dates rather than read from a stored flag. PRD §8

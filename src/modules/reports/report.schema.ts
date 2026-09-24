@@ -52,11 +52,10 @@ const CalendarDateSchema = z
 /**
  * What a phone camera produces, and what the extraction provider accepts.
  *
- * PDF is absent. Anthropic's vision API takes images, and accepting a PDF here
- * would store a document the worker cannot read — an upload that sits in the
- * queue looking like a slow one rather than an unsupported one.
+ * PDF is accepted: a lab's own printout often arrives as one, and the extraction
+ * provider reads PDFs and HEIC photographs directly (core/ocr/gemini.ts).
  */
-const ACCEPTED_IMAGE = ['image/jpeg', 'image/png', 'image/webp', 'image/heic'] as const
+const ACCEPTED_IMAGE = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'application/pdf'] as const
 
 /**
  * A generous ceiling for one photograph.

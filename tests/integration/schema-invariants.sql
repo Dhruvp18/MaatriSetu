@@ -614,6 +614,9 @@ select pg_temp.readable_as_authenticated('observations policy evaluates', 'obser
 select pg_temp.readable_as_authenticated('prescriptions policy evaluates', 'prescriptions');
 select pg_temp.readable_as_authenticated('voice_queries policy evaluates', 'voice_queries');
 select pg_temp.readable_as_authenticated('referrals policy evaluates', 'referrals');
+select pg_temp.readable_as_authenticated('obstetric_history_infants policy evaluates', 'obstetric_history_infants');
+select pg_temp.readable_as_authenticated('menstrual_histories policy evaluates', 'menstrual_histories');
+select pg_temp.readable_as_authenticated('doctor_references policy evaluates', 'doctor_references');
 
 \echo ''
 
@@ -773,11 +776,137 @@ select pg_temp.must_equal(
     from unnest(array['authenticated', 'anon']) as grantee
     where has_function_privilege(
       grantee,
-      'public.save_visit_consultation(uuid, uuid, text, uuid, integer, date, text, jsonb, jsonb, jsonb, uuid[], uuid[], uuid[], text, bytea)',
+      'public.save_visit_consultation(uuid, uuid, text, uuid, integer, date, text, jsonb, jsonb, jsonb, uuid[], uuid[], uuid[], text, bytea, text, text, text, jsonb)',
       'EXECUTE'
     )
   ),
   0::bigint
+);
+
+\echo ''
+\echo ''
+\echo '=== Cockpit clinical history (0024) ==='
+
+-- Detailed obstetric history, menstrual history, immunizations, and the
+-- consultation's examination / diagnosis / doctor reference. Each routine
+-- persists and audits in one call.
+
+do $$
+declare
+  c_clinic  uuid := '11111111-1111-4111-8111-000000000001';
+  c_patient uuid := '44444444-4444-4444-8444-00000000000a';
+  c_preg    uuid := '55555555-5555-4555-8555-00000000000a';
+  c_doctor  uuid := '33333333-3333-4333-8333-000000000001';
+
+  v_history  uuid;
+  v_version  integer;
+  v_infants  integer;
+  v_menses   uuid;
+  v_visit    uuid;
+  v_vversion integer;
+begin
+  v_history := public.save_obstetric_history_entry(
+    c_clinic, c_doctor, 'inv-oh-1', c_patient, null, null,
+    '{"eventDate":"2023-05-10","outcome":"LIVE_BIRTH","deliveryMode":"LSCS_EMERGENCY","hasUterineScar":true,
+      "conceptionMode":"NATURAL","gestationCategory":"FULL_TERM","inducedComplications":[],
+      "relatedComplications":["PLACENTA_PREVIA"],"plurality":"TWINS",
+      "infants":[{"fetusNo":1,"outcome":"ALIVE","birthWeightGrams":2400,"sex":"FEMALE","apgar1Min":7,"apgar5Min":9},
+                 {"fetusNo":2,"outcome":"ALIVE","birthWeightGrams":2250,"sex":"MALE"}]}'::jsonb
+  );
+
+  select count(*) into v_infants from obstetric_history_infants where history_id = v_history;
+  select version into v_version from obstetric_history where id = v_history;
+
+  if v_infants = 2
+     and (select induced_complications from obstetric_history where id = v_history) = '{}'::text[]
+     and exists (select 1 from audit_events where action = 'obstetric_history.recorded' and entity_id = v_history) then
+    raise notice 'ok    obstetric history records one row per baby, keeps "none" distinct, and audits';
+  else
+    raise notice 'FAIL  obstetric history entry incomplete (infants=%)', v_infants;
+  end if;
+
+  perform public.save_obstetric_history_entry(
+    c_clinic, c_doctor, 'inv-oh-2', c_patient, v_history, v_version,
+    '{"eventDate":"2023-05-10","outcome":"LIVE_BIRTH","deliveryMode":"LSCS_EMERGENCY","plurality":"SINGLE",
+      "infants":[{"fetusNo":1,"outcome":"ALIVE"}]}'::jsonb
+  );
+
+  select count(*) into v_infants from obstetric_history_infants where history_id = v_history;
+  if v_infants = 1 and (select induced_complications from obstetric_history where id = v_history) is null then
+    raise notice 'ok    editing an obstetric history entry replaces its infants';
+  else
+    raise notice 'FAIL  obstetric history edit (infants=%)', v_infants;
+  end if;
+
+  begin
+    perform public.save_obstetric_history_entry(
+      c_clinic, c_doctor, 'inv-oh-3', c_patient, v_history, v_version, '{}'::jsonb
+    );
+    raise notice 'FAIL  a stale obstetric history version was accepted';
+  exception when serialization_failure then
+    raise notice 'ok    a stale obstetric history version is rejected';
+  end;
+
+  v_menses := public.save_menstrual_history(
+    c_clinic, c_doctor, 'inv-mh-1', c_patient, null, null, current_date,
+    '{"lmp":"2025-12-11","menarcheAgeYears":13,"cycleRegularity":"REGULAR","dysmenorrhea":false,"pmsPhysical":["Bloating"]}'::jsonb
+  );
+
+  if (select dysmenorrhea from menstrual_histories where id = v_menses) = false
+     and (select impacts_activities from menstrual_histories where id = v_menses) is null then
+    raise notice 'ok    menstrual history keeps "no" and "not asked" apart';
+  else
+    raise notice 'FAIL  menstrual history tri-state collapsed';
+  end if;
+
+  perform public.record_immunization(c_clinic, c_doctor, 'inv-im-1', c_preg, 'Tdap', 'PLANNED', null, null, null, 'STAFF_ENTERED');
+  perform public.record_immunization(c_clinic, c_doctor, 'inv-im-2', c_preg, 'Tdap', 'GIVEN', current_date, 'OPD', null, 'STAFF_ENTERED');
+
+  if (select count(*) from immunizations where pregnancy_id = c_preg and vaccine = 'Tdap') = 1
+     and (select status from immunizations where pregnancy_id = c_preg and vaccine = 'Tdap') = 'GIVEN' then
+    raise notice 'ok    recording a vaccine twice updates it rather than duplicating';
+  else
+    raise notice 'FAIL  immunization upsert';
+  end if;
+
+  insert into visits (clinic_id, patient_id, pregnancy_id, status, opened_by)
+  values (c_clinic, c_patient, c_preg, 'OPEN', c_doctor)
+  returning id, version into v_visit, v_vversion;
+
+  perform public.save_visit_consultation(
+    c_clinic, c_doctor, 'inv-ref-1', v_visit, v_vversion, current_date,
+    'Impression.', '[]'::jsonb, null, '[]'::jsonb, '{}'::uuid[], '{}'::uuid[], '{}'::uuid[],
+    'inv-key-ref', decode('ee', 'hex'),
+    p_examination => 'P/A: uterus 32 wk size.',
+    p_diagnosis   => 'G2P1L1 at 32 weeks.',
+    p_summary     => 'Continue iron.',
+    p_reference   => '{"toExternalName":"Dr Rao","toSpecialty":"Cardiology","reason":"Murmur on auscultation"}'::jsonb
+  );
+
+  if (select examination from visits where id = v_visit) is not null
+     and (select diagnosis from visits where id = v_visit) is not null
+     and exists (select 1 from doctor_references where visit_id = v_visit) then
+    raise notice 'ok    examination, diagnosis and a doctor reference commit with the visit';
+  else
+    raise notice 'FAIL  consultation narrative or reference missing';
+  end if;
+end;
+$$;
+
+select pg_temp.must_fail(
+  'a doctor reference with no recipient is rejected',
+  $stmt$
+    insert into doctor_references (clinic_id, patient_id, pregnancy_id, visit_id, reason, created_by)
+    select clinic_id, patient_id, pregnancy_id, id, 'x', '33333333-3333-4333-8333-000000000001'
+      from visits limit 1
+  $stmt$
+);
+
+select pg_temp.must_fail(
+  'an unknown obstetric complication code is rejected',
+  $stmt$
+    update obstetric_history set induced_complications = array['MADE_UP'] where true
+  $stmt$
 );
 
 \echo ''
@@ -1172,3 +1301,112 @@ select pg_temp.must_equal(
 );
 
 \echo ''
+
+\echo ''
+\echo '=== Appointments (0025) ==='
+
+select pg_temp.readable_as_authenticated('appointments policy evaluates', 'appointments');
+
+do $$
+declare
+  c_clinic  uuid := '11111111-1111-4111-8111-000000000001';
+  c_patient uuid := '44444444-4444-4444-8444-00000000000a';
+  c_doctor  uuid := '33333333-3333-4333-8333-000000000001';
+  v_first   uuid;
+  v_second  uuid;
+begin
+  v_first  := public.schedule_appointment(c_clinic, c_doctor, 'inv-ap-1', c_patient, null, current_date + 7, 'ANC');
+  v_second := public.schedule_appointment(c_clinic, c_doctor, 'inv-ap-2', c_patient, null, current_date + 7, null);
+
+  if v_first = v_second and (select purpose from appointments where id = v_first) = 'ANC' then
+    raise notice 'ok    booking the same day twice keeps one appointment';
+  else
+    raise notice 'FAIL  duplicate appointment for one day';
+  end if;
+
+  perform public.cancel_appointment(c_clinic, c_doctor, 'inv-ap-3', v_first);
+  if (select status from appointments where id = v_first) = 'CANCELLED' then
+    raise notice 'ok    an appointment can be cancelled, and is kept';
+  else
+    raise notice 'FAIL  appointment cancel';
+  end if;
+end;
+$$;
+
+\echo ''
+\echo '=== Patient queries (0026) ==='
+
+select pg_temp.readable_as_authenticated('patient_queries policy evaluates', 'patient_queries');
+
+select case
+  when has_table_privilege('anon', 'patient_queries', 'select') then 'FAIL  anon can read patient_queries'
+  else 'ok    anon cannot read patient_queries'
+end as must_be_ok;
+
+select case
+  when exists (
+    select 1 from pg_policies
+     where tablename = 'patient_queries' and cmd <> 'SELECT'
+  ) then 'FAIL  patient_queries is writable through a session policy'
+  else 'ok    patient_queries is written only by the service role'
+end as must_be_ok;
+
+do $$
+declare
+  c_clinic  uuid := '11111111-1111-4111-8111-000000000001';
+  c_patient uuid := '44444444-4444-4444-8444-00000000000a';
+begin
+  insert into patient_queries (clinic_id, patient_id, query_text, bot_response, triage_level)
+  values (c_clinic, c_patient, 'Is some swelling normal?', 'Please tell the clinic.', 'IMPORTANT');
+
+  -- Checked on the constraint itself: the seeded patient has other rows that
+  -- would block a delete regardless, so attempting one proves nothing.
+  if (select confdeltype from pg_constraint where conname = 'patient_queries_patient_fk') = 'r' then
+    raise notice 'ok    a patient with queries cannot be deleted as a side effect';
+  else
+    raise notice 'FAIL  patient_queries_patient_fk does not restrict deletes';
+  end if;
+
+  begin
+    insert into patient_queries (clinic_id, patient_id, query_text, bot_response, triage_level, is_reviewed)
+    values (c_clinic, c_patient, 'x', 'y', 'NORMAL', true);
+    raise notice 'FAIL  a query marked reviewed with no review time was accepted';
+  exception when check_violation then
+    raise notice 'ok    a reviewed query must say when';
+  end;
+end;
+$$;
+
+\echo ''
+\echo '=== The patient portal is an audited actor (0027) ==='
+
+do $$
+declare
+  c_clinic  uuid := '11111111-1111-4111-8111-000000000001';
+  c_patient uuid := '44444444-4444-4444-8444-00000000000a';
+  v_upload  uuid;
+begin
+  v_upload := public.record_report_upload(
+    c_clinic, null, 'inv-portal-1', c_patient, null, null,
+    'reports/inv/portal.jpg', 'image/jpeg', 1024, decode(repeat('ab', 32), 'hex')
+  );
+
+  if exists (
+    select 1 from audit_events
+     where entity_id = v_upload
+       and action = 'report_upload.received'
+       and actor_staff_user_id is null
+       and actor_worker = 'patient-portal'
+  ) then
+    raise notice 'ok    a patient upload is audited as patient-portal';
+  else
+    raise notice 'FAIL  patient upload audit actor';
+  end if;
+
+  if public.find_patient_by_qr(c_clinic, null, 'inv-portal-2', repeat('00', 32)) is null then
+    raise notice 'ok    an unknown QR token resolves to nobody, with no staff actor';
+  else
+    raise notice 'FAIL  unknown QR token resolved';
+  end if;
+end;
+$$;

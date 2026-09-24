@@ -8,6 +8,15 @@ const nextConfig: NextConfig = {
   // Typed Route href checking. Moved out of `experimental` in Next 15.5.
   typedRoutes: true,
 
+  experimental: {
+    serverActions: {
+      // A phone photograph of a lab slip is routinely 3–8 MB and the report
+      // schema allows 12 MB. The 1 MB default would refuse most of them before
+      // the upload action ever ran.
+      bodySizeLimit: '15mb',
+    },
+  },
+
   /**
    * The tokenized referral page.
    *

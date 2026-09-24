@@ -202,10 +202,12 @@ describe('what the upload form will accept', () => {
     expect(UploadReportSchema.safeParse(base).success).toBe(true)
   })
 
-  it('refuses a PDF, which the extraction provider cannot read', () => {
-    expect(UploadReportSchema.safeParse({ ...base, mimeType: 'application/pdf' }).success).toBe(
-      false,
-    )
+  it('accepts a PDF, which the extraction provider reads as a document', () => {
+    expect(UploadReportSchema.safeParse({ ...base, mimeType: 'application/pdf' }).success).toBe(true)
+  })
+
+  it('refuses a file type that is neither a photograph nor a PDF', () => {
+    expect(UploadReportSchema.safeParse({ ...base, mimeType: 'application/zip' }).success).toBe(false)
   })
 
   it('refuses a file larger than one photograph could reasonably be', () => {

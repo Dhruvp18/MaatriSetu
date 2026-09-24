@@ -1,5 +1,8 @@
-import { Activity } from 'lucide-react'
+import { Activity, Home, QrCode, UserPlus } from 'lucide-react'
+import Link from 'next/link'
 import { redirect } from 'next/navigation'
+
+import { roleHasPermission } from '@core/auth/permissions'
 
 import { resolveSession } from '@core/auth/session'
 
@@ -80,15 +83,16 @@ export default async function ClinicLayout({
       */}
       <header className="no-print sticky top-0 z-40 flex h-14 items-center justify-between gap-4 border-b border-slate-200/80 bg-white/90 px-4 shadow-[0_1px_3px_rgb(15_23_42/0.02)] backdrop-blur-md lg:px-6">
         <div className="flex items-center gap-3">
-          <span
-            aria-hidden
-            className="flex items-center gap-2 rounded-md bg-brand-800 px-2.5 py-1 text-white shadow-sm"
+          <Link
+            href="/clinic"
+            aria-label="Today’s patients"
+            className="flex items-center gap-2 rounded-md bg-brand-800 px-2.5 py-1 text-white shadow-sm hover:bg-brand-700"
           >
-            <Activity className="h-4.75 w-4.75" strokeWidth={2.25} />
+            <Activity aria-hidden className="h-4.75 w-4.75" strokeWidth={2.25} />
             <span className="font-heading text-[13px] font-extrabold tracking-wide">
               MAATRISETU
             </span>
-          </span>
+          </Link>
 
           <span aria-hidden className="hidden h-4 w-px bg-slate-300 sm:block" />
 
@@ -110,6 +114,22 @@ export default async function ClinicLayout({
         </div>
 
         <div className="flex items-center gap-3">
+          <nav className="flex items-center gap-1">
+            <HeaderLink href="/clinic" icon={<Home className="h-4 w-4" />}>
+              Today
+            </HeaderLink>
+            {roleHasPermission(actor.role, 'patient.read') ? (
+              <HeaderLink href="/clinic/scan" icon={<QrCode className="h-4 w-4" />}>
+                Scan
+              </HeaderLink>
+            ) : null}
+            {roleHasPermission(actor.role, 'patient.register') ? (
+              <HeaderLink href="/clinic/patients/new" icon={<UserPlus className="h-4 w-4" />}>
+                New patient
+              </HeaderLink>
+            ) : null}
+          </nav>
+
           <form action={signOut}>
             <button
               type="submit"
@@ -165,5 +185,27 @@ function SignOutButton({ label }: { label: string }) {
         {label}
       </button>
     </form>
+  )
+}
+
+function HeaderLink({
+  href,
+  icon,
+  children,
+}: {
+  href: '/clinic' | '/clinic/scan' | '/clinic/patients/new'
+  icon: React.ReactNode
+  children: React.ReactNode
+}) {
+  return (
+    <Link
+      href={href}
+      className="flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-brand-800"
+    >
+      <span aria-hidden className="text-slate-500">
+        {icon}
+      </span>
+      <span className="hidden md:inline">{children}</span>
+    </Link>
   )
 }

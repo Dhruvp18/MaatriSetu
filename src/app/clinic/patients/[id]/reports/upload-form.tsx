@@ -61,20 +61,20 @@ export function UploadForm({
 
       <div>
         <label htmlFor="image" className="mb-1.5 block text-sm font-medium text-slate-700">
-          Photograph of the report
+          Photograph or PDF of the report
         </label>
         <input
           ref={fileInput}
           id="image"
           name="image"
           type="file"
-          accept="image/jpeg,image/png,image/webp,image/heic"
+          accept="image/jpeg,image/png,image/webp,image/heic,application/pdf"
           capture="environment"
           required
           className="block w-full text-sm text-slate-700 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-100 file:px-4 file:py-2 file:text-sm file:font-medium file:text-slate-700 hover:file:bg-slate-200"
         />
         <p className="mt-1 text-xs text-slate-500">
-          Fill the frame with the printed area. Up to 12 MB.
+          Fill the frame with the printed area, or choose the lab’s PDF. Up to 12 MB.
         </p>
       </div>
 

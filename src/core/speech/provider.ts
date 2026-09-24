@@ -30,6 +30,12 @@ export interface TranscriptionRequest {
    * mother chooses her language, not the clinic.
    */
   readonly languageHint?: LanguageCode
+  /**
+   * Who is speaking. A patient's voice note is transcribed and translated; a
+   * clinician's dictation is transcribed as clinical notes. Defaults to
+   * PATIENT_MESSAGE, the original use.
+   */
+  readonly purpose?: 'PATIENT_MESSAGE' | 'CLINICIAN_DICTATION'
 }
 
 /**

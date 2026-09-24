@@ -1,0 +1,43 @@
+# Render Blueprint — the background worker only.
+#
+# The Next.js app runs on Vercel. This process drains the voice-transcription
+# and report-extraction queues (worker/src/index.ts), a long-running poll loop
+# that serverless functions cannot host.
+#
+# Singapore is Render's closest region to the Supabase project in Mumbai.
+# Background workers are not on Render's free plan.
+services:
+  - type: worker
+    name: maatrisetu-worker
+    runtime: node
+    region: singapore
+    plan: starter
+    branch: main
+    buildCommand: corepack enable && pnpm install --frozen-lockfile
+    startCommand: pnpm worker:start
+    envVars:
+      - key: NODE_VERSION
+        value: 22.13.0
+      # Secrets: set in the Render dashboard, never committed.
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        sync: false
+      - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: APP_BASE_URL
+        sync: false
+      - key: OCR_PROVIDER
+        value: gemini
+      - key: SPEECH_PROVIDER
+        value: sarvam
+      - key: GEMINI_MODEL
+        value: gemini-3.1-flash-lite
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: SARVAM_API_KEY
+        sync: false
+      - key: MESSAGING_PROVIDER
+        value: disabled

@@ -1,5 +1,5 @@
 -- ---------------------------------------------------------------------------
--- 0024 — Patient queries (chatbot triage log)
+-- 0026 — Patient queries (chatbot triage log)
 -- ---------------------------------------------------------------------------
 -- Every question a patient submits through the mobile chatbot is stored here.
 -- The clinic dashboard reads this table to review flagged queries before or
@@ -18,6 +18,8 @@ create table patient_queries (
 
   query_text   text not null check (length(btrim(query_text)) > 0),
   bot_response text not null,
+  -- Declaration order is severity order, so `order by triage_level` puts
+  -- CRITICAL first.
   triage_level triage_level not null,
 
   -- Set to true by clinic staff after they have read and acted on the query.
@@ -27,8 +29,12 @@ create table patient_queries (
 
   created_at   timestamptz not null default now(),
 
+  -- Restrict, like every other patient-owned table: a patient's record is
+  -- never removed as a side effect.
   constraint patient_queries_patient_fk
-    foreign key (clinic_id, patient_id) references patients (clinic_id, id) on delete cascade,
+    foreign key (clinic_id, patient_id) references patients (clinic_id, id) on delete restrict,
+  constraint patient_queries_pregnancy_fk
+    foreign key (clinic_id, pregnancy_id) references pregnancies (clinic_id, id) on delete restrict,
 
   constraint patient_queries_reviewed_consistent
     check ((is_reviewed = false) = (reviewed_at is null))
@@ -47,20 +53,17 @@ comment on table patient_queries is
   'Chatbot triage log. Written by the patient mobile interface. Read by clinic staff during consultation prep. Not a clinical record — the clinician decides what to do.';
 
 -- ---------------------------------------------------------------------------
--- RLS
+-- RLS — the same posture as 0012: deny by default, member-scoped read, writes
+-- only through the service role. Both the patient chatbot's insert and the
+-- clinic's "mark reviewed" run server-side with the service role.
 -- ---------------------------------------------------------------------------
--- The patient interface uses the service role to INSERT (no staff session).
--- Clinic staff read via their user session.
 
 alter table patient_queries enable row level security;
+alter table patient_queries force row level security;
 
--- Staff at the same clinic can read all queries for their clinic.
-create policy patient_queries_staff_read on patient_queries
+create policy patient_queries_member_read on patient_queries
   for select to authenticated
   using (app.is_clinic_member(clinic_id));
 
--- Staff can update is_reviewed / reviewed_by / reviewed_at.
-create policy patient_queries_staff_update on patient_queries
-  for update to authenticated
-  using (app.is_clinic_member(clinic_id))
-  with check (app.is_clinic_member(clinic_id));
+-- 0012's blanket revoke only reached tables that existed then.
+revoke all on patient_queries from anon;

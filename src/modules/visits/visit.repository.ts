@@ -7,14 +7,22 @@ import type { Database } from '@core/db/database.types'
 import { conflict, internal, notFound, retryable } from '@core/errors/app-error'
 
 import {
+  type DoctorReferenceRow,
   type VisitAdviceRow,
   type VisitRow,
   type VisitVitalsRow,
+  toDoctorReference,
   toVisit,
   toVisitAdvice,
   toVitalsReading,
 } from './visit.mapper'
-import type { Visit, VisitAdvice, VitalsReading } from './visit.types'
+import type {
+  ClinicDoctor,
+  DoctorReference,
+  Visit,
+  VisitAdvice,
+  VitalsReading,
+} from './visit.types'
 
 /**
  * The only place that talks to the database about visits.
@@ -176,6 +184,112 @@ export async function findAdviceForVisit(
 
   if (error) translate(error, 'findAdviceForVisit')
   return data ? toVisitAdvice(data) : null
+}
+
+/**
+ * The earliest weight recorded in a pregnancy's (non-cancelled) visits, or null.
+ *
+ * Two round trips regardless of how many visits she has had.
+ */
+export async function findFirstWeightKg(
+  db: TypedClient,
+  clinicId: string,
+  pregnancyId: string,
+): Promise<number | null> {
+  const { data: visits, error } = await db
+    .from('visits')
+    .select('id')
+    .eq('clinic_id', clinicId)
+    .eq('pregnancy_id', pregnancyId)
+    .neq('status', 'CANCELLED')
+    .returns<{ id: string }[]>()
+
+  if (error) translate(error, 'findFirstWeightKg.visits')
+  const ids = (visits ?? []).map((v) => v.id)
+  if (ids.length === 0) return null
+
+  const { data, error: vitalsError } = await db
+    .from('visit_vitals')
+    .select('*')
+    .eq('clinic_id', clinicId)
+    .in('visit_id', ids)
+    .not('weight_kg', 'is', null)
+    .order('recorded_at', { ascending: true })
+    .limit(1)
+    .returns<VisitVitalsRow[]>()
+
+  if (vitalsError) translate(vitalsError, 'findFirstWeightKg.vitals')
+  const first = data?.[0]
+  return first ? toVitalsReading(first).weightKg : null
+}
+
+/**
+ * Active doctors at this clinic, by name.
+ *
+ * Read through the two tables RLS already exposes to a member: the memberships
+ * of her own clinic, and the profiles of colleagues who share one.
+ */
+export async function listClinicDoctors(
+  db: TypedClient,
+  clinicId: string,
+): Promise<ClinicDoctor[]> {
+  const { data: members, error } = await db
+    .from('clinic_memberships')
+    .select('user_id')
+    .eq('clinic_id', clinicId)
+    .eq('role', 'DOCTOR')
+    .eq('is_active', true)
+    .returns<{ user_id: string }[]>()
+
+  if (error) translate(error, 'listClinicDoctors')
+  const ids = (members ?? []).map((m) => m.user_id)
+  if (ids.length === 0) return []
+
+  const { data: staff, error: staffError } = await db
+    .from('staff_users')
+    .select('id, display_name, registration_no, is_active')
+    .in('id', ids)
+    .returns<{ id: string; display_name: string; registration_no: string | null; is_active: boolean }[]>()
+
+  if (staffError) translate(staffError, 'listClinicDoctors.staff')
+  return (staff ?? [])
+    .filter((s) => s.is_active)
+    .map((s) => ({ staffUserId: s.id, displayName: s.display_name, registrationNo: s.registration_no }))
+    .sort((a, b) => a.displayName.localeCompare(b.displayName))
+}
+
+/** References made during this pregnancy, newest first. */
+export async function listDoctorReferences(
+  db: TypedClient,
+  clinicId: string,
+  pregnancyId: string,
+): Promise<DoctorReference[]> {
+  const { data, error } = await db
+    .from('doctor_references')
+    .select('*')
+    .eq('clinic_id', clinicId)
+    .eq('pregnancy_id', pregnancyId)
+    .order('created_at', { ascending: false })
+    .returns<DoctorReferenceRow[]>()
+
+  if (error) translate(error, 'listDoctorReferences')
+  const rows = data ?? []
+
+  const colleagueIds = [
+    ...new Set(rows.map((r) => r.to_staff_user_id).filter((id): id is string => !!id)),
+  ]
+  const names = new Map<string, string>()
+  if (colleagueIds.length > 0) {
+    const { data: staff, error: staffError } = await db
+      .from('staff_users')
+      .select('id, display_name')
+      .in('id', colleagueIds)
+      .returns<{ id: string; display_name: string }[]>()
+    if (staffError) translate(staffError, 'listDoctorReferences.staff')
+    for (const s of staff ?? []) names.set(s.id, s.display_name)
+  }
+
+  return rows.map((row) => toDoctorReference(row, names))
 }
 
 /* -------------------------------------------------------------------------- */
@@ -348,10 +462,15 @@ export async function cancelVisit(
  * `p_impression` and `p_advice` are genuinely optional: a consultation may end
  * with orders and no narrative, or a narrative and no advice checklist.
  */
-type SaveConsultationArgs = Nullable<
-  Fn['save_visit_consultation']['Args'],
-  'p_impression' | 'p_advice'
->
+type SaveConsultationArgs = Omit<
+  Nullable<Fn['save_visit_consultation']['Args'], 'p_impression' | 'p_advice'>,
+  'p_examination' | 'p_diagnosis' | 'p_summary' | 'p_reference'
+> & {
+  readonly p_examination: string | null
+  readonly p_diagnosis: string | null
+  readonly p_summary: string | null
+  readonly p_reference: unknown
+}
 
 export interface SaveConsultationResult {
   readonly visitId: string
@@ -385,6 +504,10 @@ export async function saveConsultation(
     expectedVersion: number
     asOfDate: string
     impression: string | null
+    examination: string | null
+    diagnosis: string | null
+    summary: string | null
+    reference: unknown
     prescriptions: unknown
     advice: unknown
     verifyCandidates: unknown
@@ -403,6 +526,10 @@ export async function saveConsultation(
     p_expected_version: input.expectedVersion,
     p_as_of_date: input.asOfDate,
     p_impression: input.impression,
+    p_examination: input.examination,
+    p_diagnosis: input.diagnosis,
+    p_summary: input.summary,
+    p_reference: input.reference,
     p_prescriptions: input.prescriptions as never,
     p_advice: input.advice as never,
     p_verify_candidates: input.verifyCandidates as never,

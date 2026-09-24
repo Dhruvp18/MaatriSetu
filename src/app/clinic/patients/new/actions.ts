@@ -1,5 +1,8 @@
 'use server'
 
+import type { Route } from 'next'
+import { redirect } from 'next/navigation'
+
 import { resolveSession } from '@core/auth/session'
 import { AppError } from '@core/errors/app-error'
 import { todayIn } from '@core/obstetrics/dating'
@@ -101,14 +104,10 @@ export async function submitRegistration(
       : [],
   }
 
+  let patientId: string
   try {
     const patient = await registerPatient(actor, input)
-    return {
-      status: 'registered',
-      patientId: patient.id,
-      uhid: patient.uhid,
-      fullName: patient.fullName,
-    }
+    patientId = patient.id
   } catch (error) {
     if (error instanceof AppError) {
       // The service reports a duplicate file number as a conflict. Surfacing it
@@ -124,6 +123,10 @@ export async function submitRegistration(
 
     throw error
   }
+
+  // Straight on to booking this pregnancy, which lands in her cockpit. Outside
+  // the try: redirect() signals by throwing.
+  redirect(`/clinic/patients/${patientId}/pregnancy/new` as Route)
 }
 
 /** Pull a field name out of zod issues, so the form can highlight it. */

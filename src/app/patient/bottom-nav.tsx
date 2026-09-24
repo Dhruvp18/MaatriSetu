@@ -1,5 +1,6 @@
 'use client'
 
+import type { Route } from 'next'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Home, Info, MessageSquare } from 'lucide-react'
@@ -24,7 +25,7 @@ export function BottomNav({ labels }: { labels: NavLabels }) {
         return (
           <Link
             key={href}
-            href={href as any}
+            href={href as Route}
             className={`flex flex-col items-center p-2 rounded-xl transition-all duration-200 ${
               isActive ? `${activeColor} ${activeBg}` : 'text-slate-400 hover:text-slate-600'
             }`}

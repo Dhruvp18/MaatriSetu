@@ -132,7 +132,7 @@ async function main(): Promise<void> {
     `[worker] speech provider: ${speechIsFixture() ? 'FIXTURE (canned output, labelled in the UI)' : providerEnv().SPEECH_PROVIDER}`,
   )
   console.log(
-    `[worker] ocr provider:    ${ocrIsFixture() ? 'FIXTURE (canned output, labelled in the UI)' : 'anthropic'}`,
+    `[worker] ocr provider:    ${ocrIsFixture() ? 'FIXTURE (canned output, labelled in the UI)' : providerEnv().OCR_PROVIDER}`,
   )
 
   // Graceful stop: finish the item in flight rather than killing a request
