@@ -163,6 +163,24 @@ export async function listVitalsForVisit(
   return (data ?? []).map(toVitalsReading)
 }
 
+/** Every reading taken across several visits, in recording order. */
+export async function listVitalsForVisits(
+  db: TypedClient,
+  clinicId: string,
+  visitIds: readonly string[],
+): Promise<{ visitId: string; reading: VitalsReading }[]> {
+  const { data, error } = await db
+    .from('visit_vitals')
+    .select('*')
+    .eq('clinic_id', clinicId)
+    .in('visit_id', [...visitIds])
+    .order('recorded_at', { ascending: true })
+    .returns<VisitVitalsRow[]>()
+
+  if (error) translate(error, 'listVitalsForVisits')
+  return (data ?? []).map((row) => ({ visitId: row.visit_id, reading: toVitalsReading(row) }))
+}
+
 /**
  * The advice recorded at a visit, or null when none was.
  *

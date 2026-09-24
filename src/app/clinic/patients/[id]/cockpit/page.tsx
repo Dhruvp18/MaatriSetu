@@ -24,7 +24,6 @@ import { HeaderBanner } from '@components/cockpit/header-banner'
 import { Sparkline } from '@components/cockpit/sparkline'
 import { roleHasPermission } from '@core/auth/permissions'
 import { resolveSession } from '@core/auth/session'
-import { userClient } from '@core/db/clients'
 import { AppError } from '@core/errors/app-error'
 import { formatGestationalAge, splitGestationalAge, todayIn } from '@core/obstetrics/dating'
 import { getPatientHistory, type PatientHistory } from '@modules/history/history.service'
@@ -58,6 +57,7 @@ import {
   listClinicDoctors,
   listDoctorReferences,
   listVisits,
+  listVitalsForVisits,
 } from '@modules/visits/visit.service'
 import type { Visit, VitalsReading } from '@modules/visits/visit.types'
 import { listForPatient as listVoiceQueries } from '@modules/voice/voice.service'
@@ -267,21 +267,19 @@ export default async function CockpitPage({ params }: { params: Promise<{ id: st
   const acTrend = acRawTrend && acRawTrend.points.some(p => p.value < 10) ? acRawTrend : undefined
 
   // BP Trend (Hypertension)
-  const { data: vitalsHistory } = await (await userClient())
-    .from('visit_vitals')
-    .select('visit_id, bp_systolic_mmhg, bp_diastolic_mmhg')
-    .in('visit_id', visits.map((v: Visit) => v.id))
-    
-  const bpPoints = (vitalsHistory || [])
-    .filter((v: any) => v.bp_systolic_mmhg !== null)
-    .map((v: any) => {
-      const visit = visits.find((visit: Visit) => visit.id === v.visit_id)
-      return {
-        observationId: v.visit_id, value: v.bp_systolic_mmhg!, diastolic: v.bp_diastolic_mmhg, unit: 'mmHg', observedDate: visit?.occurredAt || ''
-      }
+  const vitalsHistory = await listVitalsForVisits(actor, visits.map((v: Visit) => v.id))
+
+  const bpPoints = vitalsHistory
+    .flatMap(({ visitId, reading }) => {
+      const bp = reading.bloodPressure
+      if (bp === null) return []
+      const visit = visits.find((visit: Visit) => visit.id === visitId)
+      return [{
+        observationId: visitId, value: bp.systolicMmHg, diastolic: bp.diastolicMmHg, unit: 'mmHg', observedDate: visit?.occurredAt || ''
+      }]
     })
-    .filter((p: any) => p.observedDate)
-    .sort((a: any, b: any) => a.observedDate.localeCompare(b.observedDate))
+    .filter((p) => p.observedDate)
+    .sort((a, b) => a.observedDate.localeCompare(b.observedDate))
 
   const bpTrendData = bpPoints.length > 0 ? {
     testCode: 'bp', testName: 'Blood Pressure (Systolic)', unit: 'mmHg', points: bpPoints
@@ -480,7 +478,7 @@ export default async function CockpitPage({ params }: { params: Promise<{ id: st
                           {bpTrend.testName} trajectory
                         </p>
                         <Sparkline series={bpTrend} threshold={140} thresholdLabel="Normal < 140 mmHg" />
-                        <p className="mt-1.5 text-[11px] text-slate-500">Systolic Blood Pressure across this pregnancy's visits.</p>
+                        <p className="mt-1.5 text-[11px] text-slate-500">Systolic Blood Pressure across this pregnancy&apos;s visits.</p>
                       </div>
                     ) : null}
 
@@ -889,7 +887,7 @@ function LabRow({ observation, patientId }: { observation: Observation; patientI
         ) : outside || flagged ? (
           <form action={onAnnotate} className="mt-1">
             <button className="text-[10px] font-medium text-brand-600 hover:underline">
-              Mark as "Does not require treatment"
+              Mark as &ldquo;Does not require treatment&rdquo;
             </button>
           </form>
         ) : null}

@@ -166,7 +166,7 @@ export function ConsultationForm({
     )
 
   const addBundle = (bundle: typeof PRESCRIPTION_BUNDLES[number]) => {
-    const items = bundle.itemIds.map(id => CLINIC_FORMULARY.find(f => f.id === id)).filter((Boolean as any) as <T>(x: T | undefined | null) => x is T)
+    const items = bundle.itemIds.map(id => CLINIC_FORMULARY.find(f => f.id === id)).filter((item): item is NonNullable<typeof item> => item != null)
     items.forEach(item => addFromFormulary(item))
     
     if (bundle.labOrders) {

@@ -181,6 +181,17 @@ export async function getFirstRecordedWeightKg(
   return repo.findFirstWeightKg(await userClient(), actor.clinicId, pregnancyId)
 }
 
+/** Every vitals reading taken across the given visits, for trend lines. */
+export async function listVitalsForVisits(
+  actor: ActorContext,
+  visitIds: readonly string[],
+): Promise<{ visitId: string; reading: VitalsReading }[]> {
+  requirePermission(actor, 'visit.read')
+  if (visitIds.length === 0) return []
+
+  return repo.listVitalsForVisits(await userClient(), actor.clinicId, visitIds)
+}
+
 /* -------------------------------------------------------------------------- */
 /* Vitals                                                                     */
 /* -------------------------------------------------------------------------- */

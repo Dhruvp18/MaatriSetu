@@ -32,7 +32,7 @@ describe('the formulary is a shortcut, not a constraint', () => {
   })
 
   it('finds nothing for an unlisted drug, which may still be typed', () => {
-    expect(searchFormulary('labetalol')).toEqual([])
+    expect(searchFormulary('warfarin')).toEqual([])
   })
 })
 
