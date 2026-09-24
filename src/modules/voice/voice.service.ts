@@ -274,6 +274,12 @@ export async function transcribeDictation(
  * untranscribable note into a routed one, because a danger sign filed as
  * routine is the outcome this whole module is arranged to avoid.
  */
+/** Ids of notes waiting for transcription, oldest first. For the queue drain. */
+export async function listQueuedNotes(limit: number): Promise<string[]> {
+  const pending = await repo.listPending(serviceClient(), limit)
+  return pending.map((note) => note.id)
+}
+
 export async function transcribeQueuedNote(
   voiceQueryId: string,
 ): Promise<{ ok: boolean; detail: string }> {
@@ -288,6 +294,16 @@ export async function transcribeQueuedNote(
 
   const requestId = `worker-${randomUUID()}`
   const provider = speechProvider()
+
+  // Overlapping drains (an upload's own trigger and the cron) may both list
+  // this note; only the one that claims it transcribes.
+  const claimed = await repo.claimTranscription(db, {
+    clinicId,
+    worker: `speech:${provider.name}`,
+    requestId,
+    voiceQueryId,
+  })
+  if (!claimed) return { ok: true, detail: 'Already being transcribed elsewhere.' }
 
   // Read here rather than being handed bytes: the worker is the only caller,
   // and passing megabytes of audio through a function signature invites a

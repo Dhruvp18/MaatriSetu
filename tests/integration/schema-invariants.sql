@@ -1410,3 +1410,47 @@ begin
   end if;
 end;
 $$;
+
+\echo ''
+\echo '=== Overlapping queue drains cannot double-process (0028) ==='
+
+do $$
+declare
+  c_clinic  uuid := '11111111-1111-4111-8111-000000000001';
+  c_patient uuid := '44444444-4444-4444-8444-00000000000a';
+  v_upload  uuid;
+  v_first   uuid;
+  v_second  uuid;
+  v_note    uuid;
+begin
+  v_upload := public.record_report_upload(
+    c_clinic, null, 'inv-q-1', c_patient, null, null,
+    'reports/inv/queue.jpg', 'image/jpeg', 2048, decode(repeat('cd', 32), 'hex')
+  );
+
+  v_first  := public.start_extraction_run(c_clinic, 'ocr:test', 'inv-q-2', v_upload, 'fixture', 'm', 'v');
+  v_second := public.start_extraction_run(c_clinic, 'ocr:test', 'inv-q-3', v_upload, 'fixture', 'm', 'v');
+
+  if v_first is not null and v_second is null then
+    raise notice 'ok    a second extraction claim on a live run is refused';
+  else
+    raise notice 'FAIL  extraction claimed twice';
+  end if;
+
+  update extraction_runs set started_at = now() - interval '11 minutes' where id = v_first;
+  if public.start_extraction_run(c_clinic, 'ocr:test', 'inv-q-4', v_upload, 'fixture', 'm', 'v') is not null then
+    raise notice 'ok    an abandoned extraction run can be retried';
+  else
+    raise notice 'FAIL  abandoned extraction run blocks retry';
+  end if;
+
+  insert into voice_queries (clinic_id) values (c_clinic) returning id into v_note;
+
+  if public.claim_voice_transcription(c_clinic, 'speech:test', 'inv-q-5', v_note)
+    and not public.claim_voice_transcription(c_clinic, 'speech:test', 'inv-q-6', v_note) then
+    raise notice 'ok    a voice note is claimed exactly once';
+  else
+    raise notice 'FAIL  voice note claimed twice';
+  end if;
+end;
+$$;

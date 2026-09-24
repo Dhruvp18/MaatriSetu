@@ -1,0 +1,33 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - generic [ref=e4]: MaatriSetu
+      - radiogroup "Language" [ref=e5]:
+        - radio "English" [checked] [ref=e10]
+        - radio "हिन्दी" [ref=e11]
+        - radio "मराठी" [ref=e12]
+    - main [ref=e13]:
+      - generic [ref=e14]:
+        - generic [ref=e15]:
+          - heading "Message Us" [level=1] [ref=e16]
+          - paragraph [ref=e17]: Ask · Share · Get Guidance
+        - generic [ref=e18]:
+          - paragraph [ref=e25]: Hello! I'm here to help with questions about your pregnancy. I'll let you know if something needs urgent attention, or if it can wait for your next visit. What's on your mind?
+          - paragraph [ref=e55]: I have bleeding
+          - generic [ref=e61]:
+            - paragraph [ref=e62]: Your symptoms need immediate attention. Please come to the clinic or call us right away.
+            - link "Book an appointment now" [ref=e63] [cursor=pointer]:
+              - /url: tel:+911234567890
+        - generic [ref=e26]:
+          - generic [ref=e27]:
+            - textbox "Type your question..." [ref=e28]
+            - button "Voice input (not yet enabled)" [ref=e29]
+          - paragraph [ref=e33]: This assistant does not give medical advice. Always consult your doctor.
+    - navigation [ref=e34]:
+      - link "My ANC" [ref=e35] [cursor=pointer]:
+        - /url: /patient
+      - link "Information" [ref=e40] [cursor=pointer]:
+        - /url: /patient/info
+      - link "Message Us" [ref=e44] [cursor=pointer]:
+        - /url: /patient/chat
+  - alert [ref=e48]

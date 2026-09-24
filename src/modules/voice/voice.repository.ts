@@ -82,11 +82,17 @@ export async function listUnassociated(
 }
 
 /** Queued work for the transcription worker, oldest first. */
+/** Matches the lease in claim_voice_transcription (migration 0028). */
+const TRANSCRIPTION_LEASE_MS = 10 * 60 * 1000
+
 export async function listPending(db: TypedClient, limit: number): Promise<VoiceQuery[]> {
+  const leaseExpired = new Date(Date.now() - TRANSCRIPTION_LEASE_MS).toISOString()
+
   const { data, error } = await db
     .from('voice_queries')
     .select('*')
-    .in('processing_state', ['RECEIVED', 'QUEUED'])
+    // Waiting, or claimed by an invocation that died before finishing.
+    .or(`processing_state.in.(RECEIVED,QUEUED),and(processing_state.eq.TRANSCRIBING,updated_at.lt.${leaseExpired})`)
     .order('received_at', { ascending: true })
     .limit(limit)
 
@@ -225,6 +231,30 @@ export async function applyTranscription(
   )
 
   if (error) translate(error, 'applyTranscription')
+}
+
+/**
+ * Take a queued note for transcription. False when another invocation already
+ * holds it, so overlapping drains never transcribe one note twice.
+ */
+export async function claimTranscription(
+  db: TypedClient,
+  input: {
+    readonly clinicId: string
+    readonly worker: string
+    readonly requestId: string
+    readonly voiceQueryId: string
+  },
+): Promise<boolean> {
+  const { data, error } = await db.rpc('claim_voice_transcription', {
+    p_clinic_id: input.clinicId,
+    p_worker: input.worker,
+    p_request_id: input.requestId,
+    p_voice_query_id: input.voiceQueryId,
+  })
+
+  if (error) translate(error, 'claimTranscription')
+  return data === true
 }
 
 export async function failTranscription(

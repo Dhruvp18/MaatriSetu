@@ -400,6 +400,9 @@ export async function extractQueuedReport(
     promptVersion: provider.promptVersion,
   })
 
+  // Another invocation holds a live run for this upload (migration 0028).
+  if (!runId) return { ok: true, detail: 'Already being read elsewhere.' }
+
   // The run row exists before the image is read, so a crash mid-call leaves a
   // visible PROCESSING attempt rather than an upload that looks untouched and
   // gets picked up forever.

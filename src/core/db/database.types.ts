@@ -1697,6 +1697,7 @@ export type Database = {
       pregnancies: {
         Row: {
           abortions: number | null
+          birth_plan: Json
           clinic_id: string
           closed_at: string | null
           closed_by: string | null
@@ -1726,6 +1727,7 @@ export type Database = {
         }
         Insert: {
           abortions?: number | null
+          birth_plan?: Json
           clinic_id: string
           closed_at?: string | null
           closed_by?: string | null
@@ -1755,6 +1757,7 @@ export type Database = {
         }
         Update: {
           abortions?: number | null
+          birth_plan?: Json
           clinic_id?: string
           closed_at?: string | null
           closed_by?: string | null
@@ -3261,6 +3264,15 @@ export type Database = {
           p_visit_id: string
         }
         Returns: number
+      }
+      claim_voice_transcription: {
+        Args: {
+          p_clinic_id: string
+          p_request_id: string
+          p_voice_query_id: string
+          p_worker: string
+        }
+        Returns: boolean
       }
       close_pregnancy: {
         Args: {

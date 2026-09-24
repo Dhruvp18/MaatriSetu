@@ -35,6 +35,8 @@ const PUBLIC_PREFIXES = [
   '/referral/',
   // Provider callbacks authenticate by signature, not by cookie.
   '/api/webhooks/',
+  // pg_cron's queue trigger authenticates by bearer secret, not by cookie.
+  '/api/queue/',
 ]
 
 const isPublic = (pathname: string): boolean =>

@@ -517,7 +517,8 @@ export async function startExtractionRun(
     model: string
     promptVersion: string
   },
-): Promise<string> {
+): Promise<string | null> {
+  // Null: another invocation holds a live run for this upload (migration 0028).
   const { data, error } = await db.rpc('start_extraction_run', {
     p_clinic_id: input.clinicId,
     p_worker: input.worker,
@@ -530,7 +531,7 @@ export async function startExtractionRun(
 
   if (error) translate(error, 'startExtractionRun')
 
-  return data as string
+  return typeof data === 'string' ? data : null
 }
 
 type CompleteRunArgs = Fn['complete_extraction_run']['Args']

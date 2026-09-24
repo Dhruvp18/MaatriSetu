@@ -1,8 +1,10 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { after } from 'next/server'
 
 import { resolveSession } from '@core/auth/session'
+import { drainQueues } from '@modules/queue/queue.service'
 import { associateWithPatient, recordVoiceNote } from '@modules/voice/voice.service'
 import { ACCEPTED_AUDIO } from '@modules/voice/voice.schema'
 
@@ -40,6 +42,13 @@ export async function uploadVoiceNoteAction(
       mimeType: file.type,
       byteSize: uint8Array.length,
       fromPhone: fromPhone || undefined,
+    })
+
+    // Transcribe now, after the response, rather than waiting for the
+    // once-a-minute drain. Overlap with it is safe: notes are claimed.
+    after(async () => {
+      await drainQueues({ budgetMs: 40_000 })
+      revalidatePath('/clinic/voice')
     })
 
     revalidatePath('/clinic/voice')

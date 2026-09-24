@@ -1,9 +1,11 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { after } from 'next/server'
 
 import { resolveSession } from '@core/auth/session'
 import { AppError } from '@core/errors/app-error'
+import { drainQueues } from '@modules/queue/queue.service'
 import { correctCandidate, uploadReport } from '@modules/reports/report.service'
 
 /**
@@ -63,6 +65,12 @@ export async function submitUpload(
     if (error instanceof AppError) return { status: 'error', message: error.message }
     throw error
   }
+
+  // Read it now, after the response; the once-a-minute drain is the fallback.
+  after(async () => {
+    await drainQueues({ budgetMs: 40_000 })
+    revalidatePath(`/clinic/patients/${patientId}/reports`)
+  })
 
   revalidatePath(`/clinic/patients/${patientId}/reports`)
 

@@ -69,6 +69,10 @@ const serverSchema = z.object({
   // cookie is a plain patient id that anyone could edit into someone else's.
   PATIENT_SESSION_SECRET: z.string().min(32, 'Use at least 32 random characters.'),
 
+  // Bearer secret for POST /api/queue/drain, called every minute by pg_cron.
+  // Unset: the endpoint refuses every call and only after-upload drains run.
+  QUEUE_DRAIN_SECRET: z.string().min(32, 'Use at least 32 random characters.').optional(),
+
   // Demo only: a visitor with no session is shown the seeded patient. Leave
   // off anywhere real patient data could be reached.
   PATIENT_DEMO_SESSION: z
