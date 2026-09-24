@@ -15,7 +15,7 @@ import { useFormStatus } from 'react-dom'
 
 import { Accordion, AccordionMeta } from '@components/cockpit/accordion'
 import { TokenInput } from '@components/cockpit/token-input'
-import { CLINIC_FORMULARY, type FormularyItem, searchFormulary } from '@modules/orders/formulary'
+import { CLINIC_FORMULARY, PRESCRIPTION_BUNDLES, type FormularyItem, searchFormulary } from '@modules/orders/formulary'
 import {
   LAB_INVESTIGATIONS,
   SCAN_INVESTIGATIONS,
@@ -165,6 +165,11 @@ export function ConsultationForm({
         : [...rows, fromFormulary(item)],
     )
 
+  const addBundle = (bundle: typeof PRESCRIPTION_BUNDLES[number]) => {
+    const items = bundle.itemIds.map(id => CLINIC_FORMULARY.find(f => f.id === id)).filter((Boolean as any) as <T>(x: T | undefined | null) => x is T)
+    items.forEach(item => addFromFormulary(item))
+  }
+
   // Only completed lines are submitted. A half-typed row left on screen when
   // the clinician hits save should not become an order.
   const payload = prescriptions
@@ -226,6 +231,18 @@ export function ConsultationForm({
               rows={2}
               defaultValue={current.diagnosis}
               placeholder="G2P1L1A0 at 32 weeks. Previous LSCS."
+              options={[
+                'Anaemia in pregnancy',
+                'Pregnancy Induced Hypertension',
+                'Chronic Hypertension',
+                'Gestational Diabetes Mellitus',
+                'Rh Negative Pregnancy',
+                'IUGR',
+                'Oligohydramnios',
+                'Polyhydramnios',
+                'Short stature',
+                'Placenta previa'
+              ]}
             />
             <DictatedTextarea
               name="impression"
@@ -260,6 +277,26 @@ export function ConsultationForm({
                   <Plus aria-hidden className="h-3.5 w-3.5" />
                   <span>New drug</span>
                 </button>
+              </div>
+
+              {/* Master templates / Bundles */}
+              <div className="mb-2 rounded-md border border-dashed border-brand-300 bg-brand-100/30 p-2">
+                <p className="mb-1.5 flex items-center gap-1 text-[10.5px] font-semibold text-brand-800">
+                  <Zap aria-hidden className="h-3.5 w-3.5" />
+                  Master templates (Diagnosis based)
+                </p>
+                <div className="flex flex-wrap gap-1">
+                  {PRESCRIPTION_BUNDLES.map((bundle) => (
+                    <button
+                      key={bundle.id}
+                      type="button"
+                      onClick={() => addBundle(bundle)}
+                      className="rounded border border-brand-300 bg-brand-50 px-2.5 py-1 text-[10.5px] font-bold text-brand-700 transition-colors hover:bg-brand-600 hover:text-white shadow-sm"
+                    >
+                      + {bundle.name}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {/* The clinic's quick-pick list: one tap, fully editable after. */}

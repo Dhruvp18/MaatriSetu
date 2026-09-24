@@ -36,6 +36,34 @@ export const CLINIC_FORMULARY: readonly FormularyItem[] = [
   { id: 'antacid', form: 'Syp', medicineName: 'Antacid (Mag. hydroxide + Al. hydroxide)', doseAmount: 10, doseUnit: 'ml', frequency: 'TDS', foodRelation: 'AFTER_FOOD', durationDays: 7 },
   { id: 'b-complex', form: 'Tab', medicineName: 'Vitamin B-complex', doseAmount: null, doseUnit: null, frequency: 'OD', foodRelation: 'AFTER_FOOD', durationDays: 30 },
   { id: 'lactulose', form: 'Syp', medicineName: 'Lactulose', doseAmount: 15, doseUnit: 'ml', frequency: 'HS', foodRelation: 'NOT_SPECIFIED', durationDays: 7 },
+  { id: 'labetalol', form: 'Tab', medicineName: 'Labetalol', doseAmount: 100, doseUnit: 'mg', frequency: 'BD', foodRelation: 'AFTER_FOOD', durationDays: 30 },
+  { id: 'methyldopa', form: 'Tab', medicineName: 'Methyldopa', doseAmount: 250, doseUnit: 'mg', frequency: 'TDS', foodRelation: 'AFTER_FOOD', durationDays: 30 },
+  { id: 'metformin', form: 'Tab', medicineName: 'Metformin', doseAmount: 500, doseUnit: 'mg', frequency: 'BD', foodRelation: 'AFTER_FOOD', durationDays: 30 },
+  { id: 'insulin', form: 'Inj', medicineName: 'Insulin', doseAmount: null, doseUnit: 'units', frequency: 'SOS', foodRelation: 'BEFORE_FOOD', durationDays: 30 },
+]
+
+export interface PrescriptionBundle {
+  readonly id: string
+  readonly name: string
+  readonly itemIds: readonly string[]
+}
+
+export const PRESCRIPTION_BUNDLES: readonly PrescriptionBundle[] = [
+  {
+    id: 'anaemia',
+    name: 'Anaemia',
+    itemIds: ['iron-fa', 'b-complex']
+  },
+  {
+    id: 'hypertension',
+    name: 'Hypertension',
+    itemIds: ['labetalol', 'methyldopa']
+  },
+  {
+    id: 'diabetes',
+    name: 'Diabetes',
+    itemIds: ['metformin', 'insulin']
+  }
 ]
 
 /**

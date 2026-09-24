@@ -28,6 +28,7 @@ export function DictatedTextarea({
   placeholder,
   rows = 3,
   hint,
+  options,
 }: {
   name: string
   label: string
@@ -35,6 +36,7 @@ export function DictatedTextarea({
   placeholder?: string
   rows?: number
   hint?: string
+  options?: string[]
 }) {
   const [value, setValue] = useState(defaultValue ?? '')
   const [phase, setPhase] = useState<Phase>('idle')
@@ -146,6 +148,26 @@ export function DictatedTextarea({
         placeholder={placeholder}
         className="numeric w-full rounded border border-slate-300 bg-white/80 px-2.5 py-1.5 text-xs leading-relaxed text-slate-900 transition-colors outline-none focus:border-brand-600 focus:ring-1 focus:ring-brand-600"
       />
+
+      {options && options.length > 0 ? (
+        <select
+          className="mt-1 block w-full rounded border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-[11px] text-slate-700 outline-none focus:border-brand-600 focus:ring-1 focus:ring-brand-600"
+          onChange={(e) => {
+            if (e.target.value) {
+              const text = e.target.value
+              setValue((current) => (current.trim() ? `${current.trimEnd()}\n${text}` : text))
+              e.target.value = ''
+            }
+          }}
+        >
+          <option value="">+ Quick add from list...</option>
+          {options.map((opt) => (
+            <option key={opt} value={opt}>
+              {opt}
+            </option>
+          ))}
+        </select>
+      ) : null}
 
       {error ? <p role="alert" className="text-[11px] text-alert-700">{error}</p> : null}
       {fixture ? (
