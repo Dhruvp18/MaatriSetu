@@ -46,23 +46,35 @@ export interface PrescriptionBundle {
   readonly id: string
   readonly name: string
   readonly itemIds: readonly string[]
+  readonly labOrders?: readonly string[]
+  readonly scanOrders?: readonly string[]
 }
 
 export const PRESCRIPTION_BUNDLES: readonly PrescriptionBundle[] = [
   {
+    id: 'normal_anc',
+    name: 'Normal ANC',
+    itemIds: ['iron-fa', 'calcium-d3'],
+    labOrders: ['CBC', 'Urine routine & microscopy', 'Blood group & Rh typing', 'HIV 1 & 2', 'HBsAg', 'VDRL', 'TSH'],
+    scanOrders: ['Obstetric USG']
+  },
+  {
     id: 'anaemia',
     name: 'Anaemia',
-    itemIds: ['iron-fa', 'b-complex']
+    itemIds: ['iron-fa', 'b-complex'],
+    labOrders: ['Serum ferritin', 'Peripheral smear', 'HPLC']
   },
   {
     id: 'hypertension',
     name: 'Hypertension',
-    itemIds: ['labetalol', 'methyldopa']
+    itemIds: ['labetalol', 'methyldopa'],
+    labOrders: ['Urine protein : creatinine ratio', 'LFT', 'RFT']
   },
   {
     id: 'diabetes',
     name: 'Diabetes',
-    itemIds: ['metformin', 'insulin']
+    itemIds: ['metformin', 'insulin'],
+    labOrders: ['HbA1c', 'FBS', 'PPBS']
   }
 ]
 

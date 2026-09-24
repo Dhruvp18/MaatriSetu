@@ -168,6 +168,13 @@ export function ConsultationForm({
   const addBundle = (bundle: typeof PRESCRIPTION_BUNDLES[number]) => {
     const items = bundle.itemIds.map(id => CLINIC_FORMULARY.find(f => f.id === id)).filter((Boolean as any) as <T>(x: T | undefined | null) => x is T)
     items.forEach(item => addFromFormulary(item))
+    
+    if (bundle.labOrders) {
+      setLabOrders(current => Array.from(new Set([...current, ...bundle.labOrders!])))
+    }
+    if (bundle.scanOrders) {
+      setScanOrders(current => Array.from(new Set([...current, ...bundle.scanOrders!])))
+    }
   }
 
   // Only completed lines are submitted. A half-typed row left on screen when
@@ -241,7 +248,8 @@ export function ConsultationForm({
                 'Oligohydramnios',
                 'Polyhydramnios',
                 'Short stature',
-                'Placenta previa'
+                'Placenta previa',
+                'Kyphosis'
               ]}
             />
             <DictatedTextarea
