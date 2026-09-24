@@ -19,9 +19,10 @@ import type { TrendSeries } from '@modules/reports/report.types'
  * severity judgment, and they are not ours to make.
  */
 
-const WIDTH = 96
-const HEIGHT = 24
-const PADDING = 2
+const WIDTH = 300
+const HEIGHT = 140
+const PADDING_X = 30
+const PADDING_Y = 24
 
 export function Sparkline({ series }: { series: TrendSeries }) {
   const { points, unit } = series
@@ -30,7 +31,7 @@ export function Sparkline({ series }: { series: TrendSeries }) {
   const latest = values[values.length - 1]
 
   return (
-    <div className="flex flex-wrap items-center gap-3">
+    <div className="flex flex-col gap-3">
       <span className="numeric flex items-center gap-1.5 text-xs">
         {values.map((value, index) => (
           <span key={index} className="flex items-center gap-1.5">
@@ -52,10 +53,8 @@ export function Sparkline({ series }: { series: TrendSeries }) {
         ))}
         <span className="text-[10px] font-normal text-slate-500">{unit}</span>
       </span>
-      {points.length > 1 ? <Line values={values} /> : null}
+      {points.length > 1 ? <Line points={points} /> : null}
       {points.length === 1 ? (
-        // One value is not a trend, and drawing a flat line would imply it was
-        // stable rather than measured once.
         <span className="text-xs text-slate-400">single value</span>
       ) : null}
       <span className="sr-only">
@@ -67,26 +66,35 @@ export function Sparkline({ series }: { series: TrendSeries }) {
   )
 }
 
-function Line({ values }: { values: readonly number[] }) {
+function Line({ points }: { points: readonly import('@modules/reports/report.types').TrendPoint[] }) {
+  const values = points.map((p) => p.value)
   const min = Math.min(...values)
   const max = Math.max(...values)
-  // A flat series would divide by zero; draw it down the middle instead.
+  
+  // Create a little headroom for the y-axis
   const span = max - min || 1
+  const displayMin = Math.max(0, min - span * 0.2)
+  const displayMax = max + span * 0.2
+  const displaySpan = displayMax - displayMin
 
-  const usableWidth = WIDTH - PADDING * 2
-  const usableHeight = HEIGHT - PADDING * 2
+  const usableWidth = WIDTH - PADDING_X * 2
+  const usableHeight = HEIGHT - PADDING_Y * 2
 
-  const coords = values.map((value, index) => {
-    const x = PADDING + (index / (values.length - 1)) * usableWidth
-    // SVG y grows downward, so a higher value must sit nearer the top.
-    const y = PADDING + (1 - (value - min) / span) * usableHeight
-    return `${x.toFixed(1)},${y.toFixed(1)}`
+  // Map points based on their actual date distance if possible, otherwise even spacing
+  const times = points.map(p => new Date(p.observedDate).getTime())
+  const tMin = times[0]
+  const tMax = times[times.length - 1]
+  const tSpan = tMax - tMin || 1
+
+  const coords = points.map((p, index) => {
+    const t = new Date(p.observedDate).getTime()
+    const xRatio = tSpan > 1 ? (t - tMin) / tSpan : index / (points.length - 1 || 1)
+    const x = PADDING_X + xRatio * usableWidth
+    const y = PADDING_Y + (1 - (p.value - displayMin) / displaySpan) * usableHeight
+    return { x, y, value: p.value, date: p.observedDate }
   })
 
-  const lastCoord = coords[coords.length - 1]?.split(',')
-
-  // An id unique to this series, so two sparklines on one page do not share a
-  // gradient definition.
+  const lastCoord = coords[coords.length - 1]
   const fillId = `spark-${values.join('-')}`
 
   return (
@@ -99,26 +107,45 @@ function Line({ values }: { values: readonly number[] }) {
       focusable="false"
     >
       <defs>
-        {/* The design system's area treatment: indigo at 15% fading out. */}
         <linearGradient id={fillId} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor="currentColor" stopOpacity={0.18} />
           <stop offset="100%" stopColor="currentColor" stopOpacity={0} />
         </linearGradient>
       </defs>
 
+      {/* Axes */}
+      <line x1={PADDING_X} y1={HEIGHT - PADDING_Y} x2={WIDTH - PADDING_X} y2={HEIGHT - PADDING_Y} stroke="#e2e8f0" strokeWidth="1" />
+      <line x1={PADDING_X} y1={PADDING_Y} x2={PADDING_X} y2={HEIGHT - PADDING_Y} stroke="#e2e8f0" strokeWidth="1" />
+
+      {/* Y-axis labels (min/max) */}
+      <text x={PADDING_X - 5} y={PADDING_Y + 3} fontSize="9" fill="#94a3b8" textAnchor="end">{Math.round(displayMax)}</text>
+      <text x={PADDING_X - 5} y={HEIGHT - PADDING_Y + 3} fontSize="9" fill="#94a3b8" textAnchor="end">{Math.round(displayMin)}</text>
+
+      {/* Area and Line */}
       <polygon
-        points={`${PADDING},${HEIGHT} ${coords.join(' ')} ${WIDTH - PADDING},${HEIGHT}`}
+        points={`${coords[0].x},${HEIGHT - PADDING_Y} ${coords.map(c => `${c.x.toFixed(1)},${c.y.toFixed(1)}`).join(' ')} ${lastCoord.x},${HEIGHT - PADDING_Y}`}
         fill={`url(#${fillId})`}
       />
       <polyline
-        points={coords.join(' ')}
+        points={coords.map(c => `${c.x.toFixed(1)},${c.y.toFixed(1)}`).join(' ')}
         fill="none"
         stroke="currentColor"
-        strokeWidth={1.5}
+        strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      {lastCoord ? <circle cx={lastCoord[0]} cy={lastCoord[1]} r={2.5} fill="currentColor" /> : null}
+      
+      {/* Points and X-axis labels */}
+      {coords.map((c, i) => {
+        const d = new Date(c.date)
+        const label = `${d.getDate()} ${d.toLocaleString('default', { month: 'short' })}`
+        return (
+          <g key={i}>
+            <circle cx={c.x} cy={c.y} r={i === coords.length - 1 ? 3 : 2} fill={i === coords.length - 1 ? 'currentColor' : '#fff'} stroke="currentColor" strokeWidth="1.5" />
+            <text x={c.x} y={HEIGHT - PADDING_Y + 12} fontSize="9" fill="#64748b" textAnchor="middle">{label}</text>
+          </g>
+        )
+      })}
     </svg>
   )
 }

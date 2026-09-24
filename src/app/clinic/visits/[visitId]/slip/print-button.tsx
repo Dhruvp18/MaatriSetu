@@ -1,5 +1,8 @@
 'use client'
 
+import { useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
+
 /**
  * The only interactive thing on the slip page.
  *
@@ -13,6 +16,16 @@
  * sheet under any of them.
  */
 export function PrintButton() {
+  const searchParams = useSearchParams()
+  const shouldPrint = searchParams.get('print') === 'true'
+
+  useEffect(() => {
+    if (shouldPrint) {
+      const timer = setTimeout(() => window.print(), 100)
+      return () => clearTimeout(timer)
+    }
+  }, [shouldPrint])
+
   return (
     <button
       type="button"

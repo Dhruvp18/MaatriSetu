@@ -89,3 +89,24 @@ export async function openOriginalAction(uploadId: string): Promise<OriginalResu
     throw error
   }
 }
+
+export async function annotateObservationAction(observationId: string, patientId: string) {
+  const session = await resolveSession()
+  if (session.status !== 'ACTIVE') return { ok: false, message: 'Your session has ended. Sign in again.' }
+
+  const { createAppClient } = await import('@core/db/clients')
+  const db = createAppClient(session.actor)
+
+  const { error } = await db
+    .from('observations')
+    .update({ clinician_note: 'Does not require treatment' })
+    .eq('clinic_id', session.actor.clinicId)
+    .eq('id', observationId)
+
+  if (error) {
+    return { ok: false, message: error.message }
+  }
+
+  revalidatePath(`/clinic/patients/${patientId}/cockpit`)
+  return { ok: true }
+}

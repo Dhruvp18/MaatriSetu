@@ -133,6 +133,7 @@ export default async function ClinicLayout({
           <form action={signOut}>
             <button
               type="submit"
+              suppressHydrationWarning
               className="rounded border border-slate-200 bg-slate-100/90 px-2.5 py-1 text-xs whitespace-nowrap text-slate-600 transition-colors hover:bg-slate-200 hover:text-brand-800"
             >
               Sign out
