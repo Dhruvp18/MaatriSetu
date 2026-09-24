@@ -90,12 +90,12 @@ export async function openOriginalAction(uploadId: string): Promise<OriginalResu
   }
 }
 
-export async function annotateObservationAction(observationId: string, patientId: string) {
+export async function annotateObservationAction(observationId: string, patientId: string, formData: FormData) {
   const session = await resolveSession()
   if (session.status !== 'ACTIVE') return { ok: false, message: 'Your session has ended. Sign in again.' }
 
-  const { createAppClient } = await import('@core/db/clients')
-  const db = createAppClient(session.actor)
+  const { userClient } = await import('@core/db/clients')
+  const db = await userClient()
 
   const { error } = await db
     .from('observations')
@@ -108,5 +108,4 @@ export async function annotateObservationAction(observationId: string, patientId
   }
 
   revalidatePath(`/clinic/patients/${patientId}/cockpit`)
-  return { ok: true }
 }

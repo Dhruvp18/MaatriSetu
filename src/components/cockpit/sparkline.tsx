@@ -19,71 +19,80 @@ import type { TrendSeries } from '@modules/reports/report.types'
  * severity judgment, and they are not ours to make.
  */
 
-const WIDTH = 300
-const HEIGHT = 140
-const PADDING_X = 30
-const PADDING_Y = 24
+const WIDTH = 560
+const HEIGHT = 240
+const PADDING_X = 50
+const PADDING_Y = 40
 
-export function Sparkline({ series }: { series: TrendSeries }) {
+export function Sparkline({ 
+  series, 
+  threshold, 
+  thresholdLabel,
+  colorClass = 'text-brand-600'
+}: { 
+  series: TrendSeries, 
+  threshold?: number, 
+  thresholdLabel?: string,
+  colorClass?: string 
+}) {
   const { points, unit } = series
 
   const values = points.map((p) => p.value)
   const latest = values[values.length - 1]
 
   return (
-    <div className="flex flex-col gap-3">
-      <span className="numeric flex items-center gap-1.5 text-xs">
-        {values.map((value, index) => (
-          <span key={index} className="flex items-center gap-1.5">
-            {index > 0 ? (
-              <span aria-hidden className="text-slate-400">
-                ➔
-              </span>
-            ) : null}
-            <span
-              className={
-                index === values.length - 1
-                  ? 'font-bold text-slate-900'
-                  : 'font-medium text-slate-600'
-              }
-            >
-              {value}
-            </span>
-          </span>
-        ))}
-        <span className="text-[10px] font-normal text-slate-500">{unit}</span>
-      </span>
-      {points.length > 1 ? <Line points={points} /> : null}
-      {points.length === 1 ? (
-        <span className="text-xs text-slate-400">single value</span>
-      ) : null}
+    <div className="flex flex-col gap-3 overflow-x-auto pb-2">
       <span className="sr-only">
         {points.length > 1
           ? `Latest ${latest} ${unit}, from ${points.length} values between ${points[0]?.observedDate} and ${points[points.length - 1]?.observedDate}.`
           : `One value recorded, ${latest} ${unit}.`}
       </span>
+      {points.length > 0 ? (
+        <Line points={points} unit={unit} threshold={threshold} thresholdLabel={thresholdLabel} colorClass={colorClass} />
+      ) : (
+        <span className="text-xs text-slate-400">No values recorded</span>
+      )}
     </div>
   )
 }
 
-function Line({ points }: { points: readonly import('@modules/reports/report.types').TrendPoint[] }) {
+function Line({ 
+  points, 
+  unit, 
+  threshold, 
+  thresholdLabel,
+  colorClass 
+}: { 
+  points: readonly import('@modules/reports/report.types').TrendPoint[], 
+  unit: string, 
+  threshold?: number, 
+  thresholdLabel?: string,
+  colorClass: string 
+}) {
+  if (!points || points.length === 0) return null
+
   const values = points.map((p) => p.value)
-  const min = Math.min(...values)
-  const max = Math.max(...values)
+  let min = Math.min(...values)
+  let max = Math.max(...values)
   
-  // Create a little headroom for the y-axis
+  if (threshold !== undefined) {
+    min = Math.min(min, threshold)
+    max = Math.max(max, threshold)
+  }
+  
+  // Create headroom
   const span = max - min || 1
   const displayMin = Math.max(0, min - span * 0.2)
-  const displayMax = max + span * 0.2
+  const displayMax = max + span * 0.3
   const displaySpan = displayMax - displayMin
 
   const usableWidth = WIDTH - PADDING_X * 2
   const usableHeight = HEIGHT - PADDING_Y * 2
 
-  // Map points based on their actual date distance if possible, otherwise even spacing
+  // Map points based on their actual date distance if possible
   const times = points.map(p => new Date(p.observedDate).getTime())
-  const tMin = times[0]
-  const tMax = times[times.length - 1]
+  const tMin = times[0] ?? 0
+  const tMax = times[times.length - 1] ?? 0
   const tSpan = tMax - tMin || 1
 
   const coords = points.map((p, index) => {
@@ -94,55 +103,91 @@ function Line({ points }: { points: readonly import('@modules/reports/report.typ
     return { x, y, value: p.value, date: p.observedDate }
   })
 
-  const lastCoord = coords[coords.length - 1]
+  // Y-axis ticks (5 grid lines)
+  const ticks = []
+  for (let i = 0; i <= 4; i++) {
+    const val = displayMin + (i * displaySpan) / 4
+    const y = PADDING_Y + usableHeight - (i * usableHeight) / 4
+    ticks.push({ val, y })
+  }
+
   const fillId = `spark-${values.join('-')}`
+  const strokeColor = "#c43f55" // Using a reddish color similar to the user's reference image
 
   return (
     <svg
       width={WIDTH}
       height={HEIGHT}
       viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
-      className="shrink-0 overflow-visible text-brand-600"
+      className={`shrink-0 overflow-visible`}
       aria-hidden
       focusable="false"
     >
-      <defs>
-        <linearGradient id={fillId} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="currentColor" stopOpacity={0.18} />
-          <stop offset="100%" stopColor="currentColor" stopOpacity={0} />
-        </linearGradient>
-      </defs>
+      {/* Grid Lines */}
+      {ticks.map((tick, i) => (
+        <g key={i}>
+          <line x1={PADDING_X} y1={tick.y} x2={WIDTH - PADDING_X} y2={tick.y} stroke="#f1f5f9" strokeWidth="1.5" />
+          <text x={PADDING_X - 10} y={tick.y + 4} fontSize="11" fill="#64748b" textAnchor="end">
+            {tick.val.toFixed(1).replace(/\.0$/, '')}
+          </text>
+        </g>
+      ))}
 
-      {/* Axes */}
-      <line x1={PADDING_X} y1={HEIGHT - PADDING_Y} x2={WIDTH - PADDING_X} y2={HEIGHT - PADDING_Y} stroke="#e2e8f0" strokeWidth="1" />
-      <line x1={PADDING_X} y1={PADDING_Y} x2={PADDING_X} y2={HEIGHT - PADDING_Y} stroke="#e2e8f0" strokeWidth="1" />
+      {/* Y-axis Unit */}
+      <text x={PADDING_X - 10} y={PADDING_Y - 15} fontSize="10" fill="#94a3b8" textAnchor="end" fontStyle="italic">
+        ({unit})
+      </text>
 
-      {/* Y-axis labels (min/max) */}
-      <text x={PADDING_X - 5} y={PADDING_Y + 3} fontSize="9" fill="#94a3b8" textAnchor="end">{Math.round(displayMax)}</text>
-      <text x={PADDING_X - 5} y={HEIGHT - PADDING_Y + 3} fontSize="9" fill="#94a3b8" textAnchor="end">{Math.round(displayMin)}</text>
+      {/* Threshold Line */}
+      {threshold !== undefined && (
+        <g>
+          <line 
+            x1={PADDING_X} 
+            y1={PADDING_Y + (1 - (threshold - displayMin) / displaySpan) * usableHeight} 
+            x2={WIDTH - PADDING_X} 
+            y2={PADDING_Y + (1 - (threshold - displayMin) / displaySpan) * usableHeight} 
+            stroke="#10b981" 
+            strokeWidth="1.5" 
+            strokeDasharray="4,4" 
+          />
+          {thresholdLabel && (
+            <text 
+              x={WIDTH - PADDING_X} 
+              y={PADDING_Y + (1 - (threshold - displayMin) / displaySpan) * usableHeight - 6} 
+              fontSize="11" 
+              fill="#059669" 
+              fontWeight="600"
+              textAnchor="end"
+            >
+              {thresholdLabel}
+            </text>
+          )}
+        </g>
+      )}
 
-      {/* Area and Line */}
-      <polygon
-        points={`${coords[0].x},${HEIGHT - PADDING_Y} ${coords.map(c => `${c.x.toFixed(1)},${c.y.toFixed(1)}`).join(' ')} ${lastCoord.x},${HEIGHT - PADDING_Y}`}
-        fill={`url(#${fillId})`}
-      />
+      {/* Line */}
       <polyline
         points={coords.map(c => `${c.x.toFixed(1)},${c.y.toFixed(1)}`).join(' ')}
         fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
+        stroke={strokeColor}
+        strokeWidth="3"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
       
-      {/* Points and X-axis labels */}
+      {/* Points & Labels */}
       {coords.map((c, i) => {
         const d = new Date(c.date)
         const label = `${d.getDate()} ${d.toLocaleString('default', { month: 'short' })}`
         return (
           <g key={i}>
-            <circle cx={c.x} cy={c.y} r={i === coords.length - 1 ? 3 : 2} fill={i === coords.length - 1 ? 'currentColor' : '#fff'} stroke="currentColor" strokeWidth="1.5" />
-            <text x={c.x} y={HEIGHT - PADDING_Y + 12} fontSize="9" fill="#64748b" textAnchor="middle">{label}</text>
+            <circle cx={c.x} cy={c.y} r="5" fill="#fff" stroke={strokeColor} strokeWidth="2.5" />
+            <text x={c.x} y={c.y - 12} fontSize="13" fontWeight="600" fill={strokeColor} textAnchor="middle">
+              {c.value.toFixed(1).replace(/\.0$/, '')}
+            </text>
+            <text x={c.x} y={HEIGHT - PADDING_Y + 20} fontSize="11" fill="#64748b" textAnchor="middle">
+              {label}
+            </text>
           </g>
         )
       })}
