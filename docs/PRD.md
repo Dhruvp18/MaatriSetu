@@ -1,6 +1,7 @@
 # MaatriSetu — PRD, Implementation Plan & Backend Schema
 
-> Development update: see [the development foundation](development-foundation.md) for the current prototype scope, corrected data model, transaction rules, permissions and build checkpoints. It supersedes conflicting implementation details below; this PRD remains the original product vision.
+> Development update: see [the development foundation](development-foundation.md) for the current prototype scope, corrected data model, transaction rules, permissions and build checkpoints. It supersedes conflicting implementation details below; this PRD remains the original product vision. 
+
 
 2026-09-18 · @Someone
 
