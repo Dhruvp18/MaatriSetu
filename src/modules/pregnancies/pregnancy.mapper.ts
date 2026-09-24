@@ -2,6 +2,7 @@ import type { Database } from '@core/db/database.types'
 import { internal } from '@core/errors/app-error'
 
 import type {
+  BirthPlan,
   ObstetricHistoryEntry,
   Pregnancy,
   PregnancyDating,
@@ -134,7 +135,7 @@ export function toPregnancy(row: PregnancyRow): Pregnancy {
       closedBy: row.closed_by,
       note: row.closure_note,
     },
-    birthPlan: (row as any).birth_plan ?? null,
+    birthPlan: (row.birth_plan as unknown as BirthPlan | null) ?? null,
     version: row.version,
     createdAt: row.created_at,
   }

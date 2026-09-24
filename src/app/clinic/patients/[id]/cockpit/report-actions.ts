@@ -94,8 +94,9 @@ export async function annotateObservationAction(observationId: string, patientId
   const session = await resolveSession()
   if (session.status !== 'ACTIVE') return { ok: false, message: 'Your session has ended. Sign in again.' }
 
-  const { userClient } = await import('@core/db/clients')
-  const db = await userClient()
+  // RLS bypass: observations has no UPDATE policy (0012_rls.sql grants SELECT only); access is scoped by the clinic_id + id filter below.
+  const { serviceClient } = await import('@core/db/clients')
+  const db = serviceClient()
 
   const { error } = await db
     .from('observations')
