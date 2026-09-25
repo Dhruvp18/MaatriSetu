@@ -6,7 +6,10 @@ import { resolveSession } from '@core/auth/session'
 import { AppError } from '@core/errors/app-error'
 import {
   recordImmunization,
+  removeFamilyHistory,
+  saveFamilyHistory,
   saveMenstrualHistory,
+  savePastHistory,
   saveObstetricHistory,
 } from '@modules/history/history.service'
 import { flagDiagnoses, resolveFlaggedDiagnosis } from '@modules/diagnoses/diagnosis.service'
@@ -85,6 +88,18 @@ export async function recordImmunizationAction(
   input: unknown,
 ): Promise<ActionResult> {
   return run(patientId, (actor) => recordImmunization(actor, input))
+}
+
+export async function saveFamilyHistoryAction(patientId: string, input: unknown): Promise<ActionResult> {
+  return run(patientId, (actor) => saveFamilyHistory(actor, input))
+}
+
+export async function removeFamilyHistoryAction(patientId: string, input: unknown): Promise<ActionResult> {
+  return run(patientId, (actor) => removeFamilyHistory(actor, input))
+}
+
+export async function savePastHistoryAction(patientId: string, input: unknown): Promise<ActionResult> {
+  return run(patientId, (actor) => savePastHistory(actor, input))
 }
 
 /** Height, marriage and conception — facts about this pregnancy, saved at once. */

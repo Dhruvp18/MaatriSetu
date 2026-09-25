@@ -45,8 +45,12 @@ import { DictatedTextarea } from './dictated-textarea'
 
 const initialState: SaveState = { status: 'idle' }
 
-const FIELD =
-  'w-full rounded border border-slate-300 bg-white/80 px-2.5 py-1.5 text-xs text-slate-900 outline-none transition-colors focus:border-brand-600 focus:ring-1 focus:ring-brand-600'
+// Without a width, for controls that size themselves: `w-full` would beat any
+// width class added next to it.
+const FIELD_BOX =
+  'rounded border border-slate-300 bg-white/80 px-2.5 py-1.5 text-xs text-slate-900 outline-none transition-colors focus:border-brand-600 focus:ring-1 focus:ring-brand-600'
+
+const FIELD = `w-full ${FIELD_BOX}`
 
 const PANE = 'flex flex-col gap-2 rounded-lg border border-slate-200/90 bg-white p-3 shadow-2xs'
 
@@ -331,7 +335,7 @@ export function ConsultationForm({
           </section>
 
           <div className="grid grid-cols-1 gap-3 lg:grid-cols-12">
-            <section className={`${PANE} lg:col-span-7`}>
+            <section className={`${PANE} min-w-0 lg:col-span-7`}>
               <div className="flex items-center justify-between">
                 <span className={`${PANE_TITLE} flex items-center gap-1.5`}>
                   <PillIcon aria-hidden className="h-4 w-4 text-brand-600" />
@@ -413,7 +417,7 @@ export function ConsultationForm({
                           value={FORMS.includes(rx.form) ? rx.form : rx.form || 'Tab'}
                           onChange={(e) => update(rx.key, { form: e.target.value })}
                           aria-label="Form"
-                          className={`${FIELD} w-20 shrink-0`}
+                          className={`${FIELD_BOX} w-20 shrink-0 px-1.5`}
                         >
                           {[...new Set([...FORMS, rx.form].filter(Boolean))].map((form) => (
                             <option key={form} value={form}>
@@ -436,7 +440,7 @@ export function ConsultationForm({
                         </button>
                       </div>
 
-                      <div className="flex flex-col gap-1.5 pl-6">
+                      <div className="flex min-w-0 flex-col gap-1.5 sm:pl-6">
                         <div className="flex flex-wrap gap-1" role="radiogroup" aria-label="Schedule">
                           {SCHEDULES.map((schedule) => {
                             const selected = rx.frequency === schedule.value
@@ -490,7 +494,7 @@ export function ConsultationForm({
                             <option value="WITH_FOOD">with food</option>
                             <option value="NOT_SPECIFIED">not specified</option>
                           </select>
-                          <div className="flex items-center gap-1">
+                          <div className="flex min-w-0 items-center gap-1">
                             <input
                               value={rx.durationDays}
                               onChange={(e) => update(rx.key, { durationDays: e.target.value })}
@@ -510,7 +514,7 @@ export function ConsultationForm({
               )}
             </section>
 
-            <section className={`${PANE} lg:col-span-5`}>
+            <section className={`${PANE} min-w-0 lg:col-span-5`}>
               <span className={PANE_TITLE}>Investigations &amp; advice</span>
 
               <TokenInput

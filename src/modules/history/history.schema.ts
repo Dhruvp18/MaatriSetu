@@ -127,6 +127,7 @@ export const MenstrualHistoryInputSchema = z
     impactsActivities: z.boolean().nullish(),
     dysmenorrhea: z.boolean().nullish(),
     bowelBladder: z.enum(['NORMAL', 'DYSURIA', 'DYSCHEZIA', 'DYSPAREUNIA']).nullish(),
+    lastPapSmearOn: CalendarDateSchema.nullish(),
     remarks: Text(1000).nullish(),
   })
   .strict()
@@ -167,3 +168,56 @@ export const RecordImmunizationSchema = z
     message: 'A dose recorded as given needs the date it was given.',
     path: ['administeredOn'],
   })
+
+/* -------------------------------------------------------------------------- */
+/* Family history                                                             */
+/* -------------------------------------------------------------------------- */
+
+export const FamilyHistoryInputSchema = z
+  .object({
+    relation: Text(80).min(1, 'Say who in the family.'),
+    vitalStatus: z.enum(['ALIVE', 'DECEASED']).default('ALIVE'),
+    disease: Text(200).min(1, 'Name the disease.'),
+    onsetAgeYears: z.number().int().min(0).max(120).nullish(),
+    currentAgeYears: z.number().int().min(0).max(130).nullish(),
+    remarks: Text(1000).nullish(),
+  })
+  .strict()
+  .refine(
+    (e) => e.onsetAgeYears == null || e.currentAgeYears == null || e.onsetAgeYears <= e.currentAgeYears,
+    { message: 'The onset age cannot be after the current age.', path: ['onsetAgeYears'] },
+  )
+
+export const SaveFamilyHistorySchema = z
+  .object({
+    patientId: z.uuid(),
+    entryId: z.uuid().nullish(),
+    expectedVersion: z.number().int().min(1).nullish(),
+    entry: FamilyHistoryInputSchema,
+  })
+  .strict()
+  .refine((v) => (v.entryId == null) === (v.expectedVersion == null), {
+    message: 'An edit needs the version it was read at.',
+    path: ['expectedVersion'],
+  })
+
+export const RemoveFamilyHistorySchema = z
+  .object({
+    patientId: z.uuid(),
+    entryId: z.uuid(),
+    expectedVersion: z.number().int().min(1),
+  })
+  .strict()
+
+/* -------------------------------------------------------------------------- */
+/* Past history                                                               */
+/* -------------------------------------------------------------------------- */
+
+export const SavePastHistorySchema = z
+  .object({
+    patientId: z.uuid(),
+    /** Null only when none has been written yet. */
+    expectedVersion: z.number().int().min(1).nullable(),
+    notes: z.string().max(4000).nullable(),
+  })
+  .strict()

@@ -80,6 +80,9 @@ export function MenstrualHistoryPanel({
                   {entry.menarcheAgeYears !== null ? (
                     <span className="numeric text-slate-500">menarche {entry.menarcheAgeYears} y</span>
                   ) : null}
+                  {entry.lastPapSmearOn ? (
+                    <span className="numeric text-slate-500">Pap smear {entry.lastPapSmearOn}</span>
+                  ) : null}
                   {entry.bowelBladder && entry.bowelBladder !== 'NORMAL' ? (
                     <span className="rounded border border-slate-200 bg-slate-50 px-1.5 text-[10px] font-semibold text-slate-700">
                       {BOWEL_BLADDER_LABELS[entry.bowelBladder].toLowerCase()}
@@ -134,6 +137,7 @@ export function MenstrualHistoryPanel({
             <Detail label="Pads per day" value={viewing.padsPerDay} />
             <Detail label="Impact on activities" value={describeYesNo(viewing.impactsActivities)} />
             <Detail label="Dysmenorrhoea" value={describeYesNo(viewing.dysmenorrhea)} />
+            <Detail label="Last Pap smear" value={viewing.lastPapSmearOn} />
             <Detail label="Bowel / bladder" value={viewing.bowelBladder ? BOWEL_BLADDER_LABELS[viewing.bowelBladder] : null} />
             <div className="col-span-2 md:col-span-3">
               <Detail label="Premenstrual symptoms (emotional)" value={describeRecordedList(viewing.pmsEmotional)} />
@@ -201,6 +205,7 @@ function MenstrualForm({
   )
   const [impacts, setImpacts] = useState<boolean | null>(entry ? yesNoToBool(entry.impactsActivities) : null)
   const [dysmenorrhea, setDysmenorrhea] = useState<boolean | null>(entry ? yesNoToBool(entry.dysmenorrhea) : null)
+  const [papSmear, setPapSmear] = useState(entry?.lastPapSmearOn ?? '')
   const [bowelBladder, setBowelBladder] = useState<BowelBladder | ''>(entry?.bowelBladder ?? '')
   const [remarks, setRemarks] = useState(entry?.remarks ?? '')
 
@@ -226,6 +231,7 @@ function MenstrualForm({
           impactsActivities: impacts,
           dysmenorrhea,
           bowelBladder: bowelBladder || null,
+          lastPapSmearOn: papSmear || null,
           remarks: remarks || null,
         },
       })
@@ -300,6 +306,15 @@ function MenstrualForm({
                   </option>
                 ))}
               </select>
+            </Field>
+            <Field label="Date of last Pap smear">
+              <input
+                type="date"
+                value={papSmear}
+                max={new Date().toISOString().slice(0, 10)}
+                onChange={(e) => setPapSmear(e.target.value)}
+                className={`${FIELD} numeric`}
+              />
             </Field>
             <Field label="Pads per day">
               <input type="number" min={0} max={30} value={pads} onChange={(e) => setPads(e.target.value)} className={`${FIELD} numeric`} />

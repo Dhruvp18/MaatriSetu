@@ -10,6 +10,8 @@ import type {
   InfantRecord,
   InfantSex,
   BowelBladder,
+  FamilyHistoryEntry,
+  PastHistory,
   MenstrualFlow,
   MenstrualHistoryRecord,
   ObstetricHistoryRecord,
@@ -36,6 +38,8 @@ type Tables = Database['public']['Tables']
 export type ObstetricHistoryRow = Tables['obstetric_history']['Row']
 export type InfantRow = Tables['obstetric_history_infants']['Row']
 export type MenstrualHistoryRow = Tables['menstrual_histories']['Row']
+export type FamilyHistoryRow = Tables['family_histories']['Row']
+export type PastHistoryRow = Tables['patient_past_histories']['Row']
 export type ImmunizationRow = Tables['immunizations']['Row']
 
 function oneOf<T extends string>(value: string | null, allowed: readonly T[]): T | null {
@@ -138,6 +142,7 @@ export function toMenstrualHistoryRecord(row: MenstrualHistoryRow): MenstrualHis
     pmsPhysical: toRecordedList<string>(row.pms_physical),
     impactsActivities: toYesNo(row.impacts_activities),
     dysmenorrhea: toYesNo(row.dysmenorrhea),
+    lastPapSmearOn: row.last_pap_smear_on,
     bowelBladder: oneOf<BowelBladder>(row.bowel_bladder, ['NORMAL', 'DYSURIA', 'DYSCHEZIA', 'DYSPAREUNIA']),
     remarks: row.remarks,
     source: row.source,
@@ -155,4 +160,21 @@ export function toImmunizationRecord(row: ImmunizationRow): ImmunizationRecord {
     batchNumber: row.batch_number,
     source: row.source,
   }
+}
+
+export function toFamilyHistoryEntry(row: FamilyHistoryRow): FamilyHistoryEntry {
+  return {
+    id: row.id,
+    version: row.version,
+    relation: row.relation,
+    vitalStatus: row.vital_status === 'DECEASED' ? 'DECEASED' : 'ALIVE',
+    disease: row.disease,
+    onsetAgeYears: row.onset_age_years,
+    currentAgeYears: row.current_age_years,
+    remarks: row.remarks,
+  }
+}
+
+export function toPastHistory(row: PastHistoryRow): PastHistory {
+  return { version: row.version, notes: row.notes, updatedAt: row.updated_at }
 }

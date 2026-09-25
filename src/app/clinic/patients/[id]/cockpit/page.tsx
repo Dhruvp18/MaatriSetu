@@ -3,6 +3,7 @@ import {
   ArrowLeft,
   Baby,
   CalendarHeart,
+  ClipboardList,
   FolderOpen,
   History,
   IdCard,
@@ -13,6 +14,7 @@ import {
   Star,
   Stethoscope,
   Syringe,
+  Users,
 } from 'lucide-react'
 import Link, { type LinkProps } from 'next/link'
 import { notFound, redirect } from 'next/navigation'
@@ -72,7 +74,9 @@ import { DiagnosticReports, type QueryView, StagedSignificant } from './diagnost
 import { DiagnosisFlagger, FlaggedDiagnosisPills } from './flagged-diagnoses'
 import { ImmunizationPanel } from './immunization-history'
 import { MenstrualHistoryPanel } from './menstrual-history'
+import { FamilyHistoryPanel } from './family-history'
 import { ObstetricHistoryPanel } from './obstetric-history'
+import { PastHistoryPanel } from './past-history'
 import { PregnancyProfilePanel } from './pregnancy-profile'
 import { ViewOriginalButton } from './original-viewer'
 import { NextVisitChip, StartConsultationButton } from './visit-buttons'
@@ -153,7 +157,7 @@ export default async function CockpitPage({ params }: { params: Promise<{ id: st
     roleHasPermission(actor.role, 'query.read') ? listVoiceQueries(actor, id, true) : Promise.resolve([]),
     roleHasPermission(actor.role, 'patient.read')
       ? getPatientHistory(actor, id)
-      : Promise.resolve<PatientHistory>({ obstetric: [], menstrual: [], immunizations: [] }),
+      : Promise.resolve<PatientHistory>({ obstetric: [], menstrual: [], immunizations: [], family: [], past: null }),
     listUpcomingAppointments(actor, id),
     canSave ? listClinicDoctors(actor) : Promise.resolve([]),
   ])
@@ -623,6 +627,30 @@ export default async function CockpitPage({ params }: { params: Promise<{ id: st
             <ObstetricHistoryPanel
               patientId={patient.id}
               history={history.obstetric}
+              canEdit={roleHasPermission(actor.role, 'patient.update')}
+            />
+          </Accordion>
+
+          <Accordion
+            title="Past history"
+            summary={history.past?.notes ? 'recorded' : 'not recorded'}
+            icon={<ClipboardList className="h-4.75 w-4.75" />}
+          >
+            <PastHistoryPanel
+              patientId={patient.id}
+              past={history.past}
+              canEdit={roleHasPermission(actor.role, 'patient.update')}
+            />
+          </Accordion>
+
+          <Accordion
+            title="Family history"
+            summary={`${history.family.length} recorded`}
+            icon={<Users className="h-4.75 w-4.75" />}
+          >
+            <FamilyHistoryPanel
+              patientId={patient.id}
+              entries={history.family}
               canEdit={roleHasPermission(actor.role, 'patient.update')}
             />
           </Accordion>

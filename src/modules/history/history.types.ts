@@ -139,9 +139,54 @@ export interface MenstrualHistoryRecord {
   readonly impactsActivities: YesNo
   readonly dysmenorrhea: YesNo
   readonly bowelBladder: BowelBladder | null
+  readonly lastPapSmearOn: CalendarDate | null
   readonly remarks: string | null
   readonly source: HistorySource
 }
+
+/* -------------------------------------------------------------------------- */
+/* Family history                                                             */
+/* -------------------------------------------------------------------------- */
+
+export type VitalStatus = 'ALIVE' | 'DECEASED'
+
+/** One relative and one disease, as the OPD form's family-history row. */
+export interface FamilyHistoryEntry {
+  readonly id: string
+  readonly version: number
+  readonly relation: string
+  readonly vitalStatus: VitalStatus
+  readonly disease: string
+  readonly onsetAgeYears: number | null
+  /** Her age now, or at death when deceased. */
+  readonly currentAgeYears: number | null
+  readonly remarks: string | null
+}
+
+export const FAMILY_RELATIONS: readonly string[] = [
+  'Husband', 'Mother', 'Father', 'Sister', 'Brother', 'Son', 'Daughter',
+  'Maternal grandmother', 'Maternal grandfather', 'Paternal grandmother', 'Paternal grandfather',
+  'Mother-in-law', 'Father-in-law',
+]
+
+/* -------------------------------------------------------------------------- */
+/* Past history                                                               */
+/* -------------------------------------------------------------------------- */
+
+/** Her own past illnesses: one free-text record, versioned. Null until first written. */
+export interface PastHistory {
+  readonly version: number
+  readonly notes: string | null
+  readonly updatedAt: string
+}
+
+/** The quick-add list beside the past-history text box. */
+export const PAST_HISTORY_OPTIONS: readonly string[] = [
+  'Epilepsy',
+  'Asthma',
+  'Cardiovascular disorders',
+  'Tuberculosis',
+]
 
 /* -------------------------------------------------------------------------- */
 /* Immunizations                                                              */

@@ -618,6 +618,60 @@ export type Database = {
           },
         ]
       }
+      family_histories: {
+        Row: {
+          clinic_id: string
+          created_at: string
+          current_age_years: number | null
+          disease: string
+          id: string
+          onset_age_years: number | null
+          patient_id: string
+          recorded_by: string | null
+          relation: string
+          remarks: string | null
+          removed_at: string | null
+          removed_by: string | null
+          updated_at: string
+          version: number
+          vital_status: string
+        }
+        Insert: {
+          clinic_id: string
+          created_at?: string
+          current_age_years?: number | null
+          disease: string
+          id?: string
+          onset_age_years?: number | null
+          patient_id: string
+          recorded_by?: string | null
+          relation: string
+          remarks?: string | null
+          removed_at?: string | null
+          removed_by?: string | null
+          updated_at?: string
+          version?: number
+          vital_status?: string
+        }
+        Update: {
+          clinic_id?: string
+          created_at?: string
+          current_age_years?: number | null
+          disease?: string
+          id?: string
+          onset_age_years?: number | null
+          patient_id?: string
+          recorded_by?: string | null
+          relation?: string
+          remarks?: string | null
+          removed_at?: string | null
+          removed_by?: string | null
+          updated_at?: string
+          version?: number
+          vital_status?: string
+        }
+        Relationships: []
+      }
       finding_pins: {
         Row: {
           clinic_id: string
@@ -984,6 +1038,7 @@ export type Database = {
           flow: string | null
           id: string
           impacts_activities: boolean | null
+          last_pap_smear_on: string | null
           lmp: string | null
           menarche_age_years: number | null
           pads_per_day: number | null
@@ -1008,6 +1063,7 @@ export type Database = {
           flow?: string | null
           id?: string
           impacts_activities?: boolean | null
+          last_pap_smear_on?: string | null
           lmp?: string | null
           menarche_age_years?: number | null
           pads_per_day?: number | null
@@ -1032,6 +1088,7 @@ export type Database = {
           flow?: string | null
           id?: string
           impacts_activities?: boolean | null
+          last_pap_smear_on?: string | null
           lmp?: string | null
           menarche_age_years?: number | null
           pads_per_day?: number | null
@@ -1596,6 +1653,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      patient_past_histories: {
+        Row: {
+          clinic_id: string
+          created_at: string
+          id: string
+          notes: string | null
+          patient_id: string
+          updated_at: string
+          updated_by: string | null
+          version: number
+        }
+        Insert: {
+          clinic_id: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          patient_id: string
+          updated_at?: string
+          updated_by?: string | null
+          version?: number
+        }
+        Update: {
+          clinic_id?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          patient_id?: string
+          updated_at?: string
+          updated_by?: string | null
+          version?: number
+        }
+        Relationships: []
       }
       patient_queries: {
         Row: {
@@ -3601,6 +3691,17 @@ export type Database = {
         }
         Returns: string
       }
+      remove_family_history_entry: {
+        Args: {
+          p_actor_staff_user_id: string
+          p_clinic_id: string
+          p_request_id: string
+          p_entry_id: string
+          p_expected_version: number
+          p_patient_id: string
+        }
+        Returns: undefined
+      }
       resolve_flagged_diagnosis: {
         Args: {
           p_actor_staff_user_id: string
@@ -3630,6 +3731,18 @@ export type Database = {
         }
         Returns: boolean
       }
+      save_family_history_entry: {
+        Args: {
+          p_actor_staff_user_id: string
+          p_clinic_id: string
+          p_request_id: string
+          p_entry: Json
+          p_entry_id: string
+          p_expected_version: number
+          p_patient_id: string
+        }
+        Returns: string
+      }
       save_menstrual_history: {
         Args: {
           p_actor_staff_user_id: string
@@ -3654,6 +3767,17 @@ export type Database = {
           p_request_id: string
         }
         Returns: string
+      }
+      save_past_history: {
+        Args: {
+          p_actor_staff_user_id: string
+          p_clinic_id: string
+          p_request_id: string
+          p_expected_version: number
+          p_notes: string
+          p_patient_id: string
+        }
+        Returns: number
       }
       save_visit_consultation: {
         Args: {

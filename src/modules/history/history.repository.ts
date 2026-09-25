@@ -7,7 +7,11 @@ import type { Database } from '@core/db/database.types'
 import { conflict, internal, notFound, retryable } from '@core/errors/app-error'
 
 import {
+  type FamilyHistoryRow,
   type ImmunizationRow,
+  type PastHistoryRow,
+  toFamilyHistoryEntry,
+  toPastHistory,
   type InfantRow,
   type MenstrualHistoryRow,
   type ObstetricHistoryRow,
@@ -16,7 +20,9 @@ import {
   toObstetricHistoryRecord,
 } from './history.mapper'
 import type {
+  FamilyHistoryEntry,
   ImmunizationRecord,
+  PastHistory,
   MenstrualHistoryRecord,
   ObstetricHistoryRecord,
 } from './history.types'
@@ -123,6 +129,41 @@ export async function listImmunizations(
 
   if (error) translate(error, 'listImmunizations')
   return (data ?? []).map(toImmunizationRecord)
+}
+
+/** Current family-history rows, in the order they were recorded. Removed rows are not shown. */
+export async function listFamilyHistory(
+  db: TypedClient,
+  clinicId: string,
+  patientId: string,
+): Promise<FamilyHistoryEntry[]> {
+  const { data, error } = await db
+    .from('family_histories')
+    .select('*')
+    .eq('clinic_id', clinicId)
+    .eq('patient_id', patientId)
+    .is('removed_at', null)
+    .order('created_at', { ascending: true })
+    .returns<FamilyHistoryRow[]>()
+
+  if (error) translate(error, 'listFamilyHistory')
+  return (data ?? []).map(toFamilyHistoryEntry)
+}
+
+export async function findPastHistory(
+  db: TypedClient,
+  clinicId: string,
+  patientId: string,
+): Promise<PastHistory | null> {
+  const { data, error } = await db
+    .from('patient_past_histories')
+    .select('*')
+    .eq('clinic_id', clinicId)
+    .eq('patient_id', patientId)
+    .maybeSingle<PastHistoryRow>()
+
+  if (error) translate(error, 'findPastHistory')
+  return data ? toPastHistory(data) : null
 }
 
 /* -------------------------------------------------------------------------- */
@@ -237,5 +278,67 @@ export async function recordImmunization(
   )
   if (error) translate(error, 'recordImmunization')
   if (typeof data !== 'string') throw internal('record_immunization returned no id.')
+  return data
+}
+
+export async function saveFamilyHistoryEntry(
+  db: TypedClient,
+  params: WriteContext & {
+    patientId: string
+    entryId: string | null
+    expectedVersion: number | null
+    entry: Record<string, unknown>
+  },
+): Promise<string> {
+  const args: Nullable<Fn['save_family_history_entry']['Args'], 'p_entry_id' | 'p_expected_version'> = {
+    p_clinic_id: params.clinicId,
+    p_actor_staff_user_id: params.actorStaffUserId,
+    p_request_id: params.requestId,
+    p_patient_id: params.patientId,
+    p_entry_id: params.entryId,
+    p_expected_version: params.expectedVersion,
+    p_entry: params.entry as never,
+  }
+
+  const { data, error } = await db.rpc(
+    'save_family_history_entry',
+    args as Fn['save_family_history_entry']['Args'],
+  )
+  if (error) translate(error, 'saveFamilyHistoryEntry')
+  if (typeof data !== 'string') throw internal('save_family_history_entry returned no id.')
+  return data
+}
+
+export async function removeFamilyHistoryEntry(
+  db: TypedClient,
+  params: WriteContext & { patientId: string; entryId: string; expectedVersion: number },
+): Promise<void> {
+  const { error } = await db.rpc('remove_family_history_entry', {
+    p_clinic_id: params.clinicId,
+    p_actor_staff_user_id: params.actorStaffUserId,
+    p_request_id: params.requestId,
+    p_patient_id: params.patientId,
+    p_entry_id: params.entryId,
+    p_expected_version: params.expectedVersion,
+  })
+  if (error) translate(error, 'removeFamilyHistoryEntry')
+}
+
+export async function savePastHistory(
+  db: TypedClient,
+  params: WriteContext & { patientId: string; expectedVersion: number | null; notes: string | null },
+): Promise<number> {
+  const args: Nullable<Fn['save_past_history']['Args'], 'p_expected_version' | 'p_notes'> = {
+    p_clinic_id: params.clinicId,
+    p_actor_staff_user_id: params.actorStaffUserId,
+    p_request_id: params.requestId,
+    p_patient_id: params.patientId,
+    p_expected_version: params.expectedVersion,
+    p_notes: params.notes,
+  }
+
+  const { data, error } = await db.rpc('save_past_history', args as Fn['save_past_history']['Args'])
+  if (error) translate(error, 'savePastHistory')
+  if (typeof data !== 'number') throw internal('save_past_history returned no version.')
   return data
 }

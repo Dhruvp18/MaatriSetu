@@ -8,11 +8,16 @@ import { todayIn } from '@core/obstetrics/dating'
 import * as repo from './history.repository'
 import {
   RecordImmunizationSchema,
+  RemoveFamilyHistorySchema,
+  SaveFamilyHistorySchema,
+  SavePastHistorySchema,
   SaveMenstrualHistorySchema,
   SaveObstetricHistorySchema,
 } from './history.schema'
 import type {
+  FamilyHistoryEntry,
   ImmunizationRecord,
+  PastHistory,
   MenstrualHistoryRecord,
   ObstetricHistoryRecord,
 } from './history.types'
@@ -37,6 +42,9 @@ export interface PatientHistory {
   readonly obstetric: readonly ObstetricHistoryRecord[]
   readonly menstrual: readonly MenstrualHistoryRecord[]
   readonly immunizations: readonly ImmunizationRecord[]
+  readonly family: readonly FamilyHistoryEntry[]
+  /** Null until a past history has been written for her. */
+  readonly past: PastHistory | null
 }
 
 /** Everything the cockpit's history accordions show, in one call. */
@@ -47,13 +55,15 @@ export async function getPatientHistory(
   requirePermission(actor, 'patient.read')
 
   const db = await userClient()
-  const [obstetric, menstrual, immunizations] = await Promise.all([
+  const [obstetric, menstrual, immunizations, family, past] = await Promise.all([
     repo.listObstetricHistory(db, actor.clinicId, patientId),
     repo.listMenstrualHistory(db, actor.clinicId, patientId),
     repo.listImmunizations(db, actor.clinicId, patientId),
+    repo.listFamilyHistory(db, actor.clinicId, patientId),
+    repo.findPastHistory(db, actor.clinicId, patientId),
   ])
 
-  return { obstetric, menstrual, immunizations }
+  return { obstetric, menstrual, immunizations, family, past }
 }
 
 /**
@@ -98,6 +108,9 @@ export async function saveMenstrualHistory(actor: ActorContext, input: unknown):
   if (entry.lmp && entry.lmp > today) {
     throw validation('An LMP cannot be in the future. Check the date.', { field: 'lmp' })
   }
+  if (entry.lastPapSmearOn && entry.lastPapSmearOn > today) {
+    throw validation('A Pap smear cannot be dated in the future. Check the date.', { field: 'lastPapSmearOn' })
+  }
 
   return repo.saveMenstrualHistory(serviceClient(), {
     clinicId: actor.clinicId,
@@ -139,5 +152,62 @@ export async function recordImmunization(actor: ActorContext, input: unknown): P
     facility: data.facility ?? null,
     batchNumber: data.batchNumber ?? null,
     source: data.source,
+  })
+}
+
+/** Add a relative's illness to her family history, or correct one. */
+export async function saveFamilyHistory(actor: ActorContext, input: unknown): Promise<string> {
+  requirePermission(actor, 'patient.update')
+
+  const parsed = SaveFamilyHistorySchema.safeParse(input)
+  if (!parsed.success) {
+    throw validation('This family history could not be saved.', parsed.error.issues)
+  }
+
+  const { patientId, entryId, expectedVersion, entry } = parsed.data
+  return repo.saveFamilyHistoryEntry(serviceClient(), {
+    clinicId: actor.clinicId,
+    actorStaffUserId: actor.staffUserId,
+    requestId: actor.requestId,
+    patientId,
+    entryId: entryId ?? null,
+    expectedVersion: expectedVersion ?? null,
+    entry: { ...entry },
+  })
+}
+
+/** Take a row off her family history. It is kept, marked removed, and audited. */
+export async function removeFamilyHistory(actor: ActorContext, input: unknown): Promise<void> {
+  requirePermission(actor, 'patient.update')
+
+  const parsed = RemoveFamilyHistorySchema.safeParse(input)
+  if (!parsed.success) {
+    throw validation('This family history row could not be removed.', parsed.error.issues)
+  }
+
+  await repo.removeFamilyHistoryEntry(serviceClient(), {
+    clinicId: actor.clinicId,
+    actorStaffUserId: actor.staffUserId,
+    requestId: actor.requestId,
+    ...parsed.data,
+  })
+}
+
+/** Write her past history. Version-checked, so two people editing it conflict rather than overwrite. */
+export async function savePastHistory(actor: ActorContext, input: unknown): Promise<number> {
+  requirePermission(actor, 'patient.update')
+
+  const parsed = SavePastHistorySchema.safeParse(input)
+  if (!parsed.success) {
+    throw validation('This past history could not be saved.', parsed.error.issues)
+  }
+
+  return repo.savePastHistory(serviceClient(), {
+    clinicId: actor.clinicId,
+    actorStaffUserId: actor.staffUserId,
+    requestId: actor.requestId,
+    patientId: parsed.data.patientId,
+    expectedVersion: parsed.data.expectedVersion,
+    notes: parsed.data.notes?.trim() || null,
   })
 }
