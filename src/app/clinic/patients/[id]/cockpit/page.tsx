@@ -31,6 +31,8 @@ import { formatGestationalAge, splitGestationalAge, todayIn } from '@core/obstet
 import { listOpenFlaggedDiagnoses } from '@modules/diagnoses/diagnosis.service'
 import type { FlaggedDiagnosis } from '@modules/diagnoses/diagnosis.types'
 import { getPatientHistory, type PatientHistory } from '@modules/history/history.service'
+import { listMyMasterPacks } from '@modules/master-packs/master-pack.service'
+import type { MasterPack } from '@modules/master-packs/master-pack.types'
 import {
   describeFoodRelation,
   describeFrequency,
@@ -147,7 +149,7 @@ export default async function CockpitPage({ params }: { params: Promise<{ id: st
   // Stage 1 — everything that needs only the patient id, fetched at once.
   // Each read is a round trip to Mumbai; issuing them one after another is
   // what made the cockpit slow, not any single query.
-  const [patientResult, episode, voiceQueries, history, upcoming, doctors] = await Promise.all([
+  const [patientResult, episode, voiceQueries, history, upcoming, doctors, masterPacks] = await Promise.all([
     getPatient(actor, id).then(
       (value) => ({ ok: true as const, value }),
       (error: unknown) => ({ ok: false as const, error }),
@@ -160,6 +162,10 @@ export default async function CockpitPage({ params }: { params: Promise<{ id: st
       : Promise.resolve<PatientHistory>({ obstetric: [], menstrual: [], immunizations: [], family: [], past: null }),
     listUpcomingAppointments(actor, id),
     canSave ? listClinicDoctors(actor) : Promise.resolve([]),
+    // The doctor's own packs — only ever hers, and only for someone who prescribes.
+    roleHasPermission(actor.role, 'prescription.write')
+      ? listMyMasterPacks(actor)
+      : Promise.resolve<MasterPack[]>([]),
   ])
 
   if (!patientResult.ok) {
@@ -757,6 +763,7 @@ export default async function CockpitPage({ params }: { params: Promise<{ id: st
               chiefComplaints={openVisit.chiefComplaints}
               systemicExamination={openVisit.systemicExamination}
               ongoing={ongoing}
+              masterPacks={masterPacks}
               examinationFlagger={flagger('EXAMINATION')}
             />
           ) : (

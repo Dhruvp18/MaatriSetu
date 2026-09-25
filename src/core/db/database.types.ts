@@ -934,6 +934,69 @@ export type Database = {
           },
         ]
       }
+      master_packs: {
+        Row: {
+          advice: string | null
+          clinic_id: string
+          counselling: string[]
+          created_at: string
+          deleted_at: string | null
+          id: string
+          lab_orders: string[]
+          medicines: Json
+          name: string
+          owner_staff_user_id: string
+          scan_orders: string[]
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          advice?: string | null
+          clinic_id: string
+          counselling?: string[]
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          lab_orders?: string[]
+          medicines?: Json
+          name: string
+          owner_staff_user_id: string
+          scan_orders?: string[]
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          advice?: string | null
+          clinic_id?: string
+          counselling?: string[]
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          lab_orders?: string[]
+          medicines?: Json
+          name?: string
+          owner_staff_user_id?: string
+          scan_orders?: string[]
+          updated_at?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "master_packs_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "master_packs_owner_staff_user_id_fkey"
+            columns: ["owner_staff_user_id"]
+            isOneToOne: false
+            referencedRelation: "staff_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       medication_administrations: {
         Row: {
           administered_at: string
@@ -3416,6 +3479,16 @@ export type Database = {
         }
         Returns: undefined
       }
+      delete_master_pack: {
+        Args: {
+          p_actor_staff_user_id: string
+          p_clinic_id: string
+          p_expected_version: number
+          p_pack_id: string
+          p_request_id: string
+        }
+        Returns: undefined
+      }
       cancel_visit: {
         Args: {
           p_actor_staff_user_id: string
@@ -3742,6 +3815,26 @@ export type Database = {
           p_patient_id: string
         }
         Returns: string
+      }
+      save_master_pack: {
+        Args: {
+          p_actor_staff_user_id: string
+          p_clinic_id: string
+          p_expected_version: number
+          p_pack: Json
+          p_pack_id: string
+          p_request_id: string
+        }
+        Returns: string
+      }
+      seed_master_packs: {
+        Args: {
+          p_actor_staff_user_id: string
+          p_clinic_id: string
+          p_packs: Json
+          p_request_id: string
+        }
+        Returns: number
       }
       save_menstrual_history: {
         Args: {

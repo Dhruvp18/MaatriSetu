@@ -7,27 +7,43 @@ import {
   Plus,
   Send,
   Stethoscope,
-  X,
   Zap,
 } from 'lucide-react'
 import { useActionState, useState } from 'react'
 import { useFormStatus } from 'react-dom'
 
 import { Accordion, AccordionMeta } from '@components/cockpit/accordion'
+import {
+  FIELD,
+  RxLineEditor,
+  type RxDraft,
+  blankRx,
+  fromFormulary,
+  fromOngoing,
+  fromPackMedicine,
+  toPackMedicine,
+} from '@components/cockpit/rx-line'
 import { TokenInput } from '@components/cockpit/token-input'
-import { CLINIC_FORMULARY, PRESCRIPTION_BUNDLES, type FormularyItem, searchFormulary } from '@modules/orders/formulary'
+import {
+  COUNSELLING,
+  type CounsellingKey,
+  type MasterPack,
+  applyPack,
+} from '@modules/master-packs/master-pack.types'
+import { CLINIC_FORMULARY, type FormularyItem } from '@modules/orders/formulary'
 import {
   LAB_INVESTIGATIONS,
   SCAN_INVESTIGATIONS,
   searchInvestigations,
 } from '@modules/orders/investigations'
-import type { DoseFrequency, FoodRelation, Prescription } from '@modules/orders/order.types'
+import type { Prescription } from '@modules/orders/order.types'
 import type { ChiefComplaint, ClinicDoctor, DoctorReference } from '@modules/visits/visit.types'
 
 import { submitConsultation, type SaveState } from './actions'
 import { type PendingReport, useConsultationDraft, verificationPayload } from './consultation-draft'
 import { ChiefComplaintsSection } from './chief-complaints'
 import { DictatedTextarea } from './dictated-textarea'
+import { type ApplyNotice, MasterPackStrip } from './master-pack-strip'
 
 /**
  * Everything the doctor writes at a consultation, and the atomic Save & Next.
@@ -45,13 +61,6 @@ import { DictatedTextarea } from './dictated-textarea'
 
 const initialState: SaveState = { status: 'idle' }
 
-// Without a width, for controls that size themselves: `w-full` would beat any
-// width class added next to it.
-const FIELD_BOX =
-  'rounded border border-slate-300 bg-white/80 px-2.5 py-1.5 text-xs text-slate-900 outline-none transition-colors focus:border-brand-600 focus:ring-1 focus:ring-brand-600'
-
-const FIELD = `w-full ${FIELD_BOX}`
-
 const PANE = 'flex flex-col gap-2 rounded-lg border border-slate-200/90 bg-white p-3 shadow-2xs'
 
 const PANE_TITLE = 'font-heading text-xs font-bold uppercase tracking-wider text-slate-800'
@@ -61,76 +70,16 @@ const CHECKBOX = 'h-3.5 w-3.5 shrink-0 accent-brand-600'
 const CHECK_ROW =
   'flex cursor-pointer items-center gap-2 rounded border border-slate-200/60 bg-slate-50 p-1.5 text-xs text-slate-700 transition-colors hover:bg-slate-100/60'
 
-/**
- * The schedules offered as one-tap buttons, in the order they are written.
- * Shown as the pattern and the abbreviation together — `1-0-1 BD` — which is
- * how the prescription pad reads.
- */
-const SCHEDULES: ReadonlyArray<{ value: DoseFrequency; pattern: string | null; code: string }> = [
-  { value: 'OD', pattern: '1-0-0', code: 'OD' },
-  { value: 'BD', pattern: '1-0-1', code: 'BD' },
-  { value: 'TDS', pattern: '1-1-1', code: 'TDS' },
-  { value: 'QID', pattern: '1-1-1-1', code: 'QID' },
-  { value: 'HS', pattern: '0-0-1', code: 'HS' },
-  { value: 'SOS', pattern: null, code: 'SOS' },
-  { value: 'WEEKLY', pattern: null, code: 'Weekly' },
-]
-
-const FORMS = ['Tab', 'Cap', 'Syp', 'Inj', 'Susp', 'Oint', 'Drops', 'Sachet']
-
 const LAB_QUICK_PICKS = ['CBC', 'Urine routine & microscopy', 'TSH', 'OGTT 75 g', 'HBsAg', 'HIV 1 & 2']
 const SCAN_QUICK_PICKS = ['Growth scan', 'Growth scan with Doppler', 'NST']
 
-interface PrescriptionDraft {
-  key: number
-  medicineName: string
-  doseAmount: string
-  doseUnit: string
-  form: string
-  frequency: DoseFrequency
-  foodRelation: FoodRelation
-  durationDays: string
+/** The form field each counselling checkbox posts as. */
+const COUNSELLING_FIELDS: Record<CounsellingKey, string> = {
+  DFKC: 'dfkcCounselled',
+  NUTRITION: 'nutritionCounselled',
+  LEFT_LATERAL_REST: 'leftLateralRest',
+  DANGER_SIGNS: 'dangerSignsCounselled',
 }
-
-let nextKey = 1
-
-const blankRx = (): PrescriptionDraft => ({
-  key: nextKey++,
-  medicineName: '',
-  doseAmount: '',
-  doseUnit: 'mg',
-  form: 'Tab',
-  frequency: 'OD',
-  foodRelation: 'AFTER_FOOD',
-  durationDays: '30',
-})
-
-/**
- * An ongoing prescription, carried into today's Rx so the doctor continues,
- * edits or removes it rather than retyping it. Nothing is re-ordered unless it
- * is still on the list when she saves.
- */
-const fromOngoing = (rx: Prescription): PrescriptionDraft => ({
-  key: nextKey++,
-  medicineName: rx.medicineName,
-  doseAmount: rx.dose.kind === 'SPECIFIED' ? String(rx.dose.amount) : '',
-  doseUnit: rx.dose.kind === 'SPECIFIED' ? rx.dose.unit : '',
-  form: rx.form ?? 'Tab',
-  frequency: rx.frequency,
-  foodRelation: rx.foodRelation,
-  durationDays: rx.durationDays !== null ? String(rx.durationDays) : '',
-})
-
-const fromFormulary = (item: FormularyItem): PrescriptionDraft => ({
-  key: nextKey++,
-  medicineName: item.medicineName,
-  doseAmount: item.doseAmount !== null ? String(item.doseAmount) : '',
-  doseUnit: item.doseUnit ?? '',
-  form: item.form,
-  frequency: item.frequency,
-  foodRelation: item.foodRelation,
-  durationDays: item.durationDays !== null ? String(item.durationDays) : '',
-})
 
 function SaveButton() {
   const { pending } = useFormStatus()
@@ -157,6 +106,7 @@ export function ConsultationForm({
   chiefComplaints,
   systemicExamination,
   ongoing,
+  masterPacks,
   examinationFlagger,
 }: {
   visitId: string
@@ -175,6 +125,8 @@ export function ConsultationForm({
   systemicExamination: { perAbdomen: string | null; perVaginum: string | null; perSpeculum: string | null }
   /** Ongoing prescriptions, pre-filled into today's Rx. */
   ongoing: readonly Prescription[]
+  /** The signed-in doctor's own master packs, for the strip at the foot of the form. */
+  masterPacks: readonly MasterPack[]
   /** The Examination section's "Diagnosis to be flagged" panel, built by the page. */
   examinationFlagger?: React.ReactNode
 }) {
@@ -182,11 +134,15 @@ export function ConsultationForm({
   const [idempotencyKey] = useState(() => crypto.randomUUID())
   const { decisions, addressedQueryIds, husbandCandidateIds } = useConsultationDraft()
 
-  const [prescriptions, setPrescriptions] = useState<PrescriptionDraft[]>(() => ongoing.map(fromOngoing))
+  const [prescriptions, setPrescriptions] = useState<RxDraft[]>(() => ongoing.map(fromOngoing))
   const [labOrders, setLabOrders] = useState<string[]>([])
   const [scanOrders, setScanOrders] = useState<string[]>([])
+  // Controlled, so a master pack can tick them and add to the advice.
+  const [counselling, setCounselling] = useState<CounsellingKey[]>([])
+  const [additionalAdvice, setAdditionalAdvice] = useState('')
+  const [packNotice, setPackNotice] = useState<ApplyNotice | null>(null)
 
-  const update = (key: number, patch: Partial<PrescriptionDraft>) =>
+  const update = (key: number, patch: Partial<RxDraft>) =>
     setPrescriptions((rows) => rows.map((row) => (row.key === key ? { ...row, ...patch } : row)))
 
   const addFromFormulary = (item: FormularyItem) =>
@@ -196,31 +152,29 @@ export function ConsultationForm({
         : [...rows, fromFormulary(item)],
     )
 
-  const addBundle = (bundle: typeof PRESCRIPTION_BUNDLES[number]) => {
-    const items = bundle.itemIds.map(id => CLINIC_FORMULARY.find(f => f.id === id)).filter((item): item is NonNullable<typeof item> => item != null)
-    items.forEach(item => addFromFormulary(item))
-    
-    if (bundle.labOrders) {
-      setLabOrders(current => Array.from(new Set([...current, ...bundle.labOrders!])))
-    }
-    if (bundle.scanOrders) {
-      setScanOrders(current => Array.from(new Set([...current, ...bundle.scanOrders!])))
-    }
+  // Whatever is already in today's plan is kept as written; the pack only adds.
+  const applyMasterPack = (pack: MasterPack) => {
+    const result = applyPack(
+      {
+        medicineNames: prescriptions.map((rx) => rx.medicineName).filter((name) => name.trim()),
+        labOrders,
+        scanOrders,
+        counselling,
+        advice: additionalAdvice,
+      },
+      pack,
+    )
+    setPrescriptions((rows) => [...rows, ...result.medicines.map(fromPackMedicine)])
+    setLabOrders([...result.labOrders])
+    setScanOrders([...result.scanOrders])
+    setCounselling([...result.counselling])
+    setAdditionalAdvice(result.advice)
+    setPackNotice({ packName: pack.name, added: result.added, skipped: result.skipped })
   }
 
   // Only completed lines are submitted. A half-typed row left on screen when
   // the clinician hits save should not become an order.
-  const payload = prescriptions
-    .filter((rx) => rx.medicineName.trim().length > 0)
-    .map((rx) => ({
-      medicineName: rx.medicineName.trim(),
-      doseAmount: rx.doseAmount && rx.doseUnit ? Number(rx.doseAmount) : null,
-      doseUnit: rx.doseAmount && rx.doseUnit ? rx.doseUnit : null,
-      form: rx.form || null,
-      frequency: rx.frequency,
-      foodRelation: rx.foodRelation,
-      durationDays: rx.durationDays ? Number(rx.durationDays) : null,
-    }))
+  const payload = prescriptions.map(toPackMedicine).filter((rx) => rx !== null)
 
   const verifyPayload = verificationPayload(reports, decisions)
   // Only values actually being verified in this save can be filed as the husband's.
@@ -351,26 +305,6 @@ export function ConsultationForm({
                 </button>
               </div>
 
-              {/* Master templates / Bundles */}
-              <div className="mb-2 rounded-md border border-dashed border-brand-300 bg-brand-100/30 p-2">
-                <p className="mb-1.5 flex items-center gap-1 text-[10.5px] font-semibold text-brand-800">
-                  <Zap aria-hidden className="h-3.5 w-3.5" />
-                  Master templates (Diagnosis based)
-                </p>
-                <div className="flex flex-wrap gap-1">
-                  {PRESCRIPTION_BUNDLES.map((bundle) => (
-                    <button
-                      key={bundle.id}
-                      type="button"
-                      onClick={() => addBundle(bundle)}
-                      className="rounded border border-brand-300 bg-brand-50 px-2.5 py-1 text-[10.5px] font-bold text-brand-700 transition-colors hover:bg-brand-600 hover:text-white shadow-sm"
-                    >
-                      + {bundle.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
               {/* The clinic's quick-pick list: one tap, fully editable after. */}
               <div className="rounded-md border border-dashed border-brand-200 bg-brand-50/40 p-2">
                 <p className="mb-1.5 flex items-center gap-1 text-[10.5px] font-semibold text-brand-800">
@@ -410,105 +344,13 @@ export function ConsultationForm({
               ) : (
                 <ul className="flex flex-col gap-1.5">
                   {prescriptions.map((rx, index) => (
-                    <li key={rx.key} className="rounded border border-slate-200/70 bg-slate-50/90 p-2">
-                      <div className="mb-1.5 flex items-center gap-2">
-                        <span className="numeric shrink-0 text-xs font-bold text-brand-800">{index + 1}.</span>
-                        <select
-                          value={FORMS.includes(rx.form) ? rx.form : rx.form || 'Tab'}
-                          onChange={(e) => update(rx.key, { form: e.target.value })}
-                          aria-label="Form"
-                          className={`${FIELD_BOX} w-20 shrink-0 px-1.5`}
-                        >
-                          {[...new Set([...FORMS, rx.form].filter(Boolean))].map((form) => (
-                            <option key={form} value={form}>
-                              {form}
-                            </option>
-                          ))}
-                        </select>
-                        <MedicineInput
-                          value={rx.medicineName}
-                          onChange={(medicineName) => update(rx.key, { medicineName })}
-                          onPick={(item) => update(rx.key, { ...fromFormulary(item), key: rx.key })}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setPrescriptions((rows) => rows.filter((row) => row.key !== rx.key))}
-                          aria-label="Remove"
-                          className="shrink-0 rounded p-1 text-slate-400 transition-colors hover:text-alert-600"
-                        >
-                          <X aria-hidden className="h-4.25 w-4.25" />
-                        </button>
-                      </div>
-
-                      <div className="flex min-w-0 flex-col gap-1.5 sm:pl-6">
-                        <div className="flex flex-wrap gap-1" role="radiogroup" aria-label="Schedule">
-                          {SCHEDULES.map((schedule) => {
-                            const selected = rx.frequency === schedule.value
-                            return (
-                              <button
-                                key={schedule.value}
-                                type="button"
-                                role="radio"
-                                aria-checked={selected}
-                                onClick={() => update(rx.key, { frequency: schedule.value })}
-                                className={`numeric rounded border px-1.5 py-0.5 text-[10.5px] font-bold transition-colors ${
-                                  selected
-                                    ? 'border-brand-600 bg-brand-600 text-white'
-                                    : 'border-slate-200 bg-white text-slate-600 hover:border-brand-200 hover:text-brand-800'
-                                }`}
-                              >
-                                {schedule.pattern ? `${schedule.pattern} ` : ''}
-                                <span className={selected ? 'text-white/85' : 'text-slate-400'}>{schedule.code}</span>
-                              </button>
-                            )
-                          })}
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
-                          {/* Amount and unit are one field in the domain: the
-                              schema refuses one without the other. */}
-                          <input
-                            value={rx.doseAmount}
-                            onChange={(e) => update(rx.key, { doseAmount: e.target.value })}
-                            type="number"
-                            step="any"
-                            placeholder="Dose"
-                            aria-label="Dose amount"
-                            className={`${FIELD} numeric`}
-                          />
-                          <input
-                            value={rx.doseUnit}
-                            onChange={(e) => update(rx.key, { doseUnit: e.target.value })}
-                            placeholder="unit"
-                            aria-label="Dose unit"
-                            className={`${FIELD} numeric`}
-                          />
-                          <select
-                            value={rx.foodRelation}
-                            onChange={(e) => update(rx.key, { foodRelation: e.target.value as FoodRelation })}
-                            aria-label="Relation to food"
-                            className={FIELD}
-                          >
-                            <option value="AFTER_FOOD">after food</option>
-                            <option value="BEFORE_FOOD">before food</option>
-                            <option value="WITH_FOOD">with food</option>
-                            <option value="NOT_SPECIFIED">not specified</option>
-                          </select>
-                          <div className="flex min-w-0 items-center gap-1">
-                            <input
-                              value={rx.durationDays}
-                              onChange={(e) => update(rx.key, { durationDays: e.target.value })}
-                              type="number"
-                              min={1}
-                              placeholder="Days"
-                              aria-label="Duration in days"
-                              className={`${FIELD} numeric`}
-                            />
-                            <span className="text-[10px] text-slate-500">days</span>
-                          </div>
-                        </div>
-                      </div>
-                    </li>
+                    <RxLineEditor
+                      key={rx.key}
+                      index={index}
+                      rx={rx}
+                      onChange={(patch) => update(rx.key, patch)}
+                      onRemove={() => setPrescriptions((rows) => rows.filter((row) => row.key !== rx.key))}
+                    />
                   ))}
                 </ul>
               )}
@@ -547,12 +389,20 @@ export function ConsultationForm({
                 placeholder="Type to search — g → Growth scan"
               />
 
+              {/* Recorded as counselled, never auto-ticked — only the doctor, or
+                  a pack she chose to apply, ticks these. */}
               <div className="flex flex-col gap-1.5 border-t border-slate-100 pt-2">
-                <Check name="dfkcCounselled" label="Daily fetal kick count explained" />
-                <Check name="nutritionCounselled" label="Nutrition counselling" />
-                <Check name="leftLateralRest" label="Left lateral rest" />
-                {/* Recorded as counselled, never auto-ticked. */}
-                <Check name="dangerSignsCounselled" label="Danger signs explained" />
+                {COUNSELLING.map((item) => (
+                  <Check
+                    key={item.key}
+                    name={COUNSELLING_FIELDS[item.key]}
+                    label={item.label}
+                    checked={counselling.includes(item.key)}
+                    onChange={(on) =>
+                      setCounselling((keys) => (on ? [...keys, item.key] : keys.filter((key) => key !== item.key)))
+                    }
+                  />
+                ))}
               </div>
 
               <div className="grid gap-2 border-t border-slate-100 pt-2">
@@ -560,7 +410,13 @@ export function ConsultationForm({
                   <input id="nextFollowupDate" name="nextFollowupDate" type="date" className={`${FIELD} numeric`} />
                 </Labelled>
                 <Labelled htmlFor="additionalAdvice" label="Other advice">
-                  <input id="additionalAdvice" name="additionalAdvice" className={FIELD} />
+                  <input
+                    id="additionalAdvice"
+                    name="additionalAdvice"
+                    value={additionalAdvice}
+                    onChange={(e) => setAdditionalAdvice(e.target.value)}
+                    className={FIELD}
+                  />
                 </Labelled>
               </div>
             </section>
@@ -569,6 +425,13 @@ export function ConsultationForm({
       </Accordion>
 
       <ReferenceSection doctors={doctors} priorReferences={priorReferences} />
+
+      <MasterPackStrip
+        packs={masterPacks}
+        onApply={applyMasterPack}
+        notice={packNotice}
+        onDismissNotice={() => setPackNotice(null)}
+      />
 
       {state.status === 'error' ? (
         <p
@@ -622,87 +485,6 @@ function SaveSummary({
       Examination, diagnosis, orders, advice, report reviews and the reference are written together, or not
       at all.
     </>
-  )
-}
-
-/* -------------------------------------------------------------------------- */
-/* Medicine name with formulary type-ahead                                    */
-/* -------------------------------------------------------------------------- */
-
-function MedicineInput({
-  value,
-  onChange,
-  onPick,
-}: {
-  value: string
-  onChange: (value: string) => void
-  onPick: (item: FormularyItem) => void
-}) {
-  const [focused, setFocused] = useState(false)
-  const [active, setActive] = useState(0)
-  const matches = focused ? searchFormulary(value) : []
-  const exact = matches.some((item) => item.medicineName.toLowerCase() === value.trim().toLowerCase())
-  const open = matches.length > 0 && !exact
-
-  return (
-    <div className="relative min-w-0 flex-1">
-      <input
-        value={value}
-        onChange={(e) => {
-          onChange(e.target.value)
-          setActive(0)
-        }}
-        onFocus={() => setFocused(true)}
-        onBlur={() => setTimeout(() => setFocused(false), 120)}
-        onKeyDown={(e) => {
-          if (!open) {
-            // Enter must never submit the consultation from a drug line.
-            if (e.key === 'Enter') e.preventDefault()
-            return
-          }
-          if (e.key === 'ArrowDown') {
-            e.preventDefault()
-            setActive((i) => (i + 1) % matches.length)
-          } else if (e.key === 'ArrowUp') {
-            e.preventDefault()
-            setActive((i) => (i - 1 + matches.length) % matches.length)
-          } else if (e.key === 'Enter') {
-            e.preventDefault()
-            const item = matches[active]
-            if (item) onPick(item)
-          }
-        }}
-        placeholder="Medicine — type to search the clinic list, or any name"
-        aria-label="Medicine"
-        autoComplete="off"
-        className={FIELD}
-      />
-      {open ? (
-        <ul className="absolute top-full right-0 left-0 z-20 mt-1 rounded-md border border-slate-200 bg-white py-1 shadow-lg">
-          {matches.map((item, index) => (
-            <li key={item.id}>
-              <button
-                type="button"
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => onPick(item)}
-                onMouseEnter={() => setActive(index)}
-                className={`flex w-full items-baseline justify-between gap-2 px-2.5 py-1.5 text-left text-xs ${
-                  index === active ? 'bg-brand-50 text-brand-800' : 'text-slate-800'
-                }`}
-              >
-                <span className="font-semibold">
-                  {item.form}. {item.medicineName}
-                  {item.doseAmount !== null ? ` ${item.doseAmount} ${item.doseUnit}` : ''}
-                </span>
-                <span className="numeric shrink-0 text-[10.5px] text-slate-500">
-                  {SCHEDULES.find((s) => s.value === item.frequency)?.pattern ?? ''} {item.frequency}
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-    </div>
   )
 }
 
@@ -870,10 +652,26 @@ function Labelled({
   )
 }
 
-function Check({ name, label }: { name: string; label: string }) {
+function Check({
+  name,
+  label,
+  checked,
+  onChange,
+}: {
+  name: string
+  label: string
+  checked: boolean
+  onChange: (checked: boolean) => void
+}) {
   return (
     <label className={CHECK_ROW}>
-      <input type="checkbox" name={name} className={CHECKBOX} />
+      <input
+        type="checkbox"
+        name={name}
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        className={CHECKBOX}
+      />
       <span className="font-medium">{label}</span>
     </label>
   )

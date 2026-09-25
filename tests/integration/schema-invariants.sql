@@ -1454,3 +1454,111 @@ begin
   end if;
 end;
 $$;
+
+\echo ''
+\echo '=== Master packs are private to their doctor (0031) ==='
+
+do $$
+declare
+  c_clinic uuid := '11111111-1111-4111-8111-000000000001';
+  c_doctor uuid := '33333333-3333-4333-8333-000000000001';
+  c_nurse  uuid := '33333333-3333-4333-8333-000000000002';
+  v_starters jsonb := '[
+    {"name": "Starter A", "medicines": [{"medicineName": "Folic acid", "frequency": "OD"}]},
+    {"name": "Starter B", "labOrders": ["CBC"]}
+  ]';
+  v_pack     uuid;
+  v_n        integer;
+begin
+  if public.seed_master_packs(c_clinic, c_doctor, 'inv-mp-1', v_starters) = 2
+    and public.seed_master_packs(c_clinic, c_doctor, 'inv-mp-2', v_starters) = 0 then
+    raise notice 'ok    the starter packs are seeded once';
+  else
+    raise notice 'FAIL  starter packs seeded more than once';
+  end if;
+
+  v_pack := public.save_master_pack(c_clinic, c_doctor, 'inv-mp-3', null, null,
+    '{"name": "Scans only", "scanOrders": ["NT scan"], "counselling": ["DFKC"]}');
+  if exists (select 1 from master_packs where id = v_pack and scan_orders = '{NT scan}' and counselling = '{DFKC}') then
+    raise notice 'ok    a pack of only scans and counselling is saved';
+  else
+    raise notice 'FAIL  scans-only pack not stored as sent';
+  end if;
+
+  begin
+    perform public.save_master_pack(c_clinic, c_nurse, 'inv-mp-4', v_pack, 1, '{"name": "Hijacked", "labOrders": ["CBC"]}');
+    raise notice 'FAIL  another user edited a doctor''s pack';
+  exception when no_data_found then
+    raise notice 'ok    another user cannot edit a doctor''s pack';
+  end;
+
+  begin
+    perform public.save_master_pack(c_clinic, c_doctor, 'inv-mp-5', v_pack, 99, '{"name": "Stale", "labOrders": ["CBC"]}');
+    raise notice 'FAIL  a stale edit overwrote the pack';
+  exception when serialization_failure then
+    raise notice 'ok    a stale edit is a conflict';
+  end;
+
+  begin
+    perform public.save_master_pack(c_clinic, c_doctor, 'inv-mp-6', null, null, '{"name": " starter a ", "labOrders": ["TSH"]}');
+    raise notice 'FAIL  two live packs share a name';
+  exception when unique_violation then
+    raise notice 'ok    two live packs cannot share a name';
+  end;
+
+  begin
+    perform public.save_master_pack(c_clinic, c_doctor, 'inv-mp-7', null, null, '{"name": "Empty"}');
+    raise notice 'FAIL  an empty pack was saved';
+  exception when check_violation then
+    raise notice 'ok    an empty pack is refused';
+  end;
+
+  -- Delete every pack: the starter set must not come back.
+  perform public.delete_master_pack(c_clinic, c_doctor, 'inv-mp-8', id, version)
+     from master_packs where owner_staff_user_id = c_doctor and deleted_at is null;
+  select count(*) into v_n from master_packs where owner_staff_user_id = c_doctor and deleted_at is null;
+  if v_n = 0 and public.seed_master_packs(c_clinic, c_doctor, 'inv-mp-9', v_starters) = 0 then
+    raise notice 'ok    deleting every pack does not re-seed the starters';
+  else
+    raise notice 'FAIL  starters re-seeded after deleting all packs';
+  end if;
+
+  -- A fresh pack for the RLS checks below.
+  perform public.save_master_pack(c_clinic, c_doctor, 'inv-mp-10', null, null, '{"name": "Mine", "labOrders": ["CBC"]}');
+end;
+$$;
+
+-- RLS, as the signed-in user. auth.uid() is stubbed to read a setting for
+-- these checks, then restored to the null stub.
+create or replace function auth.uid() returns uuid
+language sql stable as $$ select nullif(current_setting('test.auth_uid', true), '')::uuid $$;
+
+create or replace function pg_temp.packs_visible_to(auth_uid text)
+returns bigint
+language plpgsql
+as $$
+declare
+  n bigint;
+begin
+  perform set_config('test.auth_uid', auth_uid, true);
+  set local role authenticated;
+  select count(*) into n from master_packs;
+  reset role;
+  return n;
+end;
+$$;
+
+begin;
+select case when pg_temp.packs_visible_to('22222222-2222-4222-8222-000000000001') > 0
+            then 'ok    a doctor reads her own packs'
+            else 'FAIL  a doctor cannot read her own packs' end;
+select case when pg_temp.packs_visible_to('22222222-2222-4222-8222-000000000002') = 0
+            then 'ok    a nurse cannot read a doctor''s packs'
+            else 'FAIL  a nurse can read a doctor''s packs' end;
+select case when pg_temp.packs_visible_to('22222222-2222-4222-8222-000000000004') = 0
+            then 'ok    an admin cannot read a doctor''s packs'
+            else 'FAIL  an admin can read a doctor''s packs' end;
+commit;
+
+create or replace function auth.uid() returns uuid
+language sql stable as $$ select null::uuid $$;

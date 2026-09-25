@@ -8,6 +8,8 @@ import { resolveSession } from '@core/auth/session'
 
 import { chooseClinic, signOut } from '../sign-in/actions'
 
+import { ProfileMenu } from './master-packs/profile-menu'
+
 /**
  * The authenticated clinic area.
  *
@@ -142,12 +144,14 @@ export default async function ClinicLayout({
 
           <span aria-hidden className="hidden h-4 w-px bg-slate-200 sm:block" />
 
-          <span
-            aria-hidden
-            className="flex h-7 w-7 items-center justify-center rounded-full border border-brand-600/20 bg-brand-600/10 text-xs font-bold text-brand-800"
-          >
-            {initials(actor.displayName)}
-          </span>
+          <ProfileMenu
+            displayName={actor.displayName}
+            initials={initials(actor.displayName)}
+            role={actor.role}
+            // Packs are prescription shorthand, so they are for whoever may prescribe.
+            canManagePacks={roleHasPermission(actor.role, 'prescription.write')}
+          />
+
         </div>
       </header>
 
