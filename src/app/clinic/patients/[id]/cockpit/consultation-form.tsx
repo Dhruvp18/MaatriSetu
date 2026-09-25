@@ -37,19 +37,19 @@ import {
   searchInvestigations,
 } from '@modules/orders/investigations'
 import type { Prescription } from '@modules/orders/order.types'
-import type { ChiefComplaint, ClinicDoctor, DoctorReference } from '@modules/visits/visit.types'
+import type { ClinicDoctor, DoctorReference } from '@modules/visits/visit.types'
 
 import { submitConsultation, type SaveState } from './actions'
 import { type PendingReport, useConsultationDraft, verificationPayload } from './consultation-draft'
-import { ChiefComplaintsSection } from './chief-complaints'
 import { DictatedTextarea } from './dictated-textarea'
 import { type ApplyNotice, MasterPackStrip } from './master-pack-strip'
 
 /**
  * Everything the doctor writes at a consultation, and the atomic Save & Next.
  *
- * Three cockpit sections live inside this one <form>: Examination, Fresh orders
- * & advice, and the Reference tab. Together with the report decisions and
+ * Examination, Fresh orders & advice, Reference and Master packs live inside
+ * this one <form>. Chief complaints sit higher on the page, outside it, and join
+ * it through the form's id (`formId`). Together with the report decisions and
  * addressed queries staged in the panel at the top of the page, they commit in
  * one transaction (PRD F6) — so there is a single save button, never one per
  * section.
@@ -103,7 +103,7 @@ export function ConsultationForm({
   reports,
   doctors,
   priorReferences,
-  chiefComplaints,
+  formId,
   systemicExamination,
   ongoing,
   masterPacks,
@@ -121,7 +121,8 @@ export function ConsultationForm({
   reports: readonly PendingReport[]
   doctors: readonly ClinicDoctor[]
   priorReferences: readonly DoctorReference[]
-  chiefComplaints: readonly ChiefComplaint[]
+  /** The <form>'s id, so fields rendered elsewhere on the page submit with it. */
+  formId: string
   systemicExamination: { perAbdomen: string | null; perVaginum: string | null; perSpeculum: string | null }
   /** Ongoing prescriptions, pre-filled into today's Rx. */
   ongoing: readonly Prescription[]
@@ -183,7 +184,7 @@ export function ConsultationForm({
     .filter((id) => husbandCandidateIds.has(id))
 
   return (
-    <form action={formAction} className="flex flex-col gap-2.5">
+    <form id={formId} action={formAction} className="flex flex-col gap-2.5">
       <input type="hidden" name="visitId" value={visitId} />
       <input type="hidden" name="expectedVersion" value={expectedVersion} />
       <input type="hidden" name="idempotencyKey" value={idempotencyKey} />
@@ -195,8 +196,6 @@ export function ConsultationForm({
       {[...addressedQueryIds].map((id) => (
         <input key={id} type="hidden" name="resolveQuery" value={id} />
       ))}
-
-      <ChiefComplaintsSection current={chiefComplaints} />
 
       {/* Examination — general findings, then the three systemic examinations side by side. */}
       <Accordion

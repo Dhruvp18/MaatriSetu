@@ -8,6 +8,7 @@ import {
   History,
   IdCard,
   ListChecks,
+  MessageSquareText,
   Send,
   NotebookPen,
   Pill as PillIcon,
@@ -71,6 +72,7 @@ import { listUpcomingAppointments } from '@modules/schedule/schedule.service'
 import { describeRouting, type VoiceQuery } from '@modules/voice/voice.types'
 
 import { ConsultationDraftProvider, type PendingReport } from './consultation-draft'
+import { ChiefComplaintsSection } from './chief-complaints'
 import { ConsultationForm } from './consultation-form'
 import { DiagnosticReports, type QueryView, StagedSignificant } from './diagnostic-reports'
 import { DiagnosisFlagger, FlaggedDiagnosisPills } from './flagged-diagnoses'
@@ -93,6 +95,9 @@ import { NextVisitChip, StartConsultationButton } from './visit-buttons'
  */
 
 export const metadata = { title: 'Cockpit' }
+
+/** Ties Chief complaints, rendered high on the page, to the consultation <form> below. */
+const CONSULTATION_FORM_ID = 'consultation-form'
 export const dynamic = 'force-dynamic'
 
 const SCAN_TYPE_LABELS: Record<string, string> = {
@@ -469,6 +474,20 @@ export default async function CockpitPage({ params }: { params: Promise<{ id: st
             </div>
           </Accordion>
 
+          {/* Chief complaints sit here, above the record, but commit with Save & Next:
+              the hidden field is tied to the consultation <form> by its id. */}
+          {openVisit && canSave ? (
+            <ChiefComplaintsSection formId={CONSULTATION_FORM_ID} current={openVisit.chiefComplaints} />
+          ) : (
+            <Accordion title="Chief complaints" icon={<MessageSquareText className="h-4.75 w-4.75" />}>
+              <p className="text-xs text-slate-600">
+                {!openVisit
+                  ? 'Chief complaints are recorded against today’s consultation. Start it to record them.'
+                  : 'Recording chief complaints is part of the doctor’s consultation.'}
+              </p>
+            </Accordion>
+          )}
+
           {/* Significant labs: what a clinician flagged. The trend still draws
               on every verified value, pinned or not. */}
           <Accordion
@@ -626,6 +645,26 @@ export default async function CockpitPage({ params }: { params: Promise<{ id: st
           </Accordion>
 
           <Accordion
+            title="Immunization, marriage & conception"
+            summary={immunizationSummary(history, pregnancy.id)}
+            icon={<Syringe className="h-4.75 w-4.75" />}
+          >
+            <div className="mb-2.5">
+              <PregnancyProfilePanel
+                patientId={patient.id}
+                pregnancy={pregnancy}
+                canEdit={roleHasPermission(actor.role, 'patient.update')}
+              />
+            </div>
+            <ImmunizationPanel
+              patientId={patient.id}
+              pregnancyId={pregnancy.id}
+              records={history.immunizations}
+              canRecord={roleHasPermission(actor.role, 'medication_administration.record')}
+            />
+          </Accordion>
+
+          <Accordion
             title="Previous obstetric history"
             summary={`${history.obstetric.length} recorded`}
             icon={<History className="h-4.75 w-4.75" />}
@@ -633,6 +672,20 @@ export default async function CockpitPage({ params }: { params: Promise<{ id: st
             <ObstetricHistoryPanel
               patientId={patient.id}
               history={history.obstetric}
+              canEdit={roleHasPermission(actor.role, 'patient.update')}
+            />
+          </Accordion>
+
+          <Accordion
+            title="Previous menstrual history"
+            summary={
+              history.menstrual[0] ? `last taken ${history.menstrual[0].recordedOn}` : 'not taken'
+            }
+            icon={<CalendarHeart className="h-4.75 w-4.75" />}
+          >
+            <MenstrualHistoryPanel
+              patientId={patient.id}
+              history={history.menstrual}
               canEdit={roleHasPermission(actor.role, 'patient.update')}
             />
           </Accordion>
@@ -667,40 +720,6 @@ export default async function CockpitPage({ params }: { params: Promise<{ id: st
             icon={<ListChecks className="h-4.75 w-4.75" />}
           >
             <BirthPlanPanel plan={pregnancy.birthPlan || {}} />
-          </Accordion>
-
-          <Accordion
-            title="Previous menstrual history"
-            summary={
-              history.menstrual[0] ? `last taken ${history.menstrual[0].recordedOn}` : 'not taken'
-            }
-            icon={<CalendarHeart className="h-4.75 w-4.75" />}
-          >
-            <MenstrualHistoryPanel
-              patientId={patient.id}
-              history={history.menstrual}
-              canEdit={roleHasPermission(actor.role, 'patient.update')}
-            />
-          </Accordion>
-
-          <Accordion
-            title="Immunization, marriage & conception"
-            summary={immunizationSummary(history, pregnancy.id)}
-            icon={<Syringe className="h-4.75 w-4.75" />}
-          >
-            <div className="mb-2.5">
-              <PregnancyProfilePanel
-                patientId={patient.id}
-                pregnancy={pregnancy}
-                canEdit={roleHasPermission(actor.role, 'patient.update')}
-              />
-            </div>
-            <ImmunizationPanel
-              patientId={patient.id}
-              pregnancyId={pregnancy.id}
-              records={history.immunizations}
-              canRecord={roleHasPermission(actor.role, 'medication_administration.record')}
-            />
           </Accordion>
 
           <Accordion
@@ -760,7 +779,7 @@ export default async function CockpitPage({ params }: { params: Promise<{ id: st
               reports={reports}
               doctors={doctors}
               priorReferences={references}
-              chiefComplaints={openVisit.chiefComplaints}
+              formId={CONSULTATION_FORM_ID}
               systemicExamination={openVisit.systemicExamination}
               ongoing={ongoing}
               masterPacks={masterPacks}

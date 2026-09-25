@@ -16,7 +16,8 @@ import { DictatedTextarea } from './dictated-textarea'
  * sent; a duration is optional, but a number without a unit is refused by the
  * server, so the unit defaults to days as soon as a number is typed.
  *
- * Commits with the consultation, through the hidden field below.
+ * Commits with the consultation. The section sits above the record, outside
+ * the consultation <form>, so its hidden field names that form by id.
  */
 
 interface Row {
@@ -40,7 +41,14 @@ const fromSaved = (c: ChiefComplaint): Row => ({
 const FIELD =
   'rounded border border-slate-300 bg-white/80 px-2 py-1.5 text-xs text-slate-900 outline-none transition-colors focus:border-brand-600 focus:ring-1 focus:ring-brand-600'
 
-export function ChiefComplaintsSection({ current }: { current: readonly ChiefComplaint[] }) {
+export function ChiefComplaintsSection({
+  current,
+  formId,
+}: {
+  current: readonly ChiefComplaint[]
+  /** The consultation <form>'s id. */
+  formId: string
+}) {
   const [rows, setRows] = useState<Row[]>(() => (current.length > 0 ? current.map(fromSaved) : [blank()]))
 
   const update = (key: number, patch: Partial<Row>) =>
@@ -65,7 +73,7 @@ export function ChiefComplaintsSection({ current }: { current: readonly ChiefCom
       summary={payload.length > 0 ? `${payload.length} recorded` : undefined}
       defaultOpen
     >
-      <input type="hidden" name="chiefComplaints" value={JSON.stringify(payload)} />
+      <input type="hidden" form={formId} name="chiefComplaints" value={JSON.stringify(payload)} />
       <ul className="flex flex-col gap-2">
         {rows.map((row, index) => (
           <li

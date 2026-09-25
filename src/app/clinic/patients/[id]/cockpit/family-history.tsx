@@ -9,10 +9,11 @@ import { removeFamilyHistoryAction, saveFamilyHistoryAction } from './history-ac
 import { FIELD, Field, RadioRow, toIntOrNull } from './history-fields'
 
 /**
- * Family history — the OPD form's block: relation, alive or deceased, disease,
- * onset age, current age and remarks, added one row at a time into the table
- * beneath. A row can be corrected (pencil) or removed (bin); a removed row is
- * kept in the record and audit trail, just no longer shown.
+ * Family history — every relative recorded, as a table, with one "Add family
+ * member" button beneath it. The form (relation, alive or deceased, disease,
+ * onset age, current age, remarks) opens only when adding or correcting a row
+ * (pencil), and closes again on save or cancel. A removed row (bin) is kept in
+ * the record and audit trail, just no longer shown.
  */
 
 interface Draft {
@@ -46,6 +47,7 @@ export function FamilyHistoryPanel({
 }) {
   const [draft, setDraft] = useState<Draft>(EMPTY)
   const [editing, setEditing] = useState<FamilyHistoryEntry | null>(null)
+  const [formOpen, setFormOpen] = useState(false)
   const [removing, setRemoving] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
@@ -54,6 +56,7 @@ export function FamilyHistoryPanel({
   const reset = () => {
     setDraft(EMPTY)
     setEditing(null)
+    setFormOpen(false)
     setError(null)
   }
 
@@ -101,110 +104,6 @@ export function FamilyHistoryPanel({
 
   return (
     <div className="flex flex-col gap-2.5">
-      {canEdit ? (
-        <div
-          className={`flex flex-col gap-2 rounded-lg border p-2.5 ${
-            editing ? 'border-brand-300 bg-brand-50/40' : 'border-slate-200 bg-white'
-          }`}
-          onKeyDown={(e) => {
-            // Enter saves the row; it must never submit a form around the cockpit.
-            if (e.key === 'Enter' && (e.target as HTMLElement).tagName === 'INPUT') {
-              e.preventDefault()
-              save()
-            }
-          }}
-        >
-          <div className="grid grid-cols-1 gap-2 md:grid-cols-[minmax(0,1fr)_auto]">
-            <Field label="Relation *">
-              <input
-                value={draft.relation}
-                onChange={(e) => set({ relation: e.target.value })}
-                list="family-relations"
-                placeholder="e.g. Mother, Husband"
-                className={FIELD}
-              />
-              <datalist id="family-relations">
-                {FAMILY_RELATIONS.map((r) => (
-                  <option key={r} value={r} />
-                ))}
-              </datalist>
-            </Field>
-            <Field label="Status">
-              <RadioRow
-                name="Alive or deceased"
-                options={[
-                  ['ALIVE', 'Alive'],
-                  ['DECEASED', 'Deceased'],
-                ]}
-                value={draft.vitalStatus}
-                onChange={(v) => set({ vitalStatus: v ?? 'ALIVE' })}
-              />
-            </Field>
-          </div>
-          <div className="grid grid-cols-1 gap-2 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)]">
-            <Field label="Disease name *">
-              <input
-                value={draft.disease}
-                onChange={(e) => set({ disease: e.target.value })}
-                placeholder="e.g. Diabetes, Hypertension, Thalassaemia"
-                className={FIELD}
-              />
-            </Field>
-            <Field label="Onset age (yrs)">
-              <input
-                type="number"
-                min={0}
-                max={120}
-                value={draft.onsetAge}
-                onChange={(e) => set({ onsetAge: e.target.value })}
-                className={`${FIELD} numeric`}
-              />
-            </Field>
-            <Field label={draft.vitalStatus === 'DECEASED' ? 'Age at death (yrs)' : 'Current age (yrs)'}>
-              <input
-                type="number"
-                min={0}
-                max={130}
-                value={draft.currentAge}
-                onChange={(e) => set({ currentAge: e.target.value })}
-                className={`${FIELD} numeric`}
-              />
-            </Field>
-          </div>
-          <div className="flex flex-col gap-2 md:flex-row md:items-end">
-            <Field label="Remarks" className="flex-1">
-              <input value={draft.remarks} onChange={(e) => set({ remarks: e.target.value })} className={FIELD} />
-            </Field>
-            <div className="flex gap-1.5">
-              {editing ? (
-                <button
-                  type="button"
-                  onClick={reset}
-                  className="flex items-center gap-1 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-                >
-                  <X aria-hidden className="h-3.5 w-3.5" />
-                  Cancel
-                </button>
-              ) : null}
-              <button
-                type="button"
-                onClick={save}
-                disabled={pending}
-                className="flex items-center gap-1 rounded-md bg-brand-800 px-3.5 py-1.5 text-xs font-bold text-white hover:bg-brand-700 disabled:opacity-60"
-              >
-                {editing ? <Pencil aria-hidden className="h-3.5 w-3.5" /> : <Plus aria-hidden className="h-3.5 w-3.5" />}
-                {pending ? 'Saving…' : editing ? 'Update' : 'Add'}
-              </button>
-            </div>
-          </div>
-          {error ? (
-            <p role="alert" className="text-[11px] text-alert-700">
-              {error}
-            </p>
-          ) : null}
-        </div>
-      ) : null}
-
       {entries.length === 0 ? (
         <p className="rounded-lg border border-dashed border-slate-300 bg-slate-50/60 px-3 py-3 text-center text-xs text-slate-500">
           No family history recorded.
@@ -275,6 +174,7 @@ export function FamilyHistoryPanel({
                               setEditing(entry)
                               setDraft(toDraft(entry))
                               setError(null)
+                              setFormOpen(true)
                             }}
                             aria-label={`Edit ${entry.relation} — ${entry.disease}`}
                             className="rounded border border-caution-200 bg-caution-50 p-1 text-caution-700 hover:bg-caution-100"
@@ -299,6 +199,134 @@ export function FamilyHistoryPanel({
           </table>
         </div>
       )}
+
+      {canEdit && formOpen ? (
+        <div
+          className={`flex flex-col gap-2 rounded-lg border p-2.5 ${
+            editing ? 'border-brand-300 bg-brand-50/40' : 'border-slate-200 bg-white'
+          }`}
+          onKeyDown={(e) => {
+            // Enter saves the row; it must never submit a form around the cockpit.
+            if (e.key === 'Enter' && (e.target as HTMLElement).tagName === 'INPUT') {
+              e.preventDefault()
+              save()
+            }
+          }}
+        >
+          <p className="font-heading text-[11px] font-bold tracking-wider text-slate-700 uppercase">
+            {editing ? `Editing — ${editing.relation}, ${editing.disease}` : 'New family member'}
+          </p>
+          <div className="grid grid-cols-1 gap-2 md:grid-cols-[minmax(0,1fr)_auto]">
+            <Field label="Relation *">
+              <input
+                value={draft.relation}
+                onChange={(e) => set({ relation: e.target.value })}
+                list="family-relations"
+                placeholder="e.g. Mother, Husband"
+                className={FIELD}
+              />
+              <datalist id="family-relations">
+                {FAMILY_RELATIONS.map((r) => (
+                  <option key={r} value={r} />
+                ))}
+              </datalist>
+            </Field>
+            <Field label="Status">
+              <RadioRow
+                name="Alive or deceased"
+                options={[
+                  ['ALIVE', 'Alive'],
+                  ['DECEASED', 'Deceased'],
+                ]}
+                value={draft.vitalStatus}
+                onChange={(v) => set({ vitalStatus: v ?? 'ALIVE' })}
+              />
+            </Field>
+          </div>
+          <div className="grid grid-cols-1 gap-2 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)]">
+            <Field label="Disease name *">
+              <input
+                value={draft.disease}
+                onChange={(e) => set({ disease: e.target.value })}
+                placeholder="e.g. Diabetes, Hypertension, Thalassaemia"
+                className={FIELD}
+              />
+            </Field>
+            <Field label="Onset age (yrs)">
+              <input
+                type="number"
+                min={0}
+                max={120}
+                value={draft.onsetAge}
+                onChange={(e) => set({ onsetAge: e.target.value })}
+                className={`${FIELD} numeric`}
+              />
+            </Field>
+            <Field label={draft.vitalStatus === 'DECEASED' ? 'Age at death (yrs)' : 'Current age (yrs)'}>
+              <input
+                type="number"
+                min={0}
+                max={130}
+                value={draft.currentAge}
+                onChange={(e) => set({ currentAge: e.target.value })}
+                className={`${FIELD} numeric`}
+              />
+            </Field>
+          </div>
+          <div className="flex flex-col gap-2 md:flex-row md:items-end">
+            <Field label="Remarks" className="flex-1">
+              <input value={draft.remarks} onChange={(e) => set({ remarks: e.target.value })} className={FIELD} />
+            </Field>
+            <div className="flex gap-1.5">
+              <button
+                type="button"
+                onClick={reset}
+                className="flex items-center gap-1 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                <X aria-hidden className="h-3.5 w-3.5" />
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={save}
+                disabled={pending}
+                className="flex items-center gap-1 rounded-md bg-brand-800 px-3.5 py-1.5 text-xs font-bold text-white hover:bg-brand-700 disabled:opacity-60"
+              >
+                {editing ? <Pencil aria-hidden className="h-3.5 w-3.5" /> : <Plus aria-hidden className="h-3.5 w-3.5" />}
+                {pending ? 'Saving…' : editing ? 'Update' : 'Save'}
+              </button>
+            </div>
+          </div>
+          {error ? (
+            <p role="alert" className="text-[11px] text-alert-700">
+              {error}
+            </p>
+          ) : null}
+        </div>
+      ) : canEdit ? (
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={() => {
+              setDraft(EMPTY)
+              setEditing(null)
+              setError(null)
+              setFormOpen(true)
+            }}
+            className="flex items-center gap-1 rounded-md border border-brand-200 bg-brand-50 px-2.5 py-1 text-[11px] font-bold text-brand-800 transition-colors hover:bg-brand-100"
+          >
+            <Plus aria-hidden className="h-3.5 w-3.5" />
+            Add family member
+          </button>
+        </div>
+      ) : null}
+
+      {/* A failed removal happens with the form closed; say so here. */}
+      {!formOpen && error ? (
+        <p role="alert" className="text-right text-[11px] text-alert-700">
+          {error}
+        </p>
+      ) : null}
     </div>
   )
 }
