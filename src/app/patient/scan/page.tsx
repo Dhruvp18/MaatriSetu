@@ -1,8 +1,6 @@
-import type { Route } from 'next'
-import Link from 'next/link'
-
 import { getPatientI18n } from '../lib/i18n/server'
 import { Rich } from '../lib/i18n/rich'
+import { LoginForm } from '../login/login-form'
 
 export default async function QRScanLandingPage({
   searchParams,
@@ -29,12 +27,28 @@ export default async function QRScanLandingPage({
         {t.scan.tagline}
       </p>
 
-      <p className="mt-4 text-xs text-slate-400">
-        {t.scan.noSticker}{' '}
-        <Link href={'/patient/login' as Route} className="font-semibold text-[#8a3c4a] hover:underline">
-          {t.scan.chooseInstead}
-        </Link>
-      </p>
+      {/* Right here, not a click away: a mother without a sticker to scan
+          should never need a second page to reach her own dashboard. */}
+      <div className="mt-8 w-full max-w-sm">
+        <div className="mb-5 flex items-center gap-3">
+          <div className="h-px flex-1 bg-rose-100" />
+          <span className="text-[11px] font-semibold tracking-wide text-slate-400 uppercase">{t.scan.orDivider}</span>
+          <div className="h-px flex-1 bg-rose-100" />
+        </div>
+
+        <h2 className="mb-1 text-center text-base font-bold text-[#8a3c4a] font-serif">{t.login.title}</h2>
+        <p className="mb-5 text-center text-xs text-slate-500 italic">{t.login.subtitle}</p>
+
+        <LoginForm
+          labels={{
+            uhid: t.login.uhidLabel,
+            uhidPlaceholder: t.login.uhidPlaceholder,
+            password: t.login.passwordLabel,
+            signIn: t.login.signIn,
+            signingIn: t.login.signingIn,
+          }}
+        />
+      </div>
     </div>
   )
 }

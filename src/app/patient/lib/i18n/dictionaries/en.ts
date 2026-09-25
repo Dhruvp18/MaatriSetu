@@ -285,6 +285,7 @@ export const en = {
     tagline: '"Your care, in your hands." ❤',
     noSticker: "Don't have a sticker to scan?",
     chooseInstead: 'Sign in instead',
+    orDivider: 'or',
   },
   login: {
     title: 'Patient Sign In',

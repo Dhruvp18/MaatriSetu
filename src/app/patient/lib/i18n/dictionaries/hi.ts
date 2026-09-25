@@ -120,6 +120,7 @@ export const hi: Dict = {
     tagline: '"आपकी देखभाल, आपके हाथ में।" ❤',
     noSticker: 'स्कैन करने के लिए स्टिकर नहीं है?',
     chooseInstead: 'साइन इन करें',
+    orDivider: 'या',
   },
   login: {
     title: 'मरीज़ साइन इन',
