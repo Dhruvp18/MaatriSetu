@@ -1,10 +1,11 @@
 import type { Route } from 'next'
 import Link from 'next/link'
-import { User, FileText, UploadCloud, FileSymlink, Activity } from 'lucide-react'
+import { User, FileText, UploadCloud, FileSymlink, Activity, LogOut } from 'lucide-react'
 import { getDashboard, getMonitoring } from '@/modules/patient-portal/portal.service'
 import { getPatientSession } from './lib/session'
 import { getPatientI18n } from './lib/i18n/server'
 import { fmt, formatDate } from './lib/i18n/locales'
+import { logoutPatient } from './logout-action'
 
 export default async function MyANCPage() {
   const [session, { lang, t }] = await Promise.all([getPatientSession(), getPatientI18n()])
@@ -35,7 +36,7 @@ export default async function MyANCPage() {
   return (
     <div className="p-4 pt-8">
       {/* Header */}
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex justify-between items-start mb-6">
         <div className="flex items-center gap-3">
           <div className="w-11 h-11 bg-rose-100 rounded-full flex items-center justify-center shadow-sm">
             <span className="text-xl">🤰</span>
@@ -45,9 +46,21 @@ export default async function MyANCPage() {
             <h1 className="text-base font-bold text-slate-800">{data.fullName}</h1>
           </div>
         </div>
-        <div className="text-right">
-          <p className="text-[10px] text-slate-400">{h.uhid}</p>
-          <p className="text-xs font-mono font-bold text-slate-600">{data.uhid}</p>
+        <div className="flex flex-col items-end gap-2">
+          <form action={logoutPatient}>
+            <button
+              type="submit"
+              aria-label={t.profile.logout}
+              title={t.profile.logout}
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-rose-100 bg-white/80 text-[#8a3c4a] shadow-sm transition-colors hover:border-rose-200 hover:bg-rose-50 hover:text-[#743140] active:scale-95"
+            >
+              <LogOut aria-hidden className="h-3.5 w-3.5" />
+            </button>
+          </form>
+          <div className="text-right">
+            <p className="text-[10px] text-slate-400">{h.uhid}</p>
+            <p className="text-xs font-mono font-bold text-slate-600">{data.uhid}</p>
+          </div>
         </div>
       </div>
 
