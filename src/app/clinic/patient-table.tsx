@@ -44,7 +44,7 @@ export interface PatientTableRow {
    */
   readonly pog: Cell | null
   readonly lastVisit: Cell | null
-  readonly flags: readonly { readonly label: string; readonly tone: 'alert' | 'caution' }[]
+  readonly flags: readonly { readonly label: string; readonly tone: 'alert' | 'caution' | 'neutral' }[]
   /** Where she is in today's flow; null when she is not on today's list. */
   readonly status: DayStatus | null
   readonly reasons: readonly string[]
@@ -60,6 +60,7 @@ const STATUS_STYLES: Record<DayStatus, string> = {
 const FLAG_STYLES = {
   alert: 'border-alert-200 bg-alert-50 text-alert-700',
   caution: 'border-caution-200 bg-caution-50 text-caution-700',
+  neutral: 'border-slate-200 bg-slate-50 text-slate-700',
 } as const
 
 const GRID = 'md:grid md:grid-cols-[2rem_minmax(0,1.7fr)_minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,1.3fr)_minmax(0,0.9fr)_auto] md:items-center md:gap-3'

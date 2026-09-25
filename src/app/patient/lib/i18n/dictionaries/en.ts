@@ -44,11 +44,6 @@ const articles: Record<GuideSlug, Article> = {
     blocks: [
       {
         kind: 'myth',
-        myth: 'You must "eat for two".',
-        fact: 'You only need about 300-350 extra calories per day in your second and third trimesters. Focus on quality, not just quantity.',
-      },
-      {
-        kind: 'myth',
         myth: 'Ghee makes normal delivery easier.',
         fact: 'Drinking excessive ghee does not lubricate the birth canal. It only causes unwanted weight gain and acidity.',
       },
@@ -67,7 +62,6 @@ const articles: Record<GuideSlug, Article> = {
         kind: 'list',
         items: [
           '**Start early:** Begin breastfeeding within the first hour of normal birth.',
-          "**Liquid Gold:** The first thick, yellowish milk (Colostrum) is rich in antibodies. It acts as the baby's first vaccine. **Never throw it away.**",
           '**Exclusive feeding:** Give **only** breast milk for the first 6 months. No water, honey, ghutti, or animal milk is needed.',
           '**On demand:** Feed your baby whenever they cry or show signs of hunger (8-12 times a day).',
         ],
@@ -202,6 +196,7 @@ export const en = {
       prescriptions: { label: 'My Prescriptions', desc: 'View your medicines and advice' },
       scanReport: { label: 'Scan New Report', desc: 'Scan and upload your reports' },
       reports: { label: 'My Reports', desc: 'View uploaded reports and scans' },
+      monitoring: { label: 'Daily Monitoring', desc: 'Log today’s reading and see your trend' },
     },
     tagline: '"A healthier you for a brighter tomorrow"',
   },
@@ -286,6 +281,17 @@ export const en = {
     body: 'Please scan the **QR code sticker** on your paper ANC file to access your health records.',
     hint: 'Your doctor or nurse can print a new sticker for you if needed.',
     tagline: '"Your care, in your hands." ❤',
+    noSticker: "Don't have a sticker to scan?",
+    chooseInstead: 'Sign in instead',
+  },
+  login: {
+    title: 'Patient Sign In',
+    subtitle: 'Enter your patient ID and password to view your dashboard.',
+    uhidLabel: 'Patient ID (UHID)',
+    uhidPlaceholder: 'MH-2026-XXXXX',
+    passwordLabel: 'Password',
+    signIn: 'Sign in',
+    signingIn: 'Signing in…',
   },
   info: {
     title: 'Information & Support',
@@ -305,7 +311,6 @@ export const en = {
       2: '🤰 Second trimester: Your baby can now hear sounds! Keep taking iron tablets and sleep on your left side for better blood flow.',
       3: "👼 Third trimester: Count your baby's kicks daily — 10 kicks in 2 hours is a good sign. Prepare your bag for delivery.",
     },
-    guidesTitle: 'Helpful Guides',
     guides: {
       nutrition: 'Nutrition & Diet',
       tips: 'Daily Tips',
@@ -314,7 +319,6 @@ export const en = {
       vaccines: 'Vaccines',
       'hospital-bag': 'Hospital Bag',
     } as Record<GuideSlug, string>,
-    schemesTitle: 'Government Schemes',
     schemes: {
       pmmvy: {
         name: 'Pradhan Mantri Matru Vandana Yojana (PMMVY)',
@@ -337,6 +341,52 @@ export const en = {
         desc: 'Your rights: respectful care, zero discrimination, free essential medicines, referral transport, and zero out-of-pocket cost.',
       },
     },
+  },
+  feed: {
+    title: 'Pregnancy Feed',
+    subtitle: 'Bite-sized guidance, myths and your rights — swipe through at your own pace.',
+    readFullGuide: 'Read the full guide',
+    seeDosingSchedule: 'See the exact dosing schedule',
+    tagMythBuster: 'Myth buster',
+    tagBodyChanges: 'Body changes',
+    tagScreening: 'Screening',
+    tagGovernmentScheme: 'Government scheme',
+    tagEmotionalWellbeing: 'Emotional wellbeing',
+    colostrumCaption:
+      "Her first milk — thick, golden, and packed with antibodies. A newborn's stomach is only marble-sized on day one, so every drop counts.",
+    lineaNigraTitle: 'The dark line on your belly',
+    lineaNigraCaption:
+      'A faint vertical line down your belly, caused by pregnancy hormones. Completely harmless — it fades naturally after delivery.',
+    papSmearTitle: 'What is a Pap smear?',
+    papSmearCaption:
+      'A routine, painless cervical check that takes under 3 minutes — safe even during an early antenatal visit.',
+    vaccinesCaption:
+      'Two vaccines that protect you both: Td guards against tetanus, and the flu shot is safe every trimester and passes immunity to your baby.',
+    emotionalWellbeingTitle: 'It’s okay to not feel glowing every day',
+    emotionalWellbeingCaption:
+      'Mood swings and feeling overwhelmed are a normal hormonal change — not a reflection of the mother you will be.',
+    eatForTwoCaption: 'Myth-busted: you do not need to double your food. About 300–450 extra quality calories a day is enough.',
+  },
+  monitoring: {
+    title: 'Daily Monitoring',
+    subtitle: 'Readings your doctor asked you to track between visits',
+    notEnabled: 'No daily monitoring has been set up for you. Your doctor turns this on if you need it.',
+    measure: 'Measure',
+    save: 'Save reading',
+    saving: 'Saving…',
+    saved: 'Saved',
+    close: 'Close',
+    glucoseValue: 'Blood sugar',
+    glucoseContext: 'When was this taken?',
+    bloodPressureLabel: 'Blood pressure',
+    systolic: 'Systolic',
+    diastolic: 'Diastolic',
+    week: 'Week',
+    month: 'Month',
+    sincePregnancy: 'Since pregnancy started',
+    noReadings: 'No readings logged in this period yet.',
+    unitGlucose: 'mg/dL',
+    unitBp: 'mmHg',
   },
   article: {
     header: 'Guide',

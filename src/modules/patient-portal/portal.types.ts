@@ -12,6 +12,14 @@ export interface PatientSelf {
   readonly clinicId: string
 }
 
+/**
+ * The only clinic this deployment seeds and demos against. The username/
+ * password login (`/patient/login`) has no clinic selector on the form, so it
+ * authenticates against this one — same clinic the fixture patient in
+ * `PATIENT_DEMO_SESSION` already uses.
+ */
+export const SEEDED_CLINIC_ID = '11111111-1111-4111-8111-000000000001'
+
 export type TriageLevel = 'CRITICAL' | 'IMPORTANT' | 'NORMAL'
 
 export interface PatientQuery {

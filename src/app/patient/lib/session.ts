@@ -4,7 +4,7 @@ import { createHmac, timingSafeEqual } from 'node:crypto'
 import { cookies } from 'next/headers'
 
 import { serverEnv } from '@core/config/env'
-import type { PatientSelf } from '@/modules/patient-portal/portal.types'
+import { SEEDED_CLINIC_ID, type PatientSelf } from '@/modules/patient-portal/portal.types'
 
 export const PATIENT_COOKIE_NAME = 'ms_patient_session'
 
@@ -14,7 +14,7 @@ export const PATIENT_SESSION_SECONDS = 8 * 60 * 60
 /** The seeded demo patient, Sunita Devi. Only with PATIENT_DEMO_SESSION=true. */
 const DEMO_SESSION: PatientSelf = {
   patientId: '44444444-4444-4444-8444-00000000000a',
-  clinicId: '11111111-1111-4111-8111-000000000001',
+  clinicId: SEEDED_CLINIC_ID,
 }
 
 export type PatientSession = PatientSelf

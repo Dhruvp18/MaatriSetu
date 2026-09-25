@@ -44,7 +44,7 @@ export interface RosterSources {
   /** ACTIVE pregnancies only. */
   readonly pregnancies: readonly RosterPregnancyRow[]
   /** Not-cancelled visits, any order. */
-  readonly visits: readonly { patient_id: string; occurred_at: string }[]
+  readonly visits: readonly { patient_id: string; occurred_at: string; diagnosis: string | null }[]
   /** Patients with at least one recorded uterine scar. */
   readonly scarredPatientIds: readonly string[]
   /** Clinician-flagged, current observations. */
@@ -83,10 +83,12 @@ export function assembleRoster(sources: RosterSources): RosterEntry[] {
     if (!current || row.created_at > current.created_at) pregnancyByPatient.set(row.patient_id, row)
   }
 
-  const lastVisitByPatient = new Map<string, string>()
+  const lastVisitByPatient = new Map<string, { occurredAt: string, diagnosis: string | null }>()
   for (const visit of sources.visits) {
     const current = lastVisitByPatient.get(visit.patient_id)
-    if (!current || visit.occurred_at > current) lastVisitByPatient.set(visit.patient_id, visit.occurred_at)
+    if (!current || visit.occurred_at > current.occurredAt) {
+      lastVisitByPatient.set(visit.patient_id, { occurredAt: visit.occurred_at, diagnosis: visit.diagnosis })
+    }
   }
 
   const scarred = new Set(sources.scarredPatientIds)
@@ -112,7 +114,8 @@ export function assembleRoster(sources: RosterSources): RosterEntry[] {
       age: toAge(row),
       bloodGroup: row.blood_group,
       pregnancy,
-      lastVisitAt: lastVisitByPatient.get(row.id) ?? null,
+      lastVisitAt: lastVisitByPatient.get(row.id)?.occurredAt ?? null,
+      latestDiagnosis: lastVisitByPatient.get(row.id)?.diagnosis ?? null,
       flags,
     }
   })

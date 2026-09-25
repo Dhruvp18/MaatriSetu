@@ -317,3 +317,15 @@
     page-break-after: avoid;
   }
 }
+
+/* A touch-swiped strip (the patient info feed's image carousel) scrolls with
+   the browser's own snap physics; the scrollbar it would otherwise draw adds
+   nothing on a phone and looks like a stray horizontal line on desktop. */
+.scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
