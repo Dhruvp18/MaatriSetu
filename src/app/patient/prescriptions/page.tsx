@@ -1,4 +1,5 @@
 import { getPrescriptions } from '@/modules/patient-portal/portal.service'
+import { formatDosing } from '@/modules/orders/order.types'
 import { getPatientSession } from '../lib/session'
 import { Pill, Calendar, Clock, AlertTriangle } from 'lucide-react'
 import { getPatientI18n } from '../lib/i18n/server'
@@ -44,20 +45,15 @@ export default async function PrescriptionsPage() {
           {ongoing.map((p) => (
             <div key={p.id} className="bg-white rounded-2xl p-4 border border-emerald-100 shadow-sm relative overflow-hidden">
               <div className="absolute top-0 left-0 w-1 h-full bg-emerald-400" />
-              <div className="flex justify-between items-start mb-2 pl-2">
-                <div>
-                  <h3 className="text-base font-bold text-slate-800">{p.medicineName}</h3>
-                  {p.dose && <p className="text-xs text-slate-500">{p.dose.kind === 'SPECIFIED' ? `${p.dose.amount} ${p.dose.unit}` : rx.doseAsDirected}</p>}
-                </div>
-                <div className="bg-emerald-50 text-emerald-700 text-[10px] font-bold px-2 py-1 rounded-md uppercase tracking-wide">
-                  {rx.active}
-                </div>
+              <div className="mb-2 pl-2">
+                <h3 className="text-base font-bold text-slate-800">{p.medicineName}</h3>
+                {p.dose && <p className="text-xs text-slate-500">{p.dose.kind === 'SPECIFIED' ? `${p.dose.amount} ${p.dose.unit}` : rx.doseAsDirected}</p>}
               </div>
 
               <div className="grid grid-cols-2 gap-2 mb-3 pl-2">
                 <div className="flex items-center gap-1.5 text-xs text-slate-600">
                   <Clock className="w-3.5 h-3.5 text-slate-400" />
-                  <span>{t.enums.route[p.route]} · {t.enums.frequency[p.frequency]}</span>
+                  <span className="numeric">{t.enums.route[p.route]} · {formatDosing(p.frequency)}</span>
                 </div>
                 {p.durationDays && (
                   <div className="flex items-center gap-1.5 text-xs text-slate-600">
@@ -97,7 +93,10 @@ export default async function PrescriptionsPage() {
                   <h3 className="text-sm font-bold text-slate-700">{p.medicineName}</h3>
                   <span className="text-[10px] text-slate-400 font-mono">{formatDate(p.startDate, lang)}</span>
                 </div>
-                <p className="text-xs text-slate-500 mb-2">{p.dose.kind === 'SPECIFIED' ? `${p.dose.amount} ${p.dose.unit}` : rx.doseAsDirected} · {t.enums.frequency[p.frequency]}</p>
+                <p className="text-xs text-slate-500 mb-2">
+                  {p.dose.kind === 'SPECIFIED' ? `${p.dose.amount} ${p.dose.unit}` : rx.doseAsDirected} ·{' '}
+                  <span className="numeric">{formatDosing(p.frequency)}</span>
+                </p>
               </div>
             ))}
           </div>

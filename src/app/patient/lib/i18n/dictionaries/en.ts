@@ -1,5 +1,5 @@
 import type { DeliveryMode, PregnancyOutcome } from '@/modules/pregnancies/pregnancy.types'
-import type { DoseFrequency, MedicationRoute } from '@/modules/orders/order.types'
+import type { MedicationRoute } from '@/modules/orders/order.types'
 import type { Article, GuideSlug } from '../locales'
 
 const articles: Record<GuideSlug, Article> = {
@@ -152,19 +152,6 @@ const route: Record<MedicationRoute, string> = {
   OTHER: 'As directed',
 }
 
-const frequency: Record<DoseFrequency, string> = {
-  OD: 'Once a day',
-  BD: 'Twice a day',
-  TDS: 'Three times a day',
-  QID: 'Four times a day',
-  HS: 'At night',
-  SOS: 'Only if needed',
-  PRN: 'As required',
-  STAT: 'Once, immediately',
-  WEEKLY: 'Once a week',
-  OTHER: 'As directed',
-}
-
 export const en = {
   brand: 'MaatriSetu',
   languageLabel: 'Language',
@@ -230,7 +217,6 @@ export const en = {
     subtitle: 'Medicines advised by your doctor',
     ongoing: 'Ongoing Medicines',
     past: 'Past Medicines',
-    active: 'Active',
     doseAsDirected: 'Dose as directed',
     forDays: 'For {n} days',
     noOngoing: 'No ongoing medicines right now.',
@@ -398,7 +384,7 @@ export const en = {
     fact: 'Fact:',
     articles,
   },
-  enums: { outcome, deliveryMode, route, frequency },
+  enums: { outcome, deliveryMode, route },
 }
 
 export type Dict = typeof en

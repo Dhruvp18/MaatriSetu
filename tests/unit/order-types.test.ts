@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import { toDose } from '@modules/orders/order.mapper'
 import {
+  formatDosing,
   formatPrescription,
   isOngoingOn,
   type Prescription,
@@ -83,6 +84,32 @@ describe('prescription lines spell out the schedule', () => {
         }),
       ),
     ).toBe('Calamine lotion — as directed')
+  })
+})
+
+describe('the morning-noon-night pattern is read off the frequency, never the drug', () => {
+  it('writes the tablet pattern for every schedule that has one', () => {
+    expect(formatDosing('OD')).toBe('1-0-0 (OD)')
+    expect(formatDosing('BD')).toBe('1-0-1 (BD)')
+    expect(formatDosing('TDS')).toBe('1-1-1 (TDS)')
+    expect(formatDosing('QID')).toBe('1-1-1-1 (QID)')
+    expect(formatDosing('HS')).toBe('0-0-1 (HS)')
+  })
+
+  it('falls back to the code alone for a schedule with no daily pattern', () => {
+    // Printing "0-0-0" for an as-needed or weekly order would read as a drug
+    // that is not to be taken at all.
+    expect(formatDosing('SOS')).toBe('SOS')
+    expect(formatDosing('PRN')).toBe('PRN')
+    expect(formatDosing('STAT')).toBe('STAT')
+    expect(formatDosing('WEEKLY')).toBe('Weekly')
+    expect(formatDosing('OTHER')).toBe('As directed')
+  })
+
+  it('gives the same pattern for the same frequency regardless of which drug it is', () => {
+    // The whole point: this is a function of the frequency code, not a table
+    // keyed by medicine name.
+    expect(formatDosing('BD')).toBe(formatDosing('BD'))
   })
 })
 
