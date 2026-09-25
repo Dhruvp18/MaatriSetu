@@ -43,6 +43,8 @@ export const hi: Dict = {
     ageEstimated: 'लगभग {years} वर्ष',
     phone: 'फ़ोन',
     notProvided: 'नहीं दिया गया',
+    abhaId: 'ABHA आईडी',
+    abhaVerified: 'सत्यापित',
     medicalSummary: 'स्वास्थ्य सारांश',
     bloodType: 'रक्त समूह',
     allergies: 'एलर्जी',

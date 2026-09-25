@@ -1,7 +1,7 @@
 import { getProfile } from '@/modules/patient-portal/portal.service'
 import { getPatientSession } from '../lib/session'
-import { User, Phone, Droplet, Clock, AlertCircle, LogOut } from 'lucide-react'
-import { logoutPatient } from './actions'
+import { User, Phone, Droplet, Clock, AlertCircle, LogOut, IdCard, BadgeCheck } from 'lucide-react'
+import { logoutPatient } from '../logout-action'
 import { getPatientI18n } from '../lib/i18n/server'
 import { fmt } from '../lib/i18n/locales'
 
@@ -51,6 +51,21 @@ export default async function PatientProfilePage() {
               <p className="text-sm font-medium text-slate-700">{patient.contacts[0]?.phoneE164 || p.notProvided}</p>
             </div>
           </div>
+          {/* Not every patient has one on record, so this row only exists when Supabase has an ABHA id for her. */}
+          {patient.abhaId ? (
+            <div className="flex items-center gap-3">
+              <IdCard className="w-4 h-4 text-slate-400" />
+              <div>
+                <p className="text-[10px] text-slate-400 font-medium">{p.abhaId}</p>
+                <p className="flex items-center gap-1.5 text-sm font-medium text-slate-700">
+                  <span className="numeric">{patient.abhaId}</span>
+                  {patient.abhaVerification === 'VERIFIED' ? (
+                    <BadgeCheck aria-label={p.abhaVerified} className="h-3.5 w-3.5 text-emerald-600" />
+                  ) : null}
+                </p>
+              </div>
+            </div>
+          ) : null}
         </div>
       </div>
 

@@ -208,6 +208,8 @@ export const en = {
     ageEstimated: '{years} yrs (est)',
     phone: 'Phone',
     notProvided: 'Not provided',
+    abhaId: 'ABHA ID',
+    abhaVerified: 'Verified',
     medicalSummary: 'Medical Summary',
     bloodType: 'Blood Type',
     allergies: 'Allergies',
