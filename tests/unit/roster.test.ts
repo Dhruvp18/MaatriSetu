@@ -37,8 +37,8 @@ describe('patient roster', () => {
       patients: [patient('p1')],
       pregnancies: [pregnancy('g1', 'p1')],
       visits: [
-        { patient_id: 'p1', occurred_at: '2026-08-01T05:00:00Z' },
-        { patient_id: 'p1', occurred_at: '2026-09-10T05:00:00Z' },
+        { patient_id: 'p1', occurred_at: '2026-08-01T05:00:00Z', diagnosis: null },
+        { patient_id: 'p1', occurred_at: '2026-09-10T05:00:00Z', diagnosis: 'Anaemia' },
       ],
     })
     expect(entry?.lastVisitAt).toBe('2026-09-10T05:00:00Z')

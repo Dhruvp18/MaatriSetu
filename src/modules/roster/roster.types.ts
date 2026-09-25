@@ -44,6 +44,7 @@ export interface RosterEntry {
   readonly pregnancy: RosterPregnancy | null
   /** When her most recent (not cancelled) visit was opened. */
   readonly lastVisitAt: string | null
+  readonly latestDiagnosis: string | null
   readonly flags: readonly RosterFlag[]
 }
 

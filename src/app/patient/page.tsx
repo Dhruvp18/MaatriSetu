@@ -1,7 +1,7 @@
 import type { Route } from 'next'
 import Link from 'next/link'
-import { User, FileText, UploadCloud, FileSymlink } from 'lucide-react'
-import { getDashboard } from '@/modules/patient-portal/portal.service'
+import { User, FileText, UploadCloud, FileSymlink, Activity } from 'lucide-react'
+import { getDashboard, getMonitoring } from '@/modules/patient-portal/portal.service'
 import { getPatientSession } from './lib/session'
 import { getPatientI18n } from './lib/i18n/server'
 import { fmt, formatDate } from './lib/i18n/locales'
@@ -19,11 +19,18 @@ export default async function MyANCPage() {
         <p className="text-sm text-slate-500 italic leading-relaxed">
           {h.scanBody}
         </p>
+        <p className="mt-6 text-xs text-slate-400">
+          {t.scan.noSticker}{' '}
+          <Link href={'/patient/login' as Route} className="font-semibold text-[#b84c63] hover:underline">
+            {t.scan.chooseInstead}
+          </Link>
+        </p>
       </div>
     )
   }
 
-  const data = await getDashboard(session)
+  const [data, monitoring] = await Promise.all([getDashboard(session), getMonitoring(session)])
+  const hasMonitoring = monitoring.panels.length > 0
 
   return (
     <div className="p-4 pt-8">
@@ -100,6 +107,9 @@ export default async function MyANCPage() {
           { href: '/patient/prescriptions', icon: FileText, ...h.tiles.prescriptions, bg: 'bg-[#eaf4ff]', color: '#456b9c', textColor: '#456b9c' },
           { href: '/patient/scan-report', icon: UploadCloud, ...h.tiles.scanReport, bg: 'bg-[#fff1da]', color: '#a47b3b', textColor: '#a47b3b' },
           { href: '/patient/reports', icon: FileSymlink, ...h.tiles.reports, bg: 'bg-[#eeeaff]', color: '#5c4a9c', textColor: '#5c4a9c' },
+          ...(hasMonitoring
+            ? [{ href: '/patient/monitoring', icon: Activity, ...h.tiles.monitoring, bg: 'bg-[#e9f7ef]', color: '#2f855a', textColor: '#2f855a' }]
+            : []),
         ].map(({ href, icon: Icon, label, desc, bg, color, textColor }) => (
           <Link
             key={href}

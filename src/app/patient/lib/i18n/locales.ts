@@ -36,6 +36,17 @@ export function formatDate(iso: string, lang: Lang): string {
   })
 }
 
+/** `3 Feb, 8:45 am` — for a reading logged at a moment, not just a day. */
+export function formatDateTime(iso: string, lang: Lang): string {
+  return new Date(iso).toLocaleString(DATE_LOCALES[lang], {
+    day: 'numeric',
+    month: 'short',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  })
+}
+
 /** Fill `{name}` placeholders. Templates rather than functions so strings can cross to client components. */
 export function fmt(template: string, values: Record<string, string | number>): string {
   return template.replace(/\{(\w+)\}/g, (match, key: string) =>

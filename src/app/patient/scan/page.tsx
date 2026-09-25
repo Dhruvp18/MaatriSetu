@@ -1,3 +1,6 @@
+import type { Route } from 'next'
+import Link from 'next/link'
+
 import { getPatientI18n } from '../lib/i18n/server'
 import { Rich } from '../lib/i18n/rich'
 
@@ -24,6 +27,13 @@ export default async function QRScanLandingPage({
 
       <p className="mt-8 text-xs text-slate-400 italic">
         {t.scan.tagline}
+      </p>
+
+      <p className="mt-4 text-xs text-slate-400">
+        {t.scan.noSticker}{' '}
+        <Link href={'/patient/login' as Route} className="font-semibold text-[#8a3c4a] hover:underline">
+          {t.scan.chooseInstead}
+        </Link>
       </p>
     </div>
   )

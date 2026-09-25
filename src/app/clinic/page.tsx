@@ -365,6 +365,17 @@ function shapeRow({
         : { text: 'Dating not established', tone: 'caution' }
   }
 
+  const flags = (entry?.flags ?? []).map((flag) => ({ label: ROSTER_FLAG_LABELS[flag], tone: FLAG_TONE[flag] as 'alert' | 'caution' | 'neutral' }))
+  
+  if (entry) {
+    const isNormal = !entry.latestDiagnosis || entry.latestDiagnosis.trim() === '' || entry.latestDiagnosis.toLowerCase() === 'normal anc' || entry.latestDiagnosis.toLowerCase() === 'normal'
+    if (isNormal) {
+      flags.push({ label: 'Normal', tone: 'neutral' })
+    } else {
+      flags.push({ label: entry.latestDiagnosis!, tone: 'alert' })
+    }
+  }
+
   return {
     patientId,
     fullName: entry?.fullName ?? day?.fullName ?? 'Unknown patient',
@@ -373,7 +384,7 @@ function shapeRow({
     gpla: pregnancy ? formatGravidaParity(pregnancy.gravidaParity) : null,
     pog,
     lastVisit,
-    flags: (entry?.flags ?? []).map((flag) => ({ label: ROSTER_FLAG_LABELS[flag], tone: FLAG_TONE[flag] })),
+    flags,
     status: day ? describeDayStatus(day) : null,
     reasons: day ? day.reasons.map((reason) => REASON_LABELS[reason]) : [],
     purpose: day?.purpose ?? null,

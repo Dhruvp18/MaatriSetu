@@ -43,10 +43,10 @@ export async function readRosterSources(
       .returns<RosterPregnancyRow[]>(),
     db
       .from('visits')
-      .select('patient_id, occurred_at')
+      .select('patient_id, occurred_at, diagnosis')
       .eq('clinic_id', clinicId)
       .neq('status', 'CANCELLED')
-      .returns<{ patient_id: string; occurred_at: string }[]>(),
+      .returns<{ patient_id: string; occurred_at: string; diagnosis: string | null }[]>(),
     db
       .from('obstetric_history')
       .select('patient_id')

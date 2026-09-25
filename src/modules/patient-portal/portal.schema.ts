@@ -13,6 +13,12 @@ export const QrResolveSchema = z.object({
   token: z.string().min(16).max(256),
 })
 
+/** Her UHID plus her portal password. Neither is parsed further — a wrong shape and a wrong value fail the same authentication check. */
+export const PatientLoginSchema = z.object({
+  uhid: z.string().trim().min(1).max(40),
+  password: z.string().min(1).max(200),
+})
+
 /** Same ceiling and formats as a staff upload (report.schema.ts). */
 export const PORTAL_UPLOAD_MAX_BYTES = 12 * 1024 * 1024
 

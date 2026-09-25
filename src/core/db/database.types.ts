@@ -1717,6 +1717,95 @@ export type Database = {
           },
         ]
       }
+      patient_credentials: {
+        Row: {
+          clinic_id: string
+          created_at: string
+          password_hash: string
+          patient_id: string
+          updated_at: string
+        }
+        Insert: {
+          clinic_id: string
+          created_at?: string
+          password_hash: string
+          patient_id: string
+          updated_at?: string
+        }
+        Update: {
+          clinic_id?: string
+          created_at?: string
+          password_hash?: string
+          patient_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_credentials_patient_fk"
+            columns: ["clinic_id", "patient_id"]
+            isOneToOne: true
+            referencedRelation: "patients"
+            referencedColumns: ["clinic_id", "id"]
+          },
+        ]
+      }
+      patient_home_readings: {
+        Row: {
+          clinic_id: string
+          created_at: string
+          diastolic_mmhg: number | null
+          glucose_context: Database["public"]["Enums"]["glucose_reading_context"] | null
+          glucose_mg_dl: number | null
+          id: string
+          metric: Database["public"]["Enums"]["home_reading_metric"]
+          patient_id: string
+          pregnancy_id: string
+          recorded_at: string
+          systolic_mmhg: number | null
+        }
+        Insert: {
+          clinic_id: string
+          created_at?: string
+          diastolic_mmhg?: number | null
+          glucose_context?: Database["public"]["Enums"]["glucose_reading_context"] | null
+          glucose_mg_dl?: number | null
+          id?: string
+          metric: Database["public"]["Enums"]["home_reading_metric"]
+          patient_id: string
+          pregnancy_id: string
+          recorded_at?: string
+          systolic_mmhg?: number | null
+        }
+        Update: {
+          clinic_id?: string
+          created_at?: string
+          diastolic_mmhg?: number | null
+          glucose_context?: Database["public"]["Enums"]["glucose_reading_context"] | null
+          glucose_mg_dl?: number | null
+          id?: string
+          metric?: Database["public"]["Enums"]["home_reading_metric"]
+          patient_id?: string
+          pregnancy_id?: string
+          recorded_at?: string
+          systolic_mmhg?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_home_readings_patient_fk"
+            columns: ["clinic_id", "patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["clinic_id", "id"]
+          },
+          {
+            foreignKeyName: "patient_home_readings_pregnancy_fk"
+            columns: ["clinic_id", "pregnancy_id"]
+            isOneToOne: false
+            referencedRelation: "pregnancies"
+            referencedColumns: ["clinic_id", "id"]
+          },
+        ]
+      }
       patient_past_histories: {
         Row: {
           clinic_id: string
@@ -4098,6 +4187,13 @@ export type Database = {
         | "AFTER_FOOD"
         | "WITH_FOOD"
         | "NOT_SPECIFIED"
+      glucose_reading_context:
+        | "FASTING"
+        | "POST_BREAKFAST"
+        | "POST_LUNCH"
+        | "POST_DINNER"
+        | "RANDOM"
+      home_reading_metric: "BLOOD_GLUCOSE" | "BLOOD_PRESSURE"
       immunization_status: "PLANNED" | "GIVEN" | "NOT_GIVEN" | "UNKNOWN"
       known_status: "UNKNOWN" | "NONE_KNOWN" | "KNOWN"
       medication_route:
@@ -4397,6 +4493,14 @@ export const Constants = {
         "WITH_FOOD",
         "NOT_SPECIFIED",
       ],
+      glucose_reading_context: [
+        "FASTING",
+        "POST_BREAKFAST",
+        "POST_LUNCH",
+        "POST_DINNER",
+        "RANDOM",
+      ],
+      home_reading_metric: ["BLOOD_GLUCOSE", "BLOOD_PRESSURE"],
       immunization_status: ["PLANNED", "GIVEN", "NOT_GIVEN", "UNKNOWN"],
       known_status: ["UNKNOWN", "NONE_KNOWN", "KNOWN"],
       medication_route: [
