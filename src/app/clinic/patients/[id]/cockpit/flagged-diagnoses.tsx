@@ -86,9 +86,8 @@ export function FlaggedDiagnosisPills({
                     ? `Flagged from ${DIAGNOSIS_SECTION_LABELS[flag.section].toLowerCase()} on ${flag.flaggedAt.slice(0, 10)} — click to mark resolved`
                     : `Flagged from ${DIAGNOSIS_SECTION_LABELS[flag.section].toLowerCase()} on ${flag.flaggedAt.slice(0, 10)}`
                 }
-                className="flex items-center gap-1.5 rounded-full bg-alert-600 px-3 py-1 text-xs font-semibold text-white shadow-xs transition-colors enabled:hover:bg-alert-700 disabled:cursor-default"
+                className="rounded-full bg-alert-600 px-3 py-1 text-xs font-semibold text-white shadow-xs transition-colors enabled:hover:bg-alert-700 disabled:cursor-default"
               >
-                <Flag aria-hidden className="h-3.5 w-3.5" />
                 <span className="tracking-tight uppercase">{flag.label}</span>
               </button>
             </li>

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
 import { FlagDiagnosesSchema } from '@modules/diagnoses/diagnosis.schema'
+import { MenstrualHistoryInputSchema, SaveFamilyHistorySchema } from '@modules/history/history.schema'
+import { PAST_HISTORY_OPTIONS } from '@modules/history/history.types'
 import { DIAGNOSIS_OPTIONS } from '@modules/diagnoses/diagnosis.types'
 import { UpdatePregnancyProfileSchema } from '@modules/pregnancies/pregnancy.schema'
 import { toChiefComplaints } from '@modules/visits/visit.mapper'
@@ -91,16 +93,14 @@ describe('pregnancy profile', () => {
 describe('family and past history', () => {
   const PATIENT = '9a7d2f0e-1b2c-4d3e-8f4a-5b6c7d8e9f00'
 
-  it('needs a relation and a disease, and refuses onset after current age', async () => {
-    const { SaveFamilyHistorySchema } = await import('@modules/history/history.schema')
+  it('needs a relation and a disease, and refuses onset after current age', () => {
     const entry = { relation: 'Husband', vitalStatus: 'ALIVE', disease: 'Diabetes', onsetAgeYears: 30, currentAgeYears: 35 }
     expect(SaveFamilyHistorySchema.safeParse({ patientId: PATIENT, entry }).success).toBe(true)
     expect(SaveFamilyHistorySchema.safeParse({ patientId: PATIENT, entry: { ...entry, disease: ' ' } }).success).toBe(false)
     expect(SaveFamilyHistorySchema.safeParse({ patientId: PATIENT, entry: { ...entry, onsetAgeYears: 40 } }).success).toBe(false)
   })
 
-  it('needs the read version to edit a family-history row', async () => {
-    const { SaveFamilyHistorySchema } = await import('@modules/history/history.schema')
+  it('needs the read version to edit a family-history row', () => {
     const entry = { relation: 'Mother', disease: 'Hypertension' }
     expect(SaveFamilyHistorySchema.safeParse({ patientId: PATIENT, entryId: PATIENT, entry }).success).toBe(false)
     expect(
@@ -108,13 +108,11 @@ describe('family and past history', () => {
     ).toBe(true)
   })
 
-  it('offers the four past-history conditions', async () => {
-    const { PAST_HISTORY_OPTIONS } = await import('@modules/history/history.types')
+  it('offers the four past-history conditions', () => {
     expect(PAST_HISTORY_OPTIONS).toEqual(['Epilepsy', 'Asthma', 'Cardiovascular disorders', 'Tuberculosis'])
   })
 
-  it('takes the last Pap smear as a calendar date', async () => {
-    const { MenstrualHistoryInputSchema } = await import('@modules/history/history.schema')
+  it('takes the last Pap smear as a calendar date', () => {
     expect(MenstrualHistoryInputSchema.safeParse({ lastPapSmearOn: '2025-03-10' }).success).toBe(true)
     expect(MenstrualHistoryInputSchema.safeParse({ lastPapSmearOn: '10/03/2025' }).success).toBe(false)
   })

@@ -28,7 +28,7 @@ import { Sparkline } from '@components/cockpit/sparkline'
 import { roleHasPermission } from '@core/auth/permissions'
 import { resolveSession } from '@core/auth/session'
 import { AppError } from '@core/errors/app-error'
-import { formatGestationalAge, splitGestationalAge, todayIn } from '@core/obstetrics/dating'
+import { TERM_DAYS, addDays, formatGestationalAge, splitGestationalAge, todayIn } from '@core/obstetrics/dating'
 import { listOpenFlaggedDiagnoses } from '@modules/diagnoses/diagnosis.service'
 import type { FlaggedDiagnosis } from '@modules/diagnoses/diagnosis.types'
 import { getPatientHistory, type PatientHistory } from '@modules/history/history.service'
@@ -83,6 +83,7 @@ import { ObstetricHistoryPanel } from './obstetric-history'
 import { PastHistoryPanel } from './past-history'
 import { PregnancyProfilePanel } from './pregnancy-profile'
 import { ViewOriginalButton } from './original-viewer'
+import { ViewAllList } from './view-all-list'
 import { NextVisitChip, StartConsultationButton } from './visit-buttons'
 
 /**
@@ -268,8 +269,30 @@ export default async function CockpitPage({ params }: { params: Promise<{ id: st
   const baselineWeightKg = pregnancy.prePregnancyWeightKg ?? firstWeightKg
 
   const labs = results.observations.filter((o) => o.category !== 'OTHER')
-  const significantLabs = labs.filter((o) => o.isPinned || o.flaggedByClinician || isOutsidePrintedRange(o.value, o.referenceRange))
-  const flaggedScanFindings = results.observations.filter((o) => o.category === 'OTHER' && (o.isPinned || o.flaggedByClinician || isOutsidePrintedRange(o.value, o.referenceRange)))
+  // Significant means a doctor flagged or pinned it — never that a value fell
+  // outside the printed range. Everything else is one click away in "View all".
+  const serology = serologySlots(labs)
+  const serologyIds = new Set(serology.flatMap((slot) => (slot.observation ? [slot.observation.id] : [])))
+  const significantLabs = labs.filter((o) => (o.isPinned || o.flaggedByClinician) && !serologyIds.has(o.id))
+  const flaggedScanFindings = results.observations.filter((o) => o.category === 'OTHER' && (o.isPinned || o.flaggedByClinician))
+  const significantScans = results.scans.filter((scan) => scan.isPinned)
+  const newestScanId = [...results.scans].sort((a, b) => b.scanDate.localeCompare(a.scanDate))[0]?.id
+
+  // EDD by scan: the pregnancy's own dating when that is an ultrasound;
+  // otherwise the earliest scan that printed a gestational age — the earliest
+  // is the one that dates a pregnancy best.
+  const datingScan = [...results.scans]
+    .filter((scan) => scan.gaDaysAtScan !== null)
+    .sort((a, b) => a.scanDate.localeCompare(b.scanDate))[0]
+  const eddByScan =
+    pregnancy.dating.status === 'ESTABLISHED' && pregnancy.dating.method === 'ULTRASOUND'
+      ? {
+          date: addDays(pregnancy.dating.reference.referenceDate, TERM_DAYS - pregnancy.dating.reference.referenceGaDays),
+          scanDate: pregnancy.dating.reference.referenceDate,
+        }
+      : datingScan && datingScan.gaDaysAtScan !== null
+        ? { date: addDays(datingScan.scanDate, TERM_DAYS - datingScan.gaDaysAtScan), scanDate: datingScan.scanDate }
+        : null
   const hbRawTrend = results.trends.find((t) => t.testCode === 'hb' || t.testCode.toLowerCase() === 'haemoglobin')
   const hbTrend = hbRawTrend && hbRawTrend.points.some(p => p.value < 11.0 || p.value > 16.0) ? hbRawTrend : undefined
 
@@ -394,6 +417,7 @@ export default async function CockpitPage({ params }: { params: Promise<{ id: st
         baselineWeightKg={baselineWeightKg}
         today={today}
         husbandBloodGroup={husbandBloodGroup}
+        eddByScan={eddByScan}
         flaggedDiagnoses={<FlaggedDiagnosisPills patientId={patient.id} flags={openFlags} canResolve={canFlag} />}
       />
 
@@ -492,7 +516,7 @@ export default async function CockpitPage({ params }: { params: Promise<{ id: st
               on every verified value, pinned or not. */}
           <Accordion
             title="Significant blood & urine reports"
-            summary={`${significantLabs.length} significant · ${labs.length} verified`}
+            summary={`${significantLabs.length} flagged · ${labs.length} verified`}
             icon={<Activity className="h-4.75 w-4.75" />}
             defaultOpen
           >
@@ -580,6 +604,34 @@ export default async function CockpitPage({ params }: { params: Promise<{ id: st
                 ) : null}
 
                 <div className="flex-1 w-full flex flex-col gap-2">
+                  <ViewAllList
+                    noun="results"
+                    items={labs.map((observation) => ({
+                      id: observation.id,
+                      name: observation.testName,
+                      date: observation.observedDate,
+                      node: <LabRow key={observation.id} observation={observation} patientId={patient.id} />,
+                    }))}
+                  />
+
+                  {/* Always on view, flagged or not: the three results the OPD
+                      checks at every antenatal visit. */}
+                  <ul className="grid grid-cols-1 gap-2 md:grid-cols-3" aria-label="Serology">
+                    {serology.map((slot) =>
+                      slot.observation ? (
+                        <LabRow key={slot.label} observation={slot.observation} patientId={patient.id} />
+                      ) : (
+                        <li
+                          key={slot.label}
+                          className="flex items-center justify-between gap-3 rounded border border-dashed border-slate-300 bg-white p-2.5 text-xs"
+                        >
+                          <span className="font-semibold text-slate-900">{slot.label}</span>
+                          <span className="text-[11px] text-slate-400">not on file</span>
+                        </li>
+                      ),
+                    )}
+                  </ul>
+
                   {significantLabs.length > 0 ? (
                     <ul className="flex flex-col gap-2">
                       {significantLabs.map((observation) => (
@@ -592,18 +644,6 @@ export default async function CockpitPage({ params }: { params: Promise<{ id: st
                     </p>
                   ) : null}
 
-                  {labs.length > significantLabs.length ? (
-                    <details className="group rounded-lg border border-slate-200/70 bg-white">
-                      <summary className="cursor-pointer list-none px-3 py-2 text-[11px] font-semibold text-slate-600 select-none hover:text-brand-800 [&::-webkit-details-marker]:hidden">
-                        All verified results ({labs.length})
-                      </summary>
-                      <ul className="flex flex-col gap-2 border-t border-slate-100 p-2.5">
-                        {labs.map((observation) => (
-                          <LabRow key={observation.id} observation={observation} patientId={patient.id} />
-                        ))}
-                      </ul>
-                    </details>
-                  ) : null}
                 </div>
               </div>
             </div>
@@ -611,21 +651,35 @@ export default async function CockpitPage({ params }: { params: Promise<{ id: st
 
           <Accordion
             title="Significant scans (milestones)"
-            summary={`${results.scans.length} on file`}
+            summary={`${significantScans.length + flaggedScanFindings.length} flagged · ${results.scans.length} on file`}
             icon={<Baby className="h-4.75 w-4.75" />}
             defaultOpen
           >
             <div className="flex flex-col gap-2.5">
               <StagedSignificant reports={reports} kind="SCAN" />
               {flagger('SCANS')}
+              <ViewAllList
+                noun="scans"
+                layout="grid"
+                items={results.scans.map((scan) => ({
+                  id: scan.id,
+                  name: `${SCAN_TYPE_LABELS[scan.scanType] ?? 'Ultrasound'} ${scan.impression ?? ''}`,
+                  date: scan.scanDate,
+                  // The most recent study is tinted — a statement about recency and nothing else.
+                  node: <ScanRow key={scan.id} scan={scan} isLatest={scan.id === newestScanId} />,
+                }))}
+              />
               {results.scans.length === 0 && flaggedScanFindings.length === 0 ? (
                 <p className="text-xs text-slate-500">No verified scans yet.</p>
+              ) : significantScans.length === 0 && flaggedScanFindings.length === 0 ? (
+                <p className="text-xs text-slate-500">
+                  No scan flagged as significant yet. Flag one from the panel above, or use View all.
+                </p>
               ) : null}
-              {results.scans.length > 0 ? (
+              {significantScans.length > 0 ? (
                 <ul className="grid grid-cols-1 gap-2.5 md:grid-cols-3">
-                  {results.scans.map((scan, index) => (
-                    // The most recent study is tinted — a statement about recency and nothing else.
-                    <ScanRow key={scan.id} scan={scan} isLatest={index === 0} />
+                  {significantScans.map((scan) => (
+                    <ScanRow key={scan.id} scan={scan} isLatest={scan.id === newestScanId} />
                   ))}
                 </ul>
               ) : null}
@@ -932,6 +986,37 @@ function toQueryView(query: VoiceQuery): QueryView {
     isFixture: processing.state === 'READY' && processing.isFixture,
     resolvedAt: query.resolvedAt,
   }
+}
+
+/**
+ * HIV 1, HIV 2 and HBsAg — the three results the cockpit always shows.
+ *
+ * Matched on the test code or the printed name, latest result first. A slip
+ * that reports "HIV 1 & 2" as one result fills both HIV slots with it; an
+ * empty slot says "not on file", never "negative".
+ */
+function serologySlots(labs: readonly Observation[]): { label: string; observation: Observation | null }[] {
+  const newest = (matches: (o: Observation) => boolean) =>
+    [...labs].filter(matches).sort((a, b) => b.observedDate.localeCompare(a.observedDate))[0] ?? null
+
+  const hivTypes = (o: Observation): { one: boolean; two: boolean } | null => {
+    const name = o.testName.toLowerCase()
+    if (o.testCode.toLowerCase() !== 'hiv' && !/\bhiv\b/.test(name)) return null
+    const rest = name.includes('hiv') ? name.slice(name.indexOf('hiv') + 3) : name
+    const one = /(^|[^\d])1([^\d]|$)|\bi\b/.test(rest)
+    const two = /(^|[^\d])2([^\d]|$)|\bii\b/.test(rest)
+    // "HIV" alone, or "HIV 1 & 2": the one result stands for both.
+    return one || two ? { one, two } : { one: true, two: true }
+  }
+
+  return [
+    { label: 'HIV 1', observation: newest((o) => hivTypes(o)?.one === true) },
+    { label: 'HIV 2', observation: newest((o) => hivTypes(o)?.two === true) },
+    {
+      label: 'HBsAg',
+      observation: newest((o) => o.testCode.toLowerCase() === 'hbsag' || /hbs\s*ag/i.test(o.testName)),
+    },
+  ]
 }
 
 function immunizationSummary(history: PatientHistory, pregnancyId: string): string {

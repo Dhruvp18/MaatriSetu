@@ -2,7 +2,8 @@ import { AlertTriangle, CalendarDays, ShieldAlert } from 'lucide-react'
 
 import type { CalendarDate } from '@core/obstetrics/dating'
 import {
-  estimatedDueDate,
+  TERM_DAYS,
+  addDays,
   formatGestationalAge,
   gestationalAge,
 } from '@core/obstetrics/dating'
@@ -65,6 +66,7 @@ export function HeaderBanner({
   today,
   husbandBloodGroup = null,
   flaggedDiagnoses = null,
+  eddByScan = null,
 }: {
   patient: Patient
   pregnancy: Pregnancy
@@ -80,6 +82,11 @@ export function HeaderBanner({
   husbandBloodGroup?: string | null
   /** The diagnoses a clinician flagged, rendered by the caller (they are interactive). */
   flaggedDiagnoses?: React.ReactNode
+  /**
+   * EDD from ultrasound, worked out by the caller from the scan that dates the
+   * pregnancy, with that scan's date. Null when no scan printed a gestational age.
+   */
+  eddByScan?: { readonly date: CalendarDate; readonly scanDate: CalendarDate } | null
 }) {
   const age = ageInYears(patient.age, today)
   const { dating } = pregnancy
@@ -109,18 +116,49 @@ export function HeaderBanner({
               <span>
                 UHID: <strong className="font-semibold text-slate-800">{patient.uhid}</strong>
               </span>
+              <Dot />
+              {/* Shown as stated. Nothing here checks it with ABDM, so an
+                  unverified number says so rather than passing for a verified one. */}
+              {patient.abhaId ? (
+                <span>
+                  ABHA: <strong className="font-semibold text-slate-800">{formatAbha(patient.abhaId)}</strong>
+                  <span className="text-slate-400">
+                    {' '}
+                    ({patient.abhaVerification === 'VERIFIED' ? 'verified' : 'not verified'})
+                  </span>
+                </span>
+              ) : (
+                <span className="text-slate-400">ABHA: not recorded</span>
+              )}
               {pregnancy.reportedLmp.date ? (
                 <>
                   <Dot />
                   <span>LMP: {pregnancy.reportedLmp.date}</span>
                 </>
               ) : null}
-              {dating.status === 'ESTABLISHED' ? (
-                <>
-                  <Dot />
-                  <span>EDD: {estimatedDueDate(dating.reference)}</span>
-                </>
-              ) : null}
+              {/* Both EDDs, side by side, each labelled with where it comes from.
+                  Which one to go by is the doctor's decision. */}
+              <Dot />
+              <span>
+                EDD by date:{' '}
+                {pregnancy.reportedLmp.date ? (
+                  <strong className="font-semibold text-slate-800">{addDays(pregnancy.reportedLmp.date, TERM_DAYS)}</strong>
+                ) : (
+                  <span className="text-slate-400">no LMP</span>
+                )}
+              </span>
+              <Dot />
+              <span>
+                EDD by scan:{' '}
+                {eddByScan ? (
+                  <>
+                    <strong className="font-semibold text-slate-800">{eddByScan.date}</strong>
+                    <span className="text-slate-400"> (scan {eddByScan.scanDate})</span>
+                  </>
+                ) : (
+                  <span className="text-slate-400">no dating scan</span>
+                )}
+              </span>
               {pregnancy.heightCm !== null ? (
                 <>
                   <Dot />
@@ -289,6 +327,14 @@ export function formatWeight(
     text: `${fmt(baselineKg)} ${change > 0 ? '+' : '−'} ${fmt(Math.abs(change))} kg`,
     note: null,
   }
+}
+
+/** A 14-digit ABHA number as it is printed on the card: `12-3456-7890-1234`. Anything else is shown as stored. */
+function formatAbha(abhaId: string): string {
+  const digits = abhaId.replace(/\D/g, '')
+  return digits.length === 14
+    ? `${digits.slice(0, 2)}-${digits.slice(2, 6)}-${digits.slice(6, 10)}-${digits.slice(10)}`
+    : abhaId
 }
 
 function Dot() {
