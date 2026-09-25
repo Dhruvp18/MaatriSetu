@@ -2,6 +2,7 @@
 
 The project configuration uses Google's remote endpoint and reads STITCH_API_KEY from the environment. Configuration alone does not authenticate the account or prove project access.
 
+
 Configured project: https://stitch.withgoogle.com/projects/2363914982225928169
 
 Local check: `codex mcp get stitch` successfully recognized the project-scoped configuration on 2026-09-18. Authenticated connectivity and screen retrieval are still pending the API key and application restart.
