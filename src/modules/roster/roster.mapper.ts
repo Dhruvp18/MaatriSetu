@@ -47,8 +47,10 @@ export interface RosterSources {
   readonly visits: readonly { patient_id: string; occurred_at: string; diagnosis: string | null }[]
   /** Patients with at least one recorded uterine scar. */
   readonly scarredPatientIds: readonly string[]
-  /** Clinician-flagged, current observations. */
-  readonly flaggedObservations: readonly { patient_id: string; pregnancy_id: string }[]
+  /** Unresolved diagnoses flagged on a cockpit banner. */
+  readonly flaggedDiagnoses: readonly { patient_id: string; pregnancy_id: string; label: string }[]
+  /** One row per flagged history entry, any kind. */
+  readonly flaggedHistory: readonly { patient_id: string }[]
 }
 
 function toAge(row: RosterPatientRow): PatientAge {
@@ -101,11 +103,12 @@ export function assembleRoster(sources: RosterSources): RosterEntry[] {
     if (row.blood_group?.endsWith('_NEG')) flags.push('RH_NEGATIVE')
     if (row.allergy_status === 'KNOWN') flags.push('ALLERGY')
     if (scarred.has(row.id)) flags.push('UTERINE_SCAR')
-    // Only a flag on this episode's results: last pregnancy's flagged Hb is
-    // history, not a reason she is on today's flagged list.
-    if (pregnancy && sources.flaggedObservations.some((o) => o.pregnancy_id === pregnancy.id)) {
-      flags.push('FLAGGED_RESULT')
-    }
+    // The same flags her cockpit shows: the banner's diagnoses for this
+    // episode only (last pregnancy's are history), and her flagged history.
+    const flaggedDiagnoses = pregnancy
+      ? sources.flaggedDiagnoses.filter((d) => d.pregnancy_id === pregnancy.id).map((d) => d.label)
+      : []
+    const flaggedHistoryCount = sources.flaggedHistory.filter((h) => h.patient_id === row.id).length
 
     return {
       patientId: row.id,
@@ -117,6 +120,8 @@ export function assembleRoster(sources: RosterSources): RosterEntry[] {
       lastVisitAt: lastVisitByPatient.get(row.id)?.occurredAt ?? null,
       latestDiagnosis: lastVisitByPatient.get(row.id)?.diagnosis ?? null,
       flags,
+      flaggedDiagnoses,
+      flaggedHistoryCount,
     }
   })
 }

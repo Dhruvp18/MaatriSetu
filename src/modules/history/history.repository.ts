@@ -364,3 +364,74 @@ export async function setHistoryFlag(
   })
   if (error) translate(error, 'setHistoryFlag')
 }
+
+const HISTORY_TABLES = {
+  OBSTETRIC: 'obstetric_history',
+  MENSTRUAL: 'menstrual_histories',
+  FAMILY: 'family_histories',
+  PAST: 'patient_past_histories',
+} as const
+
+/**
+ * Delete one history entry, of any kind.
+ *
+ * A prior pregnancy (with its babies) or a menstrual history is deleted, so a
+ * gravida number is free to be recorded again; a family row is marked removed,
+ * as before; her one past-history record is cleared. Whatever was there is
+ * written to the audit trail first, so the record of it survives the delete.
+ */
+export async function removeHistoryEntry(
+  db: TypedClient,
+  params: WriteContext & { patientId: string; kind: keyof typeof HISTORY_TABLES; entryId: string },
+): Promise<void> {
+  const table = HISTORY_TABLES[params.kind]
+  const scoped = <T extends { eq: (column: string, value: string) => T }>(query: T) =>
+    query.eq('clinic_id', params.clinicId).eq('patient_id', params.patientId).eq('id', params.entryId)
+
+  const { data: previous, error: readError } = await scoped(db.from(table).select('*')).maybeSingle()
+  if (readError) translate(readError, 'removeHistoryEntry.read')
+  if (!previous) throw notFound('That history entry is not held at this clinic.')
+
+  let infants: unknown[] = []
+  if (params.kind === 'OBSTETRIC') {
+    const { data, error } = await db
+      .from('obstetric_history_infants')
+      .select('*')
+      .eq('clinic_id', params.clinicId)
+      .eq('history_id', params.entryId)
+    if (error) translate(error, 'removeHistoryEntry.infants')
+    infants = data ?? []
+  }
+
+  const { error: auditError } = await db.from('audit_events').insert({
+    clinic_id: params.clinicId,
+    actor_staff_user_id: params.actorStaffUserId,
+    request_id: params.requestId,
+    action: 'history.removed',
+    entity_table: table,
+    entity_id: params.entryId,
+    payload: { patient_id: params.patientId, kind: params.kind, previous, infants } as never,
+  })
+  if (auditError) translate(auditError, 'removeHistoryEntry.audit')
+
+  if (params.kind === 'OBSTETRIC') {
+    const { error } = await db
+      .from('obstetric_history_infants')
+      .delete()
+      .eq('clinic_id', params.clinicId)
+      .eq('history_id', params.entryId)
+    if (error) translate(error, 'removeHistoryEntry.deleteInfants')
+  }
+
+  const { error } =
+    params.kind === 'FAMILY'
+      ? await scoped(
+          db.from('family_histories').update({ removed_at: new Date().toISOString(), removed_by: params.actorStaffUserId }),
+        )
+      : params.kind === 'PAST'
+        ? await scoped(
+            db.from('patient_past_histories').update({ notes: null, flagged: false, updated_by: params.actorStaffUserId }),
+          )
+        : await scoped(db.from(table).delete())
+  if (error) translate(error, 'removeHistoryEntry')
+}

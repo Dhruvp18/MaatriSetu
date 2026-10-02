@@ -20,6 +20,7 @@ import {
 } from '@modules/history/history.types'
 
 import { saveMenstrualHistoryAction } from './history-actions'
+import { HistoryDelete } from './history-delete'
 import { HistoryFlag } from './history-flag'
 import { Detail, FIELD, Field, MultiWithNone, Section, YesNoRow, toIntOrNull } from './history-fields'
 
@@ -106,6 +107,13 @@ export function MenstrualHistoryPanel({
                   ) : null}
                   <ChevronRight aria-hidden className="ml-auto h-4 w-4 text-slate-300 group-hover:text-brand-600" />
                 </button>
+                <HistoryDelete
+                  patientId={patientId}
+                  kind="MENSTRUAL"
+                  entryId={entry.id}
+                  canEdit={canEdit}
+                  label={`menstrual history taken ${entry.recordedOn}`}
+                />
               </li>
             ))}
           </ul>

@@ -7,6 +7,7 @@ import { AppError } from '@core/errors/app-error'
 import {
   recordImmunization,
   removeFamilyHistory,
+  removeHistoryEntry,
   saveFamilyHistory,
   saveMenstrualHistory,
   savePastHistory,
@@ -63,6 +64,8 @@ async function run(
   }
 
   revalidatePath(`/clinic/patients/${patientId}/cockpit`)
+  // Flags and history show on the clinic's patient list too.
+  revalidatePath('/clinic')
   return { ok: true }
 }
 
@@ -101,6 +104,10 @@ export async function removeFamilyHistoryAction(patientId: string, input: unknow
 
 export async function savePastHistoryAction(patientId: string, input: unknown): Promise<ActionResult> {
   return run(patientId, (actor) => savePastHistory(actor, input))
+}
+
+export async function removeHistoryEntryAction(patientId: string, input: unknown): Promise<ActionResult> {
+  return run(patientId, (actor) => removeHistoryEntry(actor, input))
 }
 
 export async function setHistoryFlagAction(patientId: string, input: unknown): Promise<ActionResult> {

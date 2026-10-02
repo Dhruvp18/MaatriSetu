@@ -27,7 +27,10 @@ export async function readRosterSources(
   clinicId: string,
   limit: number,
 ): Promise<RosterSources> {
-  const [patients, pregnancies, visits, scars, flagged] = await Promise.all([
+  const flaggedIn = (table: 'obstetric_history' | 'menstrual_histories' | 'patient_past_histories') =>
+    db.from(table).select('patient_id').eq('clinic_id', clinicId).eq('flagged', true).returns<{ patient_id: string }[]>()
+
+  const [patients, pregnancies, visits, scars, diagnoses, obstetric, menstrual, family, past] = await Promise.all([
     db
       .from('patients')
       .select('id, uhid, full_name, date_of_birth, estimated_age_years, age_recorded_on, allergy_status, blood_group')
@@ -54,25 +57,39 @@ export async function readRosterSources(
       .eq('has_uterine_scar', true)
       .returns<{ patient_id: string }[]>(),
     db
-      .from('observations')
-      .select('patient_id, pregnancy_id')
+      .from('flagged_diagnoses')
+      .select('patient_id, pregnancy_id, label')
       .eq('clinic_id', clinicId)
-      .eq('flagged_by_clinician', true)
-      .is('superseded_at', null)
-      .returns<{ patient_id: string; pregnancy_id: string }[]>(),
+      .is('resolved_at', null)
+      .order('flagged_at', { ascending: true })
+      .returns<{ patient_id: string; pregnancy_id: string; label: string }[]>(),
+    flaggedIn('obstetric_history'),
+    flaggedIn('menstrual_histories'),
+    db
+      .from('family_histories')
+      .select('patient_id')
+      .eq('clinic_id', clinicId)
+      .eq('flagged', true)
+      .is('removed_at', null)
+      .returns<{ patient_id: string }[]>(),
+    flaggedIn('patient_past_histories'),
   ])
 
   if (patients.error) translate(patients.error, 'readRosterSources.patients')
   if (pregnancies.error) translate(pregnancies.error, 'readRosterSources.pregnancies')
   if (visits.error) translate(visits.error, 'readRosterSources.visits')
   if (scars.error) translate(scars.error, 'readRosterSources.obstetricHistory')
-  if (flagged.error) translate(flagged.error, 'readRosterSources.observations')
+  if (diagnoses.error) translate(diagnoses.error, 'readRosterSources.flaggedDiagnoses')
+  for (const [name, result] of Object.entries({ obstetric, menstrual, family, past })) {
+    if (result.error) translate(result.error, `readRosterSources.${name}`)
+  }
 
   return {
     patients: patients.data ?? [],
     pregnancies: pregnancies.data ?? [],
     visits: visits.data ?? [],
     scarredPatientIds: [...new Set((scars.data ?? []).map((row) => row.patient_id))],
-    flaggedObservations: flagged.data ?? [],
+    flaggedDiagnoses: diagnoses.data ?? [],
+    flaggedHistory: [obstetric, menstrual, family, past].flatMap((result) => result.data ?? []),
   }
 }

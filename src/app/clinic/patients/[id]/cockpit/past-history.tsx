@@ -6,6 +6,7 @@ import { PAST_HISTORY_OPTIONS, type PastHistory } from '@modules/history/history
 
 import { DictatedTextarea } from './dictated-textarea'
 import { savePastHistoryAction } from './history-actions'
+import { HistoryDelete } from './history-delete'
 import { HistoryFlag } from './history-flag'
 
 /**
@@ -79,6 +80,7 @@ export function PastHistoryPanel({
         {past ? (
           <HistoryFlag patientId={patientId} kind="PAST" entryId={past.id} flagged={past.flagged} canEdit label="past history" />
         ) : null}
+        {past?.notes ? <HistoryDelete patientId={patientId} kind="PAST" entryId={past.id} canEdit label="past history" /> : null}
         {error ? (
           <p role="alert" className="mr-auto text-[11px] text-alert-700">
             {error}

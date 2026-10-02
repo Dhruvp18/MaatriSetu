@@ -234,3 +234,11 @@ export const SetHistoryFlagSchema = z
     flagged: z.boolean(),
   })
   .strict()
+
+export const RemoveHistoryEntrySchema = z
+  .object({
+    patientId: z.uuid(),
+    kind: z.enum(['OBSTETRIC', 'MENSTRUAL', 'FAMILY', 'PAST']),
+    entryId: z.uuid(),
+  })
+  .strict()

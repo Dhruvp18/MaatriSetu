@@ -9,6 +9,7 @@ import * as repo from './history.repository'
 import {
   RecordImmunizationSchema,
   RemoveFamilyHistorySchema,
+  RemoveHistoryEntrySchema,
   SaveFamilyHistorySchema,
   SavePastHistorySchema,
   SetHistoryFlagSchema,
@@ -223,6 +224,23 @@ export async function setHistoryFlag(actor: ActorContext, input: unknown): Promi
   }
 
   await repo.setHistoryFlag(serviceClient(), {
+    clinicId: actor.clinicId,
+    actorStaffUserId: actor.staffUserId,
+    requestId: actor.requestId,
+    ...parsed.data,
+  })
+}
+
+/** Delete a history entry of any kind. What it said is kept in the audit trail. */
+export async function removeHistoryEntry(actor: ActorContext, input: unknown): Promise<void> {
+  requirePermission(actor, 'patient.update')
+
+  const parsed = RemoveHistoryEntrySchema.safeParse(input)
+  if (!parsed.success) {
+    throw validation('This history entry could not be deleted.', parsed.error.issues)
+  }
+
+  await repo.removeHistoryEntry(serviceClient(), {
     clinicId: actor.clinicId,
     actorStaffUserId: actor.staffUserId,
     requestId: actor.requestId,

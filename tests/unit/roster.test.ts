@@ -28,7 +28,14 @@ const pregnancy = (id: string, patientId: string, overrides: Partial<RosterSourc
   ...overrides,
 })
 
-const empty: RosterSources = { patients: [], pregnancies: [], visits: [], scarredPatientIds: [], flaggedObservations: [] }
+const empty: RosterSources = {
+  patients: [],
+  pregnancies: [],
+  visits: [],
+  scarredPatientIds: [],
+  flaggedDiagnoses: [],
+  flaggedHistory: [],
+}
 
 describe('patient roster', () => {
   it('keeps her latest visit and her open episode', () => {
@@ -70,17 +77,28 @@ describe('patient roster', () => {
     expect(list.filter(hasRecordedFlags)).toHaveLength(3)
   })
 
-  it('counts a clinician-flagged result only on the current episode', () => {
+  it('carries the cockpit’s flagged diagnoses for the current episode only', () => {
     const list = assembleRoster({
       ...empty,
       patients: [patient('p1'), patient('p2')],
       pregnancies: [pregnancy('g1', 'p1'), pregnancy('g2', 'p2')],
-      flaggedObservations: [
-        { patient_id: 'p1', pregnancy_id: 'g1' },
-        { patient_id: 'p2', pregnancy_id: 'g-old' },
+      flaggedDiagnoses: [
+        { patient_id: 'p1', pregnancy_id: 'g1', label: 'Anaemia' },
+        { patient_id: 'p2', pregnancy_id: 'g-old', label: 'IUGR' },
       ],
     })
-    expect(list.map((e) => e.flags)).toEqual([['FLAGGED_RESULT'], []])
+    expect(list.map((e) => e.flaggedDiagnoses)).toEqual([['Anaemia'], []])
+    expect(list.filter(hasRecordedFlags).map((e) => e.patientId)).toEqual(['p1'])
+  })
+
+  it('counts flagged history entries', () => {
+    const [entry] = assembleRoster({
+      ...empty,
+      patients: [patient('p1')],
+      flaggedHistory: [{ patient_id: 'p1' }, { patient_id: 'p1' }, { patient_id: 'p9' }],
+    })
+    expect(entry?.flaggedHistoryCount).toBe(2)
+    expect(entry && hasRecordedFlags(entry)).toBe(true)
   })
 
   it('writes GPLA with a dash for anything not asked', () => {

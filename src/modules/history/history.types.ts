@@ -401,6 +401,19 @@ export function describeChildren(entry: ObstetricHistoryRecord): string {
   return outcomes.length > 0 ? `${plurality} · ${outcomes.join(', ')}` : plurality
 }
 
+/**
+ * The type of delivery as the summary row prints it. A caesarean carries its
+ * reason when one was recorded: `LSCS (emergency – fetal distress)`.
+ */
+export function describeDeliveryMode(entry: ObstetricHistoryRecord): string | null {
+  if (entry.deliveryMode === 'UNKNOWN') return null
+  const reason = entry.scarIndication?.trim()
+  if (reason && (entry.deliveryMode === 'LSCS_EMERGENCY' || entry.deliveryMode === 'LSCS_ELECTIVE')) {
+    return `LSCS (${entry.deliveryMode === 'LSCS_EMERGENCY' ? 'emergency' : 'elective'} – ${reason})`
+  }
+  return DELIVERY_MODE_LABELS[entry.deliveryMode]
+}
+
 /** `Full term (39 wk)`, `39 wk`, or "Not recorded". */
 export function describeGestationAtDelivery(entry: ObstetricHistoryRecord): string {
   const category = entry.gestationCategory ? GESTATION_LABELS[entry.gestationCategory] : null

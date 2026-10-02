@@ -27,12 +27,15 @@ import {
   type PriorOutcome,
   type RelatedComplication,
   describeChildren,
+  describeDeliveryMode,
   describeGestationAtDelivery,
   describeRecordedList,
   obstetricHistoryDate,
 } from '@modules/history/history.types'
 
 import { saveObstetricHistoryAction } from './history-actions'
+import { DictatedTextarea } from './dictated-textarea'
+import { HistoryDelete } from './history-delete'
 import { HistoryFlag } from './history-flag'
 import {
   Detail,
@@ -89,15 +92,13 @@ export function ObstetricHistoryPanel({
             <table className="w-full min-w-[720px] border-collapse text-left text-xs">
               <thead className="bg-slate-50 text-[10.5px] font-semibold tracking-wide text-slate-500 uppercase">
                 <tr>
-                  <th className="w-8 px-2 py-2">
-                    <span className="sr-only">Flag</span>
-                  </th>
                   <th className="px-2.5 py-2">Summary</th>
                   <th className="px-2.5 py-2">Past obstetric history</th>
                   <th className="px-2.5 py-2">Gestational age at delivery</th>
                   <th className="px-2.5 py-2">Pregnancy induced complication</th>
                   <th className="px-2.5 py-2">Pregnancy related complication</th>
                   <th className="px-2.5 py-2">No. of children born</th>
+                  <th className="px-2.5 py-2 text-right">{canEdit ? 'Action' : <span className="sr-only">Flag</span>}</th>
                 </tr>
               </thead>
               <tbody>
@@ -109,16 +110,6 @@ export function ObstetricHistoryPanel({
                       entry.flagged ? 'bg-alert-50/50' : 'bg-white'
                     }`}
                   >
-                    <td className="px-2 py-2 align-top">
-                      <HistoryFlag
-                        patientId={patientId}
-                        kind="OBSTETRIC"
-                        entryId={entry.id}
-                        flagged={entry.flagged}
-                        canEdit={canEdit}
-                        label={`gravida ${entry.sequenceNo}`}
-                      />
-                    </td>
                     <td className="px-2.5 py-2 align-top">
                       <button
                         type="button"
@@ -135,7 +126,7 @@ export function ObstetricHistoryPanel({
                     <td className="px-2.5 py-2 align-top text-slate-800">
                       {[
                         entry.conceptionMode ? CONCEPTION_LABELS[entry.conceptionMode] : null,
-                        entry.deliveryMode !== 'UNKNOWN' ? DELIVERY_MODE_LABELS[entry.deliveryMode] : null,
+                        describeDeliveryMode(entry),
                         entry.outcome !== 'UNKNOWN' ? PRIOR_OUTCOME_LABELS[entry.outcome] : null,
                       ]
                         .filter(Boolean)
@@ -154,6 +145,39 @@ export function ObstetricHistoryPanel({
                       {describeRecordedList(entry.relatedComplications, RELATED_COMPLICATION_LABELS)}
                     </td>
                     <td className="px-2.5 py-2 align-top text-slate-800">{describeChildren(entry)}</td>
+                    <td className="px-2.5 py-2 text-right align-top">
+                      <span className="inline-flex items-center gap-1">
+                        <HistoryFlag
+                          patientId={patientId}
+                          kind="OBSTETRIC"
+                          entryId={entry.id}
+                          flagged={entry.flagged}
+                          canEdit={canEdit}
+                          label={`gravida ${entry.sequenceNo}`}
+                        />
+                        {canEdit ? (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setEditing(entry)
+                            }}
+                            aria-label={`Edit gravida ${entry.sequenceNo}`}
+                            title="Edit"
+                            className="rounded border border-caution-200 bg-caution-50 p-1 text-caution-700 hover:bg-caution-100"
+                          >
+                            <Pencil aria-hidden className="h-3.5 w-3.5" />
+                          </button>
+                        ) : null}
+                        <HistoryDelete
+                          patientId={patientId}
+                          kind="OBSTETRIC"
+                          entryId={entry.id}
+                          canEdit={canEdit}
+                          label={`gravida ${entry.sequenceNo}`}
+                        />
+                      </span>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -235,7 +259,7 @@ function HistoryDetail({ entry }: { entry: ObstetricHistoryRecord }) {
           }
         />
         <Detail label="Date of delivery" value={entry.eventDate ?? entry.yearOfEvent} />
-        <Detail label="Type of delivery" value={entry.deliveryMode !== 'UNKNOWN' ? DELIVERY_MODE_LABELS[entry.deliveryMode] : null} />
+        <Detail label="Type of delivery" value={describeDeliveryMode(entry)} />
         <Detail label="Baby's position" value={entry.babyPosition} />
         <Detail label="Outcome" value={entry.outcome !== 'UNKNOWN' ? PRIOR_OUTCOME_LABELS[entry.outcome] : null} />
         <Detail label="Gestational age at delivery" value={describeGestationAtDelivery(entry)} />
@@ -399,6 +423,8 @@ function HistoryForm({
     )
   }
 
+  const isLscs = deliveryMode === 'LSCS_ELECTIVE' || deliveryMode === 'LSCS_EMERGENCY'
+
   const chooseDeliveryMode = (value: DeliveryMode) => {
     setDeliveryMode(value)
     // A caesarean leaves a scar; ticked for the doctor to confirm, never hidden.
@@ -432,7 +458,7 @@ function HistoryForm({
       plurality,
       pluralityOther: plurality === 'OTHER' ? pluralityOther || null : null,
       hasUterineScar: hasScar,
-      scarIndication: hasScar ? scarIndication || null : null,
+      scarIndication: hasScar || isLscs ? scarIndication.trim() || null : null,
       placeOfEvent: place || null,
       remarks: remarks || null,
       infants: infants
@@ -567,7 +593,7 @@ function HistoryForm({
               <input type="checkbox" checked={hasScar} onChange={(e) => setHasScar(e.target.checked)} className="h-3.5 w-3.5 accent-brand-600" />
               Uterine scar
             </label>
-            {hasScar ? (
+            {hasScar && !isLscs ? (
               <input
                 value={scarIndication}
                 onChange={(e) => setScarIndication(e.target.value)}
@@ -576,6 +602,17 @@ function HistoryForm({
               />
             ) : null}
           </div>
+          {isLscs ? (
+            <DictatedTextarea
+              id="lscs-reason"
+              label={`Reason for LSCS (${deliveryMode === 'LSCS_EMERGENCY' ? 'emergency' : 'elective'})`}
+              rows={2}
+              value={scarIndication}
+              onValueChange={setScarIndication}
+              options={['Fetal distress', 'Non-progress of labour', 'CPD', 'Breech presentation', 'Previous LSCS', 'Failed induction', 'Placenta previa']}
+              placeholder="Type, or press Voice and speak — e.g. fetal distress"
+            />
+          ) : null}
         </Section>
 
         <Section title="Gestational age at delivery">

@@ -53,7 +53,6 @@ const FLAG_TONE: Record<RosterFlag, 'alert' | 'caution'> = {
   RH_NEGATIVE: 'alert',
   ALLERGY: 'alert',
   UTERINE_SCAR: 'caution',
-  FLAGGED_RESULT: 'caution',
 }
 
 export const metadata = { title: 'Clinic' }
@@ -172,7 +171,7 @@ export default async function ClinicHomePage({
             active={view === 'flagged'}
             count={flagged.length}
             label="Recorded flags"
-            sub="Rh-negative, allergy, prior scar or a result a clinician flagged"
+            sub="Rh-negative, allergy, prior scar, or a diagnosis or history flagged in her cockpit"
             accent="border-t-alert-600"
             countClass="text-alert-700"
           />
@@ -208,7 +207,7 @@ export default async function ClinicHomePage({
             view === 'all'
               ? 'No patients are registered at this clinic yet. Register the first one to begin.'
               : view === 'flagged'
-                ? 'No patient has an Rh-negative group, a recorded allergy, a prior uterine scar or a clinician-flagged result.'
+                ? 'No patient has an Rh-negative group, a recorded allergy, a prior uterine scar, or anything flagged in her cockpit.'
                 : 'Nobody is booked or has been seen today yet. Find a patient above, scan her card, or register a new one.'
           }
           summary={
@@ -366,13 +365,21 @@ function shapeRow({
   }
 
   const flags = (entry?.flags ?? []).map((flag) => ({ label: ROSTER_FLAG_LABELS[flag], tone: FLAG_TONE[flag] as 'alert' | 'caution' | 'neutral' }))
-  
+
   if (entry) {
-    const isNormal = !entry.latestDiagnosis || entry.latestDiagnosis.trim() === '' || entry.latestDiagnosis.toLowerCase() === 'normal anc' || entry.latestDiagnosis.toLowerCase() === 'normal'
+    // The same flags as her cockpit: the banner's diagnoses, then her flagged history.
+    for (const label of entry.flaggedDiagnoses) flags.push({ label, tone: 'alert' })
+    if (entry.flaggedHistoryCount > 0) {
+      flags.push({ label: `${entry.flaggedHistoryCount} history flagged`, tone: 'alert' })
+    }
+
+    const diagnosis = entry.latestDiagnosis?.trim() ?? ''
+    const isNormal = diagnosis === '' || ['normal anc', 'normal'].includes(diagnosis.toLowerCase())
+    const alreadyShown = entry.flaggedDiagnoses.some((label) => label.toLowerCase() === diagnosis.toLowerCase())
     if (isNormal) {
-      flags.push({ label: 'Normal', tone: 'neutral' })
-    } else {
-      flags.push({ label: entry.latestDiagnosis!, tone: 'alert' })
+      if (entry.flaggedDiagnoses.length === 0) flags.push({ label: 'Normal', tone: 'neutral' })
+    } else if (!alreadyShown) {
+      flags.push({ label: diagnosis, tone: 'alert' })
     }
   }
 

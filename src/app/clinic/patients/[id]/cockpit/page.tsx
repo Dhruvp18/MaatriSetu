@@ -357,7 +357,18 @@ export default async function CockpitPage({ params }: { params: Promise<{ id: st
   const bpTrendData = bpPoints.length > 0 ? {
     testCode: 'bp', testName: 'Blood Pressure (Systolic)', unit: 'mmHg', points: bpPoints
   } : null
-  const bpTrend = bpTrendData && bpTrendData.points.some(p => p.value >= 140 || (p.diastolic && p.diastolic >= 90)) ? bpTrendData : null
+  // The BP trajectory lives only in the Examination panel, where the doctor
+  // reads her vitals and writes her findings — not in the reports section. It
+  // draws whenever any BP was recorded this pregnancy.
+  const bpTrajectory = bpTrendData ? (
+    <div className="w-full rounded-lg border border-slate-200/60 bg-slate-50/70 p-3">
+      <p className="font-heading mb-1.5 text-[11px] font-semibold tracking-wider text-slate-700 uppercase">
+        {bpTrendData.testName} trajectory
+      </p>
+      <Sparkline series={bpTrendData} threshold={140} thresholdLabel="Normal < 140 mmHg" />
+      <p className="mt-1.5 text-[11px] text-slate-500">Systolic Blood Pressure across this pregnancy&apos;s visits.</p>
+    </div>
+  ) : null
 
   // Glucose Trends (Diabetes)
   const glucoseCodes = ['fbs', 'ppbs', 'rbs', 'glucose', 'blood glucose', 'hba1c', 'hba1c (%)', 'bs', 'b/s']
@@ -536,7 +547,7 @@ export default async function CockpitPage({ params }: { params: Promise<{ id: st
                   {flagger('REPORTS')}
                   {labs.length === 0 ? <p className="text-xs text-slate-500">No verified results yet.</p> : null}
                   <div className="flex flex-col gap-3 lg:flex-row lg:items-start">
-                    {hbTrend || afiTrend || bpTrend || sdpTrend || efwTrend || acTrend || glucoseTrends.length > 0 ? (
+                    {hbTrend || glucoseTrends.length > 0 ? (
                       <div className="flex flex-col gap-3 flex-1 w-full">
                         {hbTrend ? (
                           <div className="w-full rounded-lg border border-slate-200/60 bg-slate-50/70 p-3">
@@ -545,56 +556,6 @@ export default async function CockpitPage({ params }: { params: Promise<{ id: st
                             </p>
                             <Sparkline series={hbTrend} threshold={11.0} thresholdLabel="Normal ≥ 11 g/dL" />
                             <p className="mt-1.5 text-[11px] text-slate-500">Every verified value in this pregnancy, flagged or not.</p>
-                          </div>
-                        ) : null}
-
-                        {afiTrend ? (
-                          <div className="w-full rounded-lg border border-slate-200/60 bg-slate-50/70 p-3">
-                            <p className="font-heading mb-1.5 text-[11px] font-semibold tracking-wider text-slate-700 uppercase">
-                              {afiTrend.testName} trajectory
-                            </p>
-                            <Sparkline series={afiTrend} threshold={5} thresholdLabel="Normal ≥ 5 cm" />
-                            <p className="mt-1.5 text-[11px] text-slate-500">Every verified AFI in this pregnancy, mapped from scans.</p>
-                          </div>
-                        ) : null}
-
-                        {sdpTrend ? (
-                          <div className="w-full rounded-lg border border-slate-200/60 bg-slate-50/70 p-3">
-                            <p className="font-heading mb-1.5 text-[11px] font-semibold tracking-wider text-slate-700 uppercase">
-                              {sdpTrend.testName} trajectory
-                            </p>
-                            <Sparkline series={sdpTrend} threshold={2} thresholdLabel="Normal ≥ 2 cm" />
-                            <p className="mt-1.5 text-[11px] text-slate-500">Every verified Single Deepest Pocket mapped from scans.</p>
-                          </div>
-                        ) : null}
-
-                        {bpTrend ? (
-                          <div className="w-full rounded-lg border border-slate-200/60 bg-slate-50/70 p-3">
-                            <p className="font-heading mb-1.5 text-[11px] font-semibold tracking-wider text-slate-700 uppercase">
-                              {bpTrend.testName} trajectory
-                            </p>
-                            <Sparkline series={bpTrend} threshold={140} thresholdLabel="Normal < 140 mmHg" />
-                            <p className="mt-1.5 text-[11px] text-slate-500">Systolic Blood Pressure across this pregnancy&apos;s visits.</p>
-                          </div>
-                        ) : null}
-
-                        {efwTrend ? (
-                          <div className="w-full rounded-lg border border-slate-200/60 bg-slate-50/70 p-3">
-                            <p className="font-heading mb-1.5 text-[11px] font-semibold tracking-wider text-slate-700 uppercase">
-                              {efwTrend.testName} trajectory
-                            </p>
-                            <Sparkline series={efwTrend} threshold={10} thresholdLabel="Normal ≥ 10th centile" />
-                            <p className="mt-1.5 text-[11px] text-slate-500">Estimated Fetal Weight percentiles mapped from scans.</p>
-                          </div>
-                        ) : null}
-
-                        {acTrend ? (
-                          <div className="w-full rounded-lg border border-slate-200/60 bg-slate-50/70 p-3">
-                            <p className="font-heading mb-1.5 text-[11px] font-semibold tracking-wider text-slate-700 uppercase">
-                              Abdominal Circumference trajectory
-                            </p>
-                            <Sparkline series={acTrend} threshold={10} thresholdLabel="Normal ≥ 10th centile" />
-                            <p className="mt-1.5 text-[11px] text-slate-500">Abdominal Circumference percentiles mapped from observations.</p>
                           </div>
                         ) : null}
 
@@ -669,6 +630,49 @@ export default async function CockpitPage({ params }: { params: Promise<{ id: st
                 <div className="flex flex-col gap-2.5">
                   <StagedSignificant reports={reports} kind="SCAN" />
                   {flagger('SCANS')}
+                  {afiTrend || sdpTrend || efwTrend || acTrend ? (
+                    <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+                      {afiTrend ? (
+                        <div className="w-full rounded-lg border border-slate-200/60 bg-slate-50/70 p-3">
+                          <p className="font-heading mb-1.5 text-[11px] font-semibold tracking-wider text-slate-700 uppercase">
+                            {afiTrend.testName} trajectory
+                          </p>
+                          <Sparkline series={afiTrend} threshold={5} thresholdLabel="Normal ≥ 5 cm" />
+                          <p className="mt-1.5 text-[11px] text-slate-500">Every verified AFI in this pregnancy, mapped from scans.</p>
+                        </div>
+                      ) : null}
+
+                      {sdpTrend ? (
+                        <div className="w-full rounded-lg border border-slate-200/60 bg-slate-50/70 p-3">
+                          <p className="font-heading mb-1.5 text-[11px] font-semibold tracking-wider text-slate-700 uppercase">
+                            {sdpTrend.testName} trajectory
+                          </p>
+                          <Sparkline series={sdpTrend} threshold={2} thresholdLabel="Normal ≥ 2 cm" />
+                          <p className="mt-1.5 text-[11px] text-slate-500">Every verified Single Deepest Pocket mapped from scans.</p>
+                        </div>
+                      ) : null}
+
+                      {efwTrend ? (
+                        <div className="w-full rounded-lg border border-slate-200/60 bg-slate-50/70 p-3">
+                          <p className="font-heading mb-1.5 text-[11px] font-semibold tracking-wider text-slate-700 uppercase">
+                            {efwTrend.testName} trajectory
+                          </p>
+                          <Sparkline series={efwTrend} threshold={10} thresholdLabel="Normal ≥ 10th centile" />
+                          <p className="mt-1.5 text-[11px] text-slate-500">Estimated Fetal Weight percentiles mapped from scans.</p>
+                        </div>
+                      ) : null}
+
+                      {acTrend ? (
+                        <div className="w-full rounded-lg border border-slate-200/60 bg-slate-50/70 p-3">
+                          <p className="font-heading mb-1.5 text-[11px] font-semibold tracking-wider text-slate-700 uppercase">
+                            Abdominal Circumference trajectory
+                          </p>
+                          <Sparkline series={acTrend} threshold={10} thresholdLabel="Normal ≥ 10th centile" />
+                          <p className="mt-1.5 text-[11px] text-slate-500">Abdominal Circumference percentiles mapped from observations.</p>
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
                   <ViewAllList
                     noun="scans"
                     layout="grid"
@@ -764,6 +768,8 @@ export default async function CockpitPage({ params }: { params: Promise<{ id: st
                 icon={<ClipboardList className="h-4.75 w-4.75" />}
               >
                 <PastHistoryPanel
+                  // Re-mounted when the record changes, so a delete clears the box.
+                  key={history.past ? `${history.past.version}` : 'none'}
                   patientId={patient.id}
                   past={history.past}
                   canEdit={roleHasPermission(actor.role, 'patient.update')}
@@ -858,7 +864,12 @@ export default async function CockpitPage({ params }: { params: Promise<{ id: st
                   ongoing={ongoing}
                   masterPacks={masterPacks}
                   examinationFlagger={flagger('EXAMINATION')}
-                  vitals={<VitalsPanel latestVitals={latestVitals} baselineWeightKg={baselineWeightKg} />}
+                  vitals={
+                    <>
+                      <VitalsPanel latestVitals={latestVitals} baselineWeightKg={baselineWeightKg} />
+                      {bpTrajectory}
+                    </>
+                  }
                 />
               ) : (
                 <>
@@ -872,6 +883,7 @@ export default async function CockpitPage({ params }: { params: Promise<{ id: st
                       <div className="w-full">
                         <VitalsPanel latestVitals={latestVitals} baselineWeightKg={baselineWeightKg} />
                       </div>
+                      {bpTrajectory}
                       <p className="text-xs leading-relaxed text-slate-600">
                         {!openVisit
                           ? 'Examination, diagnosis, prescriptions, orders and the reference to another doctor are recorded against today’s consultation.'

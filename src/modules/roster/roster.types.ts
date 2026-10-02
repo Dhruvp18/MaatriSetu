@@ -9,8 +9,8 @@
  * The clinic home offers a "flagged" list, and it would be easy to call it
  * "high risk". It is not, and must not be (PRD §3): the system never labels a
  * patient high-risk on its own. Every flag below is something a person wrote
- * down — a blood group, an allergy, a prior caesarean, a result a clinician
- * explicitly flagged. The list gathers them; the judgment stays with the
+ * down — a blood group, an allergy, a prior caesarean, a diagnosis or a
+ * history entry a clinician flagged in her cockpit. The list gathers them; the judgment stays with the
  * doctor.
  */
 
@@ -18,13 +18,12 @@ import type { DatingReference } from '@core/obstetrics/dating'
 import type { BloodGroup, PatientAge } from '@modules/patients/patient.types'
 import type { GravidaParity } from '@modules/pregnancies/pregnancy.types'
 
-export type RosterFlag = 'RH_NEGATIVE' | 'ALLERGY' | 'UTERINE_SCAR' | 'FLAGGED_RESULT'
+export type RosterFlag = 'RH_NEGATIVE' | 'ALLERGY' | 'UTERINE_SCAR'
 
 export const ROSTER_FLAG_LABELS: Record<RosterFlag, string> = {
   RH_NEGATIVE: 'Rh-negative',
   ALLERGY: 'Allergy',
   UTERINE_SCAR: 'Prior uterine scar',
-  FLAGGED_RESULT: 'Result flagged',
 }
 
 export interface RosterPregnancy {
@@ -46,10 +45,14 @@ export interface RosterEntry {
   readonly lastVisitAt: string | null
   readonly latestDiagnosis: string | null
   readonly flags: readonly RosterFlag[]
+  /** Diagnoses flagged on her cockpit banner for the open episode, still unresolved. */
+  readonly flaggedDiagnoses: readonly string[]
+  /** History entries (obstetric, menstrual, family, past) flagged in her cockpit. */
+  readonly flaggedHistoryCount: number
 }
 
 export function hasRecordedFlags(entry: RosterEntry): boolean {
-  return entry.flags.length > 0
+  return entry.flags.length > 0 || entry.flaggedDiagnoses.length > 0 || entry.flaggedHistoryCount > 0
 }
 
 /** `G2 P1 L1 A0`, with `–` for anything not asked. */
