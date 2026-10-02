@@ -33,6 +33,7 @@ import {
 } from '@modules/history/history.types'
 
 import { saveObstetricHistoryAction } from './history-actions'
+import { HistoryFlag } from './history-flag'
 import {
   Detail,
   FIELD,
@@ -88,6 +89,9 @@ export function ObstetricHistoryPanel({
             <table className="w-full min-w-[720px] border-collapse text-left text-xs">
               <thead className="bg-slate-50 text-[10.5px] font-semibold tracking-wide text-slate-500 uppercase">
                 <tr>
+                  <th className="w-8 px-2 py-2">
+                    <span className="sr-only">Flag</span>
+                  </th>
                   <th className="px-2.5 py-2">Summary</th>
                   <th className="px-2.5 py-2">Past obstetric history</th>
                   <th className="px-2.5 py-2">Gestational age at delivery</th>
@@ -101,8 +105,20 @@ export function ObstetricHistoryPanel({
                   <tr
                     key={entry.id}
                     onClick={() => setViewing(entry)}
-                    className="cursor-pointer border-t border-slate-100 bg-white transition-colors hover:bg-brand-50/50"
+                    className={`cursor-pointer border-t border-slate-100 transition-colors hover:bg-brand-50/50 ${
+                      entry.flagged ? 'bg-alert-50/50' : 'bg-white'
+                    }`}
                   >
+                    <td className="px-2 py-2 align-top">
+                      <HistoryFlag
+                        patientId={patientId}
+                        kind="OBSTETRIC"
+                        entryId={entry.id}
+                        flagged={entry.flagged}
+                        canEdit={canEdit}
+                        label={`gravida ${entry.sequenceNo}`}
+                      />
+                    </td>
                     <td className="px-2.5 py-2 align-top">
                       <button
                         type="button"

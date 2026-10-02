@@ -61,7 +61,9 @@ export interface VitalsReading {
   readonly fundalHeightCm: number | null
   readonly fetalHeartRateBpm: number | null
   readonly urineAlbumin: DipstickGrade | null
+  /** Graded, on readings taken before urine sugar was recorded in mg/dL. */
   readonly urineSugar: DipstickGrade | null
+  readonly urineSugarMgDl: number | null
   readonly note: string | null
   readonly recordedAt: string
   readonly recordedBy: string | null
@@ -351,7 +353,9 @@ export function vitalsAsQuantities(reading: VitalsReading): readonly Quantity[] 
   if (reading.urineAlbumin !== null) {
     out.push({ label: 'Urine albumin', value: formatDipstick(reading.urineAlbumin), unit: '' })
   }
-  if (reading.urineSugar !== null) {
+  if (reading.urineSugarMgDl !== null) {
+    out.push({ label: 'Urine sugar', value: String(reading.urineSugarMgDl), unit: 'mg/dL' })
+  } else if (reading.urineSugar !== null) {
     out.push({ label: 'Urine sugar', value: formatDipstick(reading.urineSugar), unit: '' })
   }
 

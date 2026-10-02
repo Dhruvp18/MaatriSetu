@@ -6,6 +6,7 @@ import { PAST_HISTORY_OPTIONS, type PastHistory } from '@modules/history/history
 
 import { DictatedTextarea } from './dictated-textarea'
 import { savePastHistoryAction } from './history-actions'
+import { HistoryFlag } from './history-flag'
 
 /**
  * Past history — her own past illnesses, surgeries, admissions.
@@ -33,7 +34,12 @@ export function PastHistoryPanel({
 
   if (!canEdit) {
     return saved ? (
-      <p className="text-xs leading-relaxed whitespace-pre-line text-slate-800">{saved}</p>
+      <div className="flex items-start gap-2">
+        {past ? (
+          <HistoryFlag patientId={patientId} kind="PAST" entryId={past.id} flagged={past.flagged} canEdit={false} label="past history" />
+        ) : null}
+        <p className="text-xs leading-relaxed whitespace-pre-line text-slate-800">{saved}</p>
+      </div>
     ) : (
       <p className="text-xs text-slate-500">No past history recorded.</p>
     )
@@ -70,6 +76,9 @@ export function PastHistoryPanel({
         placeholder="Past illnesses, surgeries, admissions, blood transfusions — with the year where known."
       />
       <div className="flex items-center justify-end gap-2">
+        {past ? (
+          <HistoryFlag patientId={patientId} kind="PAST" entryId={past.id} flagged={past.flagged} canEdit label="past history" />
+        ) : null}
         {error ? (
           <p role="alert" className="mr-auto text-[11px] text-alert-700">
             {error}

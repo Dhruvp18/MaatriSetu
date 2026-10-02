@@ -286,6 +286,24 @@ export const UpdatePregnancyProfileSchema = z
 
 export type UpdatePregnancyProfileInput = z.infer<typeof UpdatePregnancyProfileSchema>
 
+/** The birth preparedness plan. Every item optional: an unasked one is left out, not saved as "no". */
+export const SaveBirthPlanSchema = z
+  .object({
+    pregnancyId: z.uuid(),
+    expectedVersion: z.number().int().min(1),
+    plan: z
+      .object({
+        planned_place: z.string().trim().max(200).optional(),
+        companion_name: z.string().trim().max(200).optional(),
+        transport_arranged: z.boolean().optional(),
+        blood_donor_identified: z.boolean().optional(),
+        funds_saved: z.boolean().optional(),
+        special_instructions: z.string().trim().max(2000).optional(),
+      })
+      .strict(),
+  })
+  .strict()
+
 /* -------------------------------------------------------------------------- */
 /* Close                                                                      */
 /* -------------------------------------------------------------------------- */

@@ -123,6 +123,7 @@ export function toObstetricHistoryRecord(
       .map(toInfantRecord),
     source: row.source,
     recordedAt: row.recorded_at,
+    flagged: row.flagged,
   }
 }
 
@@ -146,6 +147,7 @@ export function toMenstrualHistoryRecord(row: MenstrualHistoryRow): MenstrualHis
     bowelBladder: oneOf<BowelBladder>(row.bowel_bladder, ['NORMAL', 'DYSURIA', 'DYSCHEZIA', 'DYSPAREUNIA']),
     remarks: row.remarks,
     source: row.source,
+    flagged: row.flagged,
   }
 }
 
@@ -172,9 +174,10 @@ export function toFamilyHistoryEntry(row: FamilyHistoryRow): FamilyHistoryEntry 
     onsetAgeYears: row.onset_age_years,
     currentAgeYears: row.current_age_years,
     remarks: row.remarks,
+    flagged: row.flagged,
   }
 }
 
 export function toPastHistory(row: PastHistoryRow): PastHistory {
-  return { version: row.version, notes: row.notes, updatedAt: row.updated_at }
+  return { id: row.id, version: row.version, flagged: row.flagged, notes: row.notes, updatedAt: row.updated_at }
 }

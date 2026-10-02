@@ -103,6 +103,8 @@ export interface ObstetricHistoryRecord {
   readonly infants: readonly InfantRecord[]
   readonly source: HistorySource
   readonly recordedAt: string
+  /** A clinician marked this entry for attention. Never set by the system. */
+  readonly flagged: boolean
 }
 
 /* -------------------------------------------------------------------------- */
@@ -142,6 +144,7 @@ export interface MenstrualHistoryRecord {
   readonly lastPapSmearOn: CalendarDate | null
   readonly remarks: string | null
   readonly source: HistorySource
+  readonly flagged: boolean
 }
 
 /* -------------------------------------------------------------------------- */
@@ -161,6 +164,7 @@ export interface FamilyHistoryEntry {
   /** Her age now, or at death when deceased. */
   readonly currentAgeYears: number | null
   readonly remarks: string | null
+  readonly flagged: boolean
 }
 
 export const FAMILY_RELATIONS: readonly string[] = [
@@ -169,13 +173,18 @@ export const FAMILY_RELATIONS: readonly string[] = [
   'Mother-in-law', 'Father-in-law',
 ]
 
+/** Which kind of history entry a flag is set on. */
+export type HistoryKind = 'OBSTETRIC' | 'MENSTRUAL' | 'FAMILY' | 'PAST'
+
 /* -------------------------------------------------------------------------- */
 /* Past history                                                               */
 /* -------------------------------------------------------------------------- */
 
 /** Her own past illnesses: one free-text record, versioned. Null until first written. */
 export interface PastHistory {
+  readonly id: string
   readonly version: number
+  readonly flagged: boolean
   readonly notes: string | null
   readonly updatedAt: string
 }
@@ -219,9 +228,6 @@ export const IMMUNIZATION_CATALOG: readonly { readonly vaccine: string; readonly
   { vaccine: 'Tdap', group: 'Pertussis' },
   { vaccine: 'Influenza', group: 'Seasonal' },
   { vaccine: 'COVID-19', group: 'Seasonal' },
-  { vaccine: 'Hepatitis B 1', group: 'Hepatitis B' },
-  { vaccine: 'Hepatitis B 2', group: 'Hepatitis B' },
-  { vaccine: 'Hepatitis B 3', group: 'Hepatitis B' },
   { vaccine: 'MMR / Rubella (pre-pregnancy)', group: 'Pre-pregnancy' },
   { vaccine: 'Varicella (pre-pregnancy)', group: 'Pre-pregnancy' },
   { vaccine: 'HPV (pre-pregnancy)', group: 'Pre-pregnancy' },
@@ -334,6 +340,15 @@ export const PMS_EMOTIONAL_OPTIONS: readonly string[] = [
 export const PMS_PHYSICAL_OPTIONS: readonly string[] = [
   'Bloating', 'Breast tenderness', 'Headache', 'Fatigue', 'Back pain', 'Acne', 'Cramps',
 ]
+
+/**
+ * The key two names for the same vaccine share: case, spaces and punctuation
+ * dropped, so 'Td1', 'Td 1' and 'TD-1' are one vaccine, and 'Td_Booster' is
+ * 'Td booster'.
+ */
+export function vaccineKey(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]/g, '')
+}
 
 export const IMMUNIZATION_STATUS_LABELS: Record<ImmunizationStatus, string> = {
   GIVEN: 'Given',

@@ -7,18 +7,17 @@ import {
   type Consanguinity,
   type Pregnancy,
   type PregnancyConceptionMode,
-  SHORT_STATURE_CM,
 } from '@modules/pregnancies/pregnancy.types'
 
 import { updatePregnancyProfileAction } from './history-actions'
 import { FIELD, Field, RadioRow } from './history-fields'
 
 /**
- * Marriage, conception and height for this pregnancy.
+ * Marriage and conception for this pregnancy.
  *
  * Shown with the immunization history, where the OPD form asks them. A
- * consanguineous marriage reads in red, as asked; so does a height under
- * 150 cm. Both state what was recorded and conclude nothing from it.
+ * consanguineous marriage reads in red, as asked: it states what was recorded
+ * and concludes nothing from it. Height is on the banner, not here.
  */
 
 const CONSANGUINITY_LABELS: Record<Consanguinity, string> = {
@@ -43,9 +42,8 @@ export function PregnancyProfilePanel({
   canEdit: boolean
 }) {
   const [editing, setEditing] = useState(false)
-  const { marriage, conceptionMode, heightCm } = pregnancy
+  const { marriage, conceptionMode } = pregnancy
   const consanguineous = marriage.consanguinity === 'CONSANGUINEOUS'
-  const shortStature = heightCm !== null && heightCm < SHORT_STATURE_CM
 
   if (editing) {
     return <ProfileForm patientId={patientId} pregnancy={pregnancy} onClose={() => setEditing(false)} />
@@ -62,9 +60,6 @@ export function PregnancyProfilePanel({
         {marriage.consanguinity ? CONSANGUINITY_LABELS[marriage.consanguinity] : null}
       </Fact>
       <Fact label="Conceived">{conceptionMode ? CONCEPTION_LABELS[conceptionMode] : null}</Fact>
-      <Fact label="Height" tone={shortStature ? 'alert' : undefined}>
-        {heightCm !== null ? `${heightCm} cm${shortStature ? ` (< ${SHORT_STATURE_CM})` : ''}` : null}
-      </Fact>
       {canEdit ? (
         <button
           type="button"
@@ -114,7 +109,6 @@ function ProfileForm({
   const [years, setYears] = useState(pregnancy.marriage.years !== null ? String(pregnancy.marriage.years) : '')
   const [consanguinity, setConsanguinity] = useState<Consanguinity | null>(pregnancy.marriage.consanguinity)
   const [conception, setConception] = useState<PregnancyConceptionMode | null>(pregnancy.conceptionMode)
-  const [height, setHeight] = useState(pregnancy.heightCm !== null ? String(pregnancy.heightCm) : '')
 
   const save = () => {
     setError(null)
@@ -123,7 +117,8 @@ function ProfileForm({
       const result = await updatePregnancyProfileAction(patientId, {
         pregnancyId: pregnancy.id,
         expectedVersion: pregnancy.version,
-        heightCm: toNum(height),
+        // Height is not edited here; sent back as it stands so this save keeps it.
+        heightCm: pregnancy.heightCm,
         marriedYears: toNum(years),
         consanguinity,
         conceptionMode: conception,
@@ -155,17 +150,6 @@ function ProfileForm({
             ]}
             value={consanguinity}
             onChange={setConsanguinity}
-          />
-        </Field>
-        <Field label="Height (cm)">
-          <input
-            type="number"
-            min={100}
-            max={220}
-            step="0.1"
-            value={height}
-            onChange={(e) => setHeight(e.target.value)}
-            className={`${FIELD} numeric ${height && Number(height) < SHORT_STATURE_CM ? 'border-alert-300 text-alert-700' : ''}`}
           />
         </Field>
         <Field label="Pregnancy conceived" className="md:col-span-4">

@@ -620,6 +620,7 @@ export type Database = {
       }
       family_histories: {
         Row: {
+          flagged: boolean
           clinic_id: string
           created_at: string
           current_age_years: number | null
@@ -637,6 +638,7 @@ export type Database = {
           vital_status: string
         }
         Insert: {
+          flagged?: boolean
           clinic_id: string
           created_at?: string
           current_age_years?: number | null
@@ -654,6 +656,7 @@ export type Database = {
           vital_status?: string
         }
         Update: {
+          flagged?: boolean
           clinic_id?: string
           created_at?: string
           current_age_years?: number | null
@@ -1091,6 +1094,7 @@ export type Database = {
       }
       menstrual_histories: {
         Row: {
+          flagged: boolean
           clinic_id: string
           created_at: string
           cycle_length_days: number | null
@@ -1116,6 +1120,7 @@ export type Database = {
           version: number
         }
         Insert: {
+          flagged?: boolean
           clinic_id: string
           created_at?: string
           cycle_length_days?: number | null
@@ -1141,6 +1146,7 @@ export type Database = {
           version?: number
         }
         Update: {
+          flagged?: boolean
           clinic_id?: string
           created_at?: string
           cycle_length_days?: number | null
@@ -1323,6 +1329,7 @@ export type Database = {
       }
       obstetric_history: {
         Row: {
+          flagged: boolean
           baby_position: string | null
           birth_weight_grams: number | null
           child_alive: Database["public"]["Enums"]["known_status"]
@@ -1359,6 +1366,7 @@ export type Database = {
           year_of_event: number | null
         }
         Insert: {
+          flagged?: boolean
           baby_position?: string | null
           birth_weight_grams?: number | null
           child_alive?: Database["public"]["Enums"]["known_status"]
@@ -1395,6 +1403,7 @@ export type Database = {
           year_of_event?: number | null
         }
         Update: {
+          flagged?: boolean
           baby_position?: string | null
           birth_weight_grams?: number | null
           child_alive?: Database["public"]["Enums"]["known_status"]
@@ -1808,6 +1817,7 @@ export type Database = {
       }
       patient_past_histories: {
         Row: {
+          flagged: boolean
           clinic_id: string
           created_at: string
           id: string
@@ -1818,6 +1828,7 @@ export type Database = {
           version: number
         }
         Insert: {
+          flagged?: boolean
           clinic_id: string
           created_at?: string
           id?: string
@@ -1828,6 +1839,7 @@ export type Database = {
           version?: number
         }
         Update: {
+          flagged?: boolean
           clinic_id?: string
           created_at?: string
           id?: string
@@ -3134,6 +3146,7 @@ export type Database = {
       }
       visit_vitals: {
         Row: {
+          urine_sugar_mg_dl: number | null
           bp_diastolic_mmhg: number | null
           bp_systolic_mmhg: number | null
           clinic_id: string
@@ -3157,6 +3170,7 @@ export type Database = {
           weight_kg: number | null
         }
         Insert: {
+          urine_sugar_mg_dl?: number | null
           bp_diastolic_mmhg?: number | null
           bp_systolic_mmhg?: number | null
           clinic_id: string
@@ -3180,6 +3194,7 @@ export type Database = {
           weight_kg?: number | null
         }
         Update: {
+          urine_sugar_mg_dl?: number | null
           bp_diastolic_mmhg?: number | null
           bp_systolic_mmhg?: number | null
           clinic_id?: string
@@ -3810,7 +3825,7 @@ export type Database = {
           p_spo2_percent: number
           p_temperature_c: number
           p_urine_albumin: Database["public"]["Enums"]["dipstick_grade"]
-          p_urine_sugar: Database["public"]["Enums"]["dipstick_grade"]
+          p_urine_sugar_mg_dl: number
           p_visit_id: string
           p_weight_kg: number
         }
@@ -3949,6 +3964,29 @@ export type Database = {
           p_request_id: string
         }
         Returns: string
+      }
+      save_birth_plan: {
+        Args: {
+          p_actor_staff_user_id: string
+          p_clinic_id: string
+          p_expected_version: number
+          p_plan: Json
+          p_pregnancy_id: string
+          p_request_id: string
+        }
+        Returns: number
+      }
+      set_history_flag: {
+        Args: {
+          p_actor_staff_user_id: string
+          p_clinic_id: string
+          p_entry_id: string
+          p_flagged: boolean
+          p_kind: string
+          p_patient_id: string
+          p_request_id: string
+        }
+        Returns: undefined
       }
       save_past_history: {
         Args: {

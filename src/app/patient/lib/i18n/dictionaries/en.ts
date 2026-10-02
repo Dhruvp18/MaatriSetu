@@ -220,6 +220,7 @@ export const en = {
     doseAsDirected: 'Dose as directed',
     forDays: 'For {n} days',
     noOngoing: 'No ongoing medicines right now.',
+    ironCalciumApart: 'Take the iron tablet and the calcium tablet at least two hours apart. Taken together, the calcium stops the iron from being absorbed.',
   },
   reports: {
     title: 'My Reports',

@@ -98,7 +98,7 @@ const FOOD_LABELS: Record<FoodRelation, string> = {
 }
 
 /**
- * `Tab. Ferrous ascorbate 100 mg — once daily, after food`.
+ * `Tab Ferrous ascorbate 100 mg — once daily, after food`.
  *
  * Spelled out rather than abbreviated. "OD" and "BD" are unambiguous to the
  * doctor who typed them and a known source of dosing error for everyone else
@@ -106,7 +106,7 @@ const FOOD_LABELS: Record<FoodRelation, string> = {
  */
 export function formatPrescription(prescription: Prescription): string {
   const head = [
-    prescription.form ? `${prescription.form}.` : null,
+    prescription.form ? prescription.form : null,
     prescription.medicineName,
     prescription.dose.kind === 'SPECIFIED'
       ? `${prescription.dose.amount} ${prescription.dose.unit}`
@@ -168,10 +168,10 @@ export function formatDosing(frequency: DoseFrequency): string {
   return pattern ? `${pattern} (${FREQUENCY_CODES[frequency]})` : FREQUENCY_CODES[frequency]
 }
 
-/** `Tab. Ferrous ascorbate 100 mg` — the drug, without its schedule. */
+/** `Tab Ferrous ascorbate 100 mg` — the drug, without its schedule. */
 export function formatDrug(prescription: Prescription): string {
   return [
-    prescription.form ? `${prescription.form}.` : null,
+    prescription.form ? prescription.form : null,
     prescription.medicineName,
     prescription.dose.kind === 'SPECIFIED'
       ? `${prescription.dose.amount} ${prescription.dose.unit}`

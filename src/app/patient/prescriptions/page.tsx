@@ -29,6 +29,8 @@ export default async function PrescriptionsPage() {
   const today = new Date().toISOString().slice(0, 10)
   const ongoing = prescriptions.filter(p => !p.endDate || p.endDate >= today)
   const past = prescriptions.filter(p => p.endDate && p.endDate < today)
+  // Calcium blocks iron absorption, so whenever she is on either, say to space them.
+  const takesIronOrCalcium = ongoing.some(p => /iron|ferr|calcium/i.test(p.medicineName))
 
   return (
     <div className="p-4 pt-8 pb-20">
@@ -39,6 +41,13 @@ export default async function PrescriptionsPage() {
       <h2 className="text-sm font-bold text-emerald-700 mb-3 px-1 flex items-center gap-2">
         <div className="w-2 h-2 rounded-full bg-emerald-500" /> {rx.ongoing}
       </h2>
+
+      {takesIronOrCalcium && (
+        <div className="bg-amber-50 rounded-xl p-3 mb-3 flex items-start gap-2 border border-amber-200">
+          <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+          <p className="text-xs font-semibold text-amber-900 leading-relaxed">{rx.ironCalciumApart}</p>
+        </div>
+      )}
 
       {ongoing.length > 0 ? (
         <div className="space-y-3 mb-8">

@@ -9,6 +9,7 @@ import {
   IMMUNIZATION_STATUS_LABELS,
   type ImmunizationRecord,
   type ImmunizationStatus,
+  vaccineKey,
 } from '@modules/history/history.types'
 
 import { recordImmunizationAction } from './history-actions'
@@ -51,27 +52,38 @@ export function ImmunizationPanel({
 
   const current = records.filter((r) => r.pregnancyId === pregnancyId)
   const earlier = records.filter((r) => r.pregnancyId !== pregnancyId)
-  const byVaccine = new Map(current.map((r) => [r.vaccine, r]))
+
+  // One row per vaccine. 'Td1' and 'Td 1' are the same vaccine written two
+  // ways; where both were recorded, the latest one is shown.
+  const byVaccine = new Map<string, ImmunizationRecord>()
+  for (const record of current) {
+    const key = vaccineKey(record.vaccine)
+    const held = byVaccine.get(key)
+    if (!held || (record.administeredOn ?? '') >= (held.administeredOn ?? '')) byVaccine.set(key, record)
+  }
 
   // The card's list first, then anything recorded under another name.
+  const catalogKeys = new Set(IMMUNIZATION_CATALOG.map((item) => vaccineKey(item.vaccine)))
   const rows = [
     ...IMMUNIZATION_CATALOG.map((item) => ({ vaccine: item.vaccine, group: item.group })),
-    ...current
-      .filter((r) => !IMMUNIZATION_CATALOG.some((item) => item.vaccine === r.vaccine))
-      .map((r) => ({ vaccine: r.vaccine, group: 'Other' })),
+    ...[...byVaccine.entries()]
+      .filter(([key]) => !catalogKeys.has(key))
+      .map(([, r]) => ({ vaccine: r.vaccine, group: 'Other' })),
   ]
 
   return (
     <div className="flex flex-col gap-2.5">
       <ul className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 xl:grid-cols-3">
         {rows.map(({ vaccine, group }) => {
-          const record = byVaccine.get(vaccine) ?? null
+          const record = byVaccine.get(vaccineKey(vaccine)) ?? null
           return (
             <li key={vaccine}>
               <button
                 type="button"
                 disabled={!canRecord}
-                onClick={() => setRecording({ vaccine, existing: record })}
+                // Saved under the name already on file, so it updates that record
+                // rather than starting a second one spelled differently.
+                onClick={() => setRecording({ vaccine: record?.vaccine ?? vaccine, existing: record })}
                 className="flex w-full items-center gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-left text-xs transition-colors enabled:hover:border-brand-200 enabled:hover:bg-brand-50/40 disabled:cursor-default"
               >
                 {record?.status === 'GIVEN' ? (
@@ -133,6 +145,7 @@ export function ImmunizationPanel({
           pregnancyId={pregnancyId}
           vaccine={recording.vaccine}
           existing={recording.existing}
+          onFile={(name) => byVaccine.get(vaccineKey(name))?.vaccine ?? name}
           onClose={() => setRecording(null)}
         />
       ) : null}
@@ -145,12 +158,15 @@ function RecordForm({
   pregnancyId,
   vaccine: initialVaccine,
   existing,
+  onFile,
   onClose,
 }: {
   patientId: string
   pregnancyId: string
   vaccine: string
   existing: ImmunizationRecord | null
+  /** The name a vaccine is already on file under, however it was typed here. */
+  onFile: (vaccine: string) => string
   onClose: () => void
 }) {
   const [pending, startTransition] = useTransition()
@@ -170,7 +186,7 @@ function RecordForm({
     startTransition(async () => {
       const result = await recordImmunizationAction(patientId, {
         pregnancyId,
-        vaccine,
+        vaccine: onFile(vaccine.trim()),
         status,
         administeredOn: status === 'GIVEN' ? date || null : null,
         facility: facility || null,

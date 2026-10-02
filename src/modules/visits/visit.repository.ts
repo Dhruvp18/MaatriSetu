@@ -335,7 +335,7 @@ type RecordVitalsArgs = Nullable<
   | 'p_fundal_height_cm'
   | 'p_fetal_heart_rate_bpm'
   | 'p_urine_albumin'
-  | 'p_urine_sugar'
+  | 'p_urine_sugar_mg_dl'
   | 'p_note'
 >
 
@@ -400,7 +400,7 @@ export interface RecordVitalsRow {
   readonly fundalHeightCm: number | null
   readonly fetalHeartRateBpm: number | null
   readonly urineAlbumin: Database['public']['Enums']['dipstick_grade'] | null
-  readonly urineSugar: Database['public']['Enums']['dipstick_grade'] | null
+  readonly urineSugarMgDl: number | null
   readonly note: string | null
 }
 
@@ -424,7 +424,7 @@ export async function recordVitals(
     p_fundal_height_cm: input.fundalHeightCm,
     p_fetal_heart_rate_bpm: input.fetalHeartRateBpm,
     p_urine_albumin: input.urineAlbumin,
-    p_urine_sugar: input.urineSugar,
+    p_urine_sugar_mg_dl: input.urineSugarMgDl,
     p_note: input.note,
   }
 

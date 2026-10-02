@@ -58,7 +58,7 @@ const { error: e5 } = await db.rpc('record_visit_vitals', {
   p_clinic_id: CLINIC, p_actor_staff_user_id: NURSE, p_request_id: 'smoke-5', p_visit_id: v1.visit_id,
   p_bp_systolic_mmhg: 124, p_bp_diastolic_mmhg: 78, p_pulse_bpm: 82, p_respiratory_rate_bpm: null,
   p_temperature_c: 36.9, p_spo2_percent: 99, p_weight_kg: 54.2, p_fundal_height_cm: null,
-  p_fetal_heart_rate_bpm: 148, p_urine_albumin: 'NIL', p_urine_sugar: 'NIL', p_note: 'Smoke test',
+  p_fetal_heart_rate_bpm: 148, p_urine_albumin: 'NIL', p_urine_sugar_mg_dl: 0, p_note: 'Smoke test',
 })
 if (e5) fail('record_visit_vitals: ' + e5.message); else ok('record_visit_vitals')
 

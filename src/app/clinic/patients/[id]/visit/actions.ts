@@ -88,7 +88,7 @@ export async function submitVitals(
     fundalHeightCm: num(formData, 'fundalHeightCm'),
     fetalHeartRateBpm: num(formData, 'fetalHeartRateBpm'),
     urineAlbumin: text(formData, 'urineAlbumin'),
-    urineSugar: text(formData, 'urineSugar'),
+    urineSugarMgDl: num(formData, 'urineSugarMgDl'),
     note: text(formData, 'note'),
   }
 

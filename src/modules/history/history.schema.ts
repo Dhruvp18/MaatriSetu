@@ -221,3 +221,16 @@ export const SavePastHistorySchema = z
     notes: z.string().max(4000).nullable(),
   })
   .strict()
+
+/* -------------------------------------------------------------------------- */
+/* Flags                                                                      */
+/* -------------------------------------------------------------------------- */
+
+export const SetHistoryFlagSchema = z
+  .object({
+    patientId: z.uuid(),
+    kind: z.enum(['OBSTETRIC', 'MENSTRUAL', 'FAMILY', 'PAST']),
+    entryId: z.uuid(),
+    flagged: z.boolean(),
+  })
+  .strict()

@@ -6,6 +6,7 @@ import { useState, useTransition } from 'react'
 import { FAMILY_RELATIONS, type FamilyHistoryEntry, type VitalStatus } from '@modules/history/history.types'
 
 import { removeFamilyHistoryAction, saveFamilyHistoryAction } from './history-actions'
+import { HistoryFlag } from './history-flag'
 import { FIELD, Field, RadioRow, toIntOrNull } from './history-fields'
 
 /**
@@ -119,14 +120,16 @@ export function FamilyHistoryPanel({
                 <th className="px-2.5 py-1.5">Disease</th>
                 <th className="px-2.5 py-1.5">Onset age</th>
                 <th className="px-2.5 py-1.5">Remarks</th>
-                {canEdit ? <th className="px-2.5 py-1.5 text-right">Action</th> : null}
+                <th className="px-2.5 py-1.5 text-right">{canEdit ? 'Action' : <span className="sr-only">Flag</span>}</th>
               </tr>
             </thead>
             <tbody>
               {entries.map((entry, index) => (
                 <tr
                   key={entry.id}
-                  className={`border-t border-slate-100 ${editing?.id === entry.id ? 'bg-brand-50/60' : 'bg-white'}`}
+                  className={`border-t border-slate-100 ${
+                    editing?.id === entry.id ? 'bg-brand-50/60' : entry.flagged ? 'bg-alert-50/50' : 'bg-white'
+                  }`}
                 >
                   <td className="px-2.5 py-1.5 text-slate-500">{index + 1}</td>
                   <td className="px-2.5 py-1.5 font-semibold text-slate-900">
@@ -145,7 +148,18 @@ export function FamilyHistoryPanel({
                     {entry.onsetAgeYears !== null ? `${entry.onsetAgeYears} yrs` : '—'}
                   </td>
                   <td className="px-2.5 py-1.5 text-slate-600">{entry.remarks ?? '—'}</td>
-                  {canEdit ? (
+                  {!canEdit ? (
+                    <td className="px-2.5 py-1.5 text-right">
+                      <HistoryFlag
+                        patientId={patientId}
+                        kind="FAMILY"
+                        entryId={entry.id}
+                        flagged={entry.flagged}
+                        canEdit={false}
+                        label={`${entry.relation} — ${entry.disease}`}
+                      />
+                    </td>
+                  ) : (
                     <td className="px-2.5 py-1.5 text-right">
                       {removing === entry.id ? (
                         <span className="inline-flex items-center gap-1">
@@ -168,6 +182,14 @@ export function FamilyHistoryPanel({
                         </span>
                       ) : (
                         <span className="inline-flex gap-1">
+                          <HistoryFlag
+                            patientId={patientId}
+                            kind="FAMILY"
+                            entryId={entry.id}
+                            flagged={entry.flagged}
+                            canEdit
+                            label={`${entry.relation} — ${entry.disease}`}
+                          />
                           <button
                             type="button"
                             onClick={() => {
@@ -192,7 +214,7 @@ export function FamilyHistoryPanel({
                         </span>
                       )}
                     </td>
-                  ) : null}
+                  )}
                 </tr>
               ))}
             </tbody>

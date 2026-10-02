@@ -342,3 +342,25 @@ export async function savePastHistory(
   if (typeof data !== 'number') throw internal('save_past_history returned no version.')
   return data
 }
+
+/** Flag or unflag one history entry. Not version-checked: a flag is a toggle, not an edit. */
+export async function setHistoryFlag(
+  db: TypedClient,
+  params: WriteContext & {
+    patientId: string
+    kind: 'OBSTETRIC' | 'MENSTRUAL' | 'FAMILY' | 'PAST'
+    entryId: string
+    flagged: boolean
+  },
+): Promise<void> {
+  const { error } = await db.rpc('set_history_flag', {
+    p_clinic_id: params.clinicId,
+    p_actor_staff_user_id: params.actorStaffUserId,
+    p_request_id: params.requestId,
+    p_patient_id: params.patientId,
+    p_kind: params.kind,
+    p_entry_id: params.entryId,
+    p_flagged: params.flagged,
+  })
+  if (error) translate(error, 'setHistoryFlag')
+}

@@ -9,6 +9,7 @@ import * as repo from './pregnancy.repository'
 import {
   ClosePregnancySchema,
   CreatePregnancySchema,
+  SaveBirthPlanSchema,
   UpdateDatingSchema,
   UpdatePregnancyProfileSchema,
   datingIsPlausibleOn,
@@ -298,6 +299,27 @@ export async function updatePregnancyProfile(actor: ActorContext, input: unknown
     pregnancyId,
     expectedVersion,
     profile,
+  })
+}
+
+/** The birth preparedness plan, saved whole. Empty answers are dropped rather than stored blank. */
+export async function saveBirthPlan(actor: ActorContext, input: unknown): Promise<number> {
+  requirePermission(actor, 'patient.update')
+
+  const parsed = SaveBirthPlanSchema.safeParse(input)
+  if (!parsed.success) {
+    throw validation('This birth plan could not be saved.', parsed.error.issues)
+  }
+
+  const { pregnancyId, expectedVersion, plan } = parsed.data
+  const kept = Object.fromEntries(Object.entries(plan).filter(([, value]) => value !== undefined && value !== ''))
+  return repo.saveBirthPlan(serviceClient(), {
+    clinicId: actor.clinicId,
+    actorStaffUserId: actor.staffUserId,
+    requestId: actor.requestId,
+    pregnancyId,
+    expectedVersion,
+    plan: kept,
   })
 }
 

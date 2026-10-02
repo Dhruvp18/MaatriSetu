@@ -346,6 +346,35 @@ export async function updateProfile(
   return data
 }
 
+/** Version-checked write of the birth preparedness plan. Returns the new version. */
+export async function saveBirthPlan(
+  db: TypedClient,
+  params: {
+    clinicId: string
+    actorStaffUserId: string
+    requestId: string
+    pregnancyId: string
+    expectedVersion: number
+    plan: Record<string, unknown>
+  },
+): Promise<number> {
+  const { data, error } = await db.rpc('save_birth_plan', {
+    p_clinic_id: params.clinicId,
+    p_actor_staff_user_id: params.actorStaffUserId,
+    p_request_id: params.requestId,
+    p_pregnancy_id: params.pregnancyId,
+    p_expected_version: params.expectedVersion,
+    p_plan: params.plan as never,
+  })
+
+  if (error) translate(error, 'saveBirthPlan')
+  if (typeof data !== 'number') {
+    throw internal('save_birth_plan did not return a version.')
+  }
+
+  return data
+}
+
 /** Version-checked closure. Returns the new version. */
 export async function closePregnancy(
   db: TypedClient,

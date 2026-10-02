@@ -315,7 +315,7 @@ function MedicineInput({
                 }`}
               >
                 <span className="font-semibold">
-                  {item.form}. {item.medicineName}
+                  {item.form} {item.medicineName}
                   {item.doseAmount !== null ? ` ${item.doseAmount} ${item.doseUnit}` : ''}
                 </span>
                 <span className="numeric shrink-0 text-[10.5px] text-slate-500">

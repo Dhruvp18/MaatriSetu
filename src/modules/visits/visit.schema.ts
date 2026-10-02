@@ -68,7 +68,7 @@ export const RecordVitalsSchema = z
     fundalHeightCm: z.number().min(5).max(50).nullish(),
     fetalHeartRateBpm: z.number().int().min(60).max(240).nullish(),
     urineAlbumin: DipstickGradeSchema.nullish(),
-    urineSugar: DipstickGradeSchema.nullish(),
+    urineSugarMgDl: z.number().min(0).max(5000).nullish(),
     note: z.string().max(1000).nullish(),
   })
   .strict()
@@ -86,7 +86,7 @@ export const RecordVitalsSchema = z
       value.fundalHeightCm,
       value.fetalHeartRateBpm,
       value.urineAlbumin,
-      value.urineSugar,
+      value.urineSugarMgDl,
     ].some((v) => v !== null && v !== undefined)
 
     if (!recorded) {

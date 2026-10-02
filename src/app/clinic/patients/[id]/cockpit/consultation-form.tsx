@@ -108,6 +108,7 @@ export function ConsultationForm({
   ongoing,
   masterPacks,
   examinationFlagger,
+  vitals,
 }: {
   visitId: string
   visitDate: string
@@ -116,7 +117,6 @@ export function ConsultationForm({
     impression: string | null
     examination: string | null
     diagnosis: string | null
-    summary: string | null
   }
   reports: readonly PendingReport[]
   doctors: readonly ClinicDoctor[]
@@ -130,6 +130,8 @@ export function ConsultationForm({
   masterPacks: readonly MasterPack[]
   /** The Examination section's "Diagnosis to be flagged" panel, built by the page. */
   examinationFlagger?: React.ReactNode
+  /** Today's vitals as the nurse recorded them, shown at the head of Examination. */
+  vitals?: React.ReactNode
 }) {
   const [state, formAction] = useActionState(submitConsultation, initialState)
   const [idempotencyKey] = useState(() => crypto.randomUUID())
@@ -204,6 +206,7 @@ export function ConsultationForm({
         defaultOpen
       >
         <div className="flex flex-col gap-3">
+          {vitals}
           <DictatedTextarea
             name="examination"
             label="General examination"
@@ -276,15 +279,6 @@ export function ConsultationForm({
               defaultValue={current.impression}
               placeholder="Mild anaemia on oral iron."
             />
-            <div className="lg:col-span-2">
-              <DictatedTextarea
-                name="summary"
-                label="Summary"
-                rows={3}
-                defaultValue={current.summary}
-                placeholder="What was discussed and decided at this visit."
-              />
-            </div>
           </section>
 
           <div className="grid grid-cols-1 gap-3 lg:grid-cols-12">
@@ -324,7 +318,7 @@ export function ConsultationForm({
                         className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[10.5px] font-medium text-slate-700 transition-colors hover:border-brand-300 hover:bg-brand-50 hover:text-brand-800 disabled:cursor-default disabled:border-brand-200 disabled:bg-brand-100 disabled:text-brand-800"
                       >
                         {added ? '✓ ' : ''}
-                        {item.form}. {item.medicineName}
+                        {item.form} {item.medicineName}
                         {item.doseAmount !== null ? ` ${item.doseAmount} ${item.doseUnit}` : ''}
                       </button>
                     )

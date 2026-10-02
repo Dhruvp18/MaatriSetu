@@ -126,6 +126,7 @@ export function toVitalsReading(row: VisitVitalsRow): VitalsReading {
     // not read as a negative one (ARCH-10).
     urineAlbumin: row.urine_albumin,
     urineSugar: row.urine_sugar,
+    urineSugarMgDl: toNumber(row.urine_sugar_mg_dl),
     note: row.note,
     recordedAt: row.recorded_at,
     recordedBy: row.recorded_by,

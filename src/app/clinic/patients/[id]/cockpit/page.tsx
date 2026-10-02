@@ -12,7 +12,6 @@ import {
   Send,
   NotebookPen,
   Pill as PillIcon,
-  Star,
   Stethoscope,
   Syringe,
   Users,
@@ -24,6 +23,7 @@ import { annotateObservationAction } from './report-actions'
 import { Accordion } from '@components/cockpit/accordion'
 import { BirthPlanPanel } from './birth-plan'
 import { HeaderBanner } from '@components/cockpit/header-banner'
+import { VitalsPanel } from '@components/cockpit/vitals-panel'
 import { Sparkline } from '@components/cockpit/sparkline'
 import { roleHasPermission } from '@core/auth/permissions'
 import { resolveSession } from '@core/auth/session'
@@ -83,6 +83,7 @@ import { ObstetricHistoryPanel } from './obstetric-history'
 import { PastHistoryPanel } from './past-history'
 import { PregnancyProfilePanel } from './pregnancy-profile'
 import { ViewOriginalButton } from './original-viewer'
+import { SectionNav } from './section-nav'
 import { ViewAllList } from './view-all-list'
 import { NextVisitChip, StartConsultationButton } from './visit-buttons'
 
@@ -275,8 +276,13 @@ export default async function CockpitPage({ params }: { params: Promise<{ id: st
   const serologyIds = new Set(serology.flatMap((slot) => (slot.observation ? [slot.observation.id] : [])))
   const significantLabs = labs.filter((o) => (o.isPinned || o.flaggedByClinician) && !serologyIds.has(o.id))
   const flaggedScanFindings = results.observations.filter((o) => o.category === 'OTHER' && (o.isPinned || o.flaggedByClinician))
-  const significantScans = results.scans.filter((scan) => scan.isPinned)
   const newestScanId = [...results.scans].sort((a, b) => b.scanDate.localeCompare(a.scanDate))[0]?.id
+  // Significant scans are three kinds only: the latest study, the anomaly scan
+  // (TIFFA), and any a clinician flagged as abnormal. Whether a scan is
+  // abnormal is her call, never this screen's (PRD §3).
+  const significantScans = results.scans
+    .filter((scan) => scan.id === newestScanId || scan.scanType === 'TIFFA' || scan.isPinned)
+    .sort((a, b) => b.scanDate.localeCompare(a.scanDate))
 
   // EDD by scan: the pregnancy's own dating when that is an ultrasound;
   // otherwise the earliest scan that printed a gestational age — the earliest
@@ -437,467 +443,487 @@ export default async function CockpitPage({ params }: { params: Promise<{ id: st
         </section>
       ) : null}
 
-      <ConsultationDraftProvider>
-        <DiagnosticReports
-          reports={reports}
-          queries={queries}
-          canDecide={canDecide}
-          canAddress={canDecide}
-          blockedReason={blockedReason}
-          upload={
-            roleHasPermission(actor.role, 'upload.create')
-              ? { patientId: patient.id, pregnancyId: pregnancy.id, visitId: openVisit?.id ?? null }
-              : null
-          }
-        />
-
-        <div className="flex flex-col gap-2.5">
-          {/* Ongoing medication, in the prescription pad's own notation. */}
-          <Accordion
-            title="Active medication"
-            summary={`${ongoing.length} active`}
-            icon={<PillIcon className="h-4.75 w-4.75" />}
-            isEmpty={ongoing.length === 0}
-            emptyMessage={
-              roleHasPermission(actor.role, 'prescription.read')
-                ? 'Nothing currently prescribed.'
-                : 'Prescriptions are visible to the consulting doctor.'
-            }
-          >
-            <div className="overflow-x-auto rounded-lg border border-slate-200/70">
-              <table className="numeric w-full min-w-[560px] border-collapse text-left text-xs">
-                <thead className="bg-slate-50 text-[10.5px] font-semibold tracking-wide text-slate-500 uppercase">
-                  <tr>
-                    <th className="px-2.5 py-1.5">Drug</th>
-                    <th className="px-2.5 py-1.5">Dosing</th>
-                    <th className="px-2.5 py-1.5">Food</th>
-                    <th className="px-2.5 py-1.5">Duration</th>
-                    <th className="px-2.5 py-1.5">Since</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {ongoing.map((prescription) => (
-                    <tr key={prescription.id} className="border-t border-slate-100 bg-white">
-                      <td className="px-2.5 py-1.5 font-semibold text-slate-900">{formatDrug(prescription)}</td>
-                      <td className="px-2.5 py-1.5" title={describeFrequency(prescription.frequency)}>
-                        <span className="rounded bg-brand-50 px-1.5 py-0.5 font-bold text-brand-800">
-                          {formatDosing(prescription.frequency)}
-                        </span>
-                      </td>
-                      <td className="px-2.5 py-1.5 text-slate-600">
-                        {describeFoodRelation(prescription.foodRelation) ?? '—'}
-                      </td>
-                      <td className="px-2.5 py-1.5 text-slate-600">
-                        {prescription.durationDays !== null ? `${prescription.durationDays} days` : '—'}
-                      </td>
-                      <td className="px-2.5 py-1.5 text-slate-500">{prescription.startDate}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </Accordion>
-
-          {/* Chief complaints sit here, above the record, but commit with Save & Next:
-              the hidden field is tied to the consultation <form> by its id. */}
-          {openVisit && canSave ? (
-            <ChiefComplaintsSection formId={CONSULTATION_FORM_ID} current={openVisit.chiefComplaints} />
-          ) : (
-            <Accordion title="Chief complaints" icon={<MessageSquareText className="h-4.75 w-4.75" />}>
-              <p className="text-xs text-slate-600">
-                {!openVisit
-                  ? 'Chief complaints are recorded against today’s consultation. Start it to record them.'
-                  : 'Recording chief complaints is part of the doctor’s consultation.'}
-              </p>
-            </Accordion>
-          )}
-
-          {/* Significant labs: what a clinician flagged. The trend still draws
-              on every verified value, pinned or not. */}
-          <Accordion
-            title="Significant blood & urine reports"
-            summary={`${significantLabs.length} flagged · ${labs.length} verified`}
-            icon={<Activity className="h-4.75 w-4.75" />}
-            defaultOpen
-          >
-            <div className="flex flex-col gap-2.5">
-              <StagedSignificant reports={reports} kind="LAB" />
-              {flagger('REPORTS')}
-              {labs.length === 0 ? <p className="text-xs text-slate-500">No verified results yet.</p> : null}
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-start">
-                {hbTrend || afiTrend || bpTrend || sdpTrend || efwTrend || acTrend || glucoseTrends.length > 0 ? (
-                  <div className="flex flex-col gap-3 flex-1 w-full">
-                    {hbTrend ? (
-                      <div className="w-full rounded-lg border border-slate-200/60 bg-slate-50/70 p-3">
-                        <p className="font-heading mb-1.5 text-[11px] font-semibold tracking-wider text-slate-700 uppercase">
-                          {hbTrend.testName} trajectory
-                        </p>
-                        <Sparkline series={hbTrend} threshold={11.0} thresholdLabel="Normal ≥ 11 g/dL" />
-                        <p className="mt-1.5 text-[11px] text-slate-500">Every verified value in this pregnancy, flagged or not.</p>
-                      </div>
-                    ) : null}
-
-                    {afiTrend ? (
-                      <div className="w-full rounded-lg border border-slate-200/60 bg-slate-50/70 p-3">
-                        <p className="font-heading mb-1.5 text-[11px] font-semibold tracking-wider text-slate-700 uppercase">
-                          {afiTrend.testName} trajectory
-                        </p>
-                        <Sparkline series={afiTrend} threshold={5} thresholdLabel="Normal ≥ 5 cm" />
-                        <p className="mt-1.5 text-[11px] text-slate-500">Every verified AFI in this pregnancy, mapped from scans.</p>
-                      </div>
-                    ) : null}
-
-                    {sdpTrend ? (
-                      <div className="w-full rounded-lg border border-slate-200/60 bg-slate-50/70 p-3">
-                        <p className="font-heading mb-1.5 text-[11px] font-semibold tracking-wider text-slate-700 uppercase">
-                          {sdpTrend.testName} trajectory
-                        </p>
-                        <Sparkline series={sdpTrend} threshold={2} thresholdLabel="Normal ≥ 2 cm" />
-                        <p className="mt-1.5 text-[11px] text-slate-500">Every verified Single Deepest Pocket mapped from scans.</p>
-                      </div>
-                    ) : null}
-
-                    {bpTrend ? (
-                      <div className="w-full rounded-lg border border-slate-200/60 bg-slate-50/70 p-3">
-                        <p className="font-heading mb-1.5 text-[11px] font-semibold tracking-wider text-slate-700 uppercase">
-                          {bpTrend.testName} trajectory
-                        </p>
-                        <Sparkline series={bpTrend} threshold={140} thresholdLabel="Normal < 140 mmHg" />
-                        <p className="mt-1.5 text-[11px] text-slate-500">Systolic Blood Pressure across this pregnancy&apos;s visits.</p>
-                      </div>
-                    ) : null}
-
-                    {efwTrend ? (
-                      <div className="w-full rounded-lg border border-slate-200/60 bg-slate-50/70 p-3">
-                        <p className="font-heading mb-1.5 text-[11px] font-semibold tracking-wider text-slate-700 uppercase">
-                          {efwTrend.testName} trajectory
-                        </p>
-                        <Sparkline series={efwTrend} threshold={10} thresholdLabel="Normal ≥ 10th centile" />
-                        <p className="mt-1.5 text-[11px] text-slate-500">Estimated Fetal Weight percentiles mapped from scans.</p>
-                      </div>
-                    ) : null}
-
-                    {acTrend ? (
-                      <div className="w-full rounded-lg border border-slate-200/60 bg-slate-50/70 p-3">
-                        <p className="font-heading mb-1.5 text-[11px] font-semibold tracking-wider text-slate-700 uppercase">
-                          Abdominal Circumference trajectory
-                        </p>
-                        <Sparkline series={acTrend} threshold={10} thresholdLabel="Normal ≥ 10th centile" />
-                        <p className="mt-1.5 text-[11px] text-slate-500">Abdominal Circumference percentiles mapped from observations.</p>
-                      </div>
-                    ) : null}
-
-                    {glucoseTrends.map(t => (
-                      <div key={t.testCode} className="w-full rounded-lg border border-slate-200/60 bg-slate-50/70 p-3">
-                        <p className="font-heading mb-1.5 text-[11px] font-semibold tracking-wider text-slate-700 uppercase">
-                          {t.testName} trajectory
-                        </p>
-                        <Sparkline 
-                          series={t} 
-                          threshold={t.testCode.toLowerCase().includes('hba1c') ? 6.5 : (t.testCode.toLowerCase() === 'fbs' ? 95 : 140)} 
-                          thresholdLabel={t.testCode.toLowerCase().includes('hba1c') ? "Normal < 6.5 %" : (t.testCode.toLowerCase() === 'fbs' ? "Normal < 95 mg/dL" : "Normal < 140 mg/dL")}
-                        />
-                        <p className="mt-1.5 text-[11px] text-slate-500">Every verified value in this pregnancy for this glucose metric.</p>
-                      </div>
-                    ))}
-                  </div>
-                ) : null}
-
-                <div className="flex-1 w-full flex flex-col gap-2">
-                  <ViewAllList
-                    noun="results"
-                    items={labs.map((observation) => ({
-                      id: observation.id,
-                      name: observation.testName,
-                      date: observation.observedDate,
-                      node: <LabRow key={observation.id} observation={observation} patientId={patient.id} />,
-                    }))}
-                  />
-
-                  {/* Always on view, flagged or not: the three results the OPD
-                      checks at every antenatal visit. */}
-                  <ul className="grid grid-cols-1 gap-2 md:grid-cols-3" aria-label="Serology">
-                    {serology.map((slot) =>
-                      slot.observation ? (
-                        <LabRow key={slot.label} observation={slot.observation} patientId={patient.id} />
-                      ) : (
-                        <li
-                          key={slot.label}
-                          className="flex items-center justify-between gap-3 rounded border border-dashed border-slate-300 bg-white p-2.5 text-xs"
-                        >
-                          <span className="font-semibold text-slate-900">{slot.label}</span>
-                          <span className="text-[11px] text-slate-400">not on file</span>
-                        </li>
-                      ),
-                    )}
-                  </ul>
-
-                  {significantLabs.length > 0 ? (
-                    <ul className="flex flex-col gap-2">
-                      {significantLabs.map((observation) => (
-                        <LabRow key={observation.id} observation={observation} patientId={patient.id} />
-                      ))}
-                    </ul>
-                  ) : labs.length > 0 ? (
-                    <p className="text-xs text-slate-500">
-                      Nothing flagged as significant yet. Flag a report from the panel above to bring it here.
-                    </p>
-                  ) : null}
-
-                </div>
-              </div>
-            </div>
-          </Accordion>
-
-          <Accordion
-            title="Significant scans (milestones)"
-            summary={`${significantScans.length + flaggedScanFindings.length} flagged · ${results.scans.length} on file`}
-            icon={<Baby className="h-4.75 w-4.75" />}
-            defaultOpen
-          >
-            <div className="flex flex-col gap-2.5">
-              <StagedSignificant reports={reports} kind="SCAN" />
-              {flagger('SCANS')}
-              <ViewAllList
-                noun="scans"
-                layout="grid"
-                items={results.scans.map((scan) => ({
-                  id: scan.id,
-                  name: `${SCAN_TYPE_LABELS[scan.scanType] ?? 'Ultrasound'} ${scan.impression ?? ''}`,
-                  date: scan.scanDate,
-                  // The most recent study is tinted — a statement about recency and nothing else.
-                  node: <ScanRow key={scan.id} scan={scan} isLatest={scan.id === newestScanId} />,
-                }))}
-              />
-              {results.scans.length === 0 && flaggedScanFindings.length === 0 ? (
-                <p className="text-xs text-slate-500">No verified scans yet.</p>
-              ) : significantScans.length === 0 && flaggedScanFindings.length === 0 ? (
-                <p className="text-xs text-slate-500">
-                  No scan flagged as significant yet. Flag one from the panel above, or use View all.
-                </p>
-              ) : null}
-              {significantScans.length > 0 ? (
-                <ul className="grid grid-cols-1 gap-2.5 md:grid-cols-3">
-                  {significantScans.map((scan) => (
-                    <ScanRow key={scan.id} scan={scan} isLatest={scan.id === newestScanId} />
-                  ))}
-                </ul>
-              ) : null}
-              {flaggedScanFindings.length > 0 ? (
-                <div className="rounded-lg border border-slate-200/60 bg-slate-50/60 p-3">
-                  <p className="font-heading mb-1.5 text-[11px] font-semibold tracking-wider text-slate-700 uppercase">
-                    Flagged scan findings
-                  </p>
-                  <ul className="grid grid-cols-1 gap-2 md:grid-cols-2">
-                    {flaggedScanFindings.map((observation) => (
-                      <LabRow key={observation.id} observation={observation} patientId={patient.id} />
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
-            </div>
-          </Accordion>
-
-          <Accordion
-            title="Immunization, marriage & conception"
-            summary={immunizationSummary(history, pregnancy.id)}
-            icon={<Syringe className="h-4.75 w-4.75" />}
-          >
-            <div className="mb-2.5">
-              <PregnancyProfilePanel
-                patientId={patient.id}
-                pregnancy={pregnancy}
-                canEdit={roleHasPermission(actor.role, 'patient.update')}
-              />
-            </div>
-            <ImmunizationPanel
-              patientId={patient.id}
-              pregnancyId={pregnancy.id}
-              records={history.immunizations}
-              canRecord={roleHasPermission(actor.role, 'medication_administration.record')}
-            />
-          </Accordion>
-
-          <Accordion
-            title="Previous obstetric history"
-            summary={`${history.obstetric.length} recorded`}
-            icon={<History className="h-4.75 w-4.75" />}
-          >
-            <ObstetricHistoryPanel
-              patientId={patient.id}
-              history={history.obstetric}
-              canEdit={roleHasPermission(actor.role, 'patient.update')}
-            />
-          </Accordion>
-
-          <Accordion
-            title="Previous menstrual history"
-            summary={
-              history.menstrual[0] ? `last taken ${history.menstrual[0].recordedOn}` : 'not taken'
-            }
-            icon={<CalendarHeart className="h-4.75 w-4.75" />}
-          >
-            <MenstrualHistoryPanel
-              patientId={patient.id}
-              history={history.menstrual}
-              canEdit={roleHasPermission(actor.role, 'patient.update')}
-            />
-          </Accordion>
-
-          <Accordion
-            title="Past history"
-            summary={history.past?.notes ? 'recorded' : 'not recorded'}
-            icon={<ClipboardList className="h-4.75 w-4.75" />}
-          >
-            <PastHistoryPanel
-              patientId={patient.id}
-              past={history.past}
-              canEdit={roleHasPermission(actor.role, 'patient.update')}
-            />
-          </Accordion>
-
-          <Accordion
-            title="Family history"
-            summary={`${history.family.length} recorded`}
-            icon={<Users className="h-4.75 w-4.75" />}
-          >
-            <FamilyHistoryPanel
-              patientId={patient.id}
-              entries={history.family}
-              canEdit={roleHasPermission(actor.role, 'patient.update')}
-            />
-          </Accordion>
-
-          <Accordion
-            title="Birth Preparedness Plan"
-            summary={pregnancy.birthPlan && Object.keys(pregnancy.birthPlan).length > 0 ? 'Recorded' : 'Not recorded'}
-            icon={<ListChecks className="h-4.75 w-4.75" />}
-          >
-            <BirthPlanPanel plan={pregnancy.birthPlan || {}} />
-          </Accordion>
-
-          <Accordion
-            title="Visits this pregnancy"
-            summary={`${visits.length} visits`}
-            icon={<ListChecks className="h-4.75 w-4.75" />}
-            isEmpty={visits.length === 0}
-            emptyMessage="No visits recorded in this pregnancy yet."
-          >
-            <ul className="numeric flex flex-col gap-1">
-              {visits.map((visit) => (
-                <li
-                  key={visit.id}
-                  className="flex flex-wrap items-center gap-2 rounded border border-slate-100 bg-white px-2 py-1.5 text-xs text-slate-700"
-                >
-                  <span className="font-semibold text-slate-900">{visit.occurredAt.slice(0, 10)}</span>
-                  {/* Frozen at save, never recomputed. */}
-                  {visit.gaDaysAtVisit !== null ? (
-                    <span>{formatGestationalAge(splitGestationalAge(visit.gaDaysAtVisit))}</span>
-                  ) : null}
-                  <span className="text-[10px] text-slate-500">{visit.status.toLowerCase()}</span>
-                  {visit.diagnosis ? (
-                    <span className="min-w-0 truncate text-[11px] text-slate-600">· {visit.diagnosis}</span>
-                  ) : null}
-                  {visit.status === 'SAVED' ? (
-                    <div className="no-print ml-auto flex gap-3">
-                      <Link
-                        href={`/clinic/visits/${visit.id}/slip`}
-                        className="text-[11px] font-medium text-brand-600 hover:underline"
-                      >
-                        preview
-                      </Link>
-                      <Link
-                        href={`/clinic/visits/${visit.id}/slip?print=true`}
-                        className="text-[11px] font-medium text-brand-600 hover:underline"
-                      >
-                        print
-                      </Link>
-                    </div>
-                  ) : null}
-                </li>
-              ))}
-            </ul>
-          </Accordion>
-
-          {openVisit && canSave ? (
-            <ConsultationForm
-              visitId={openVisit.id}
-              visitDate={openVisit.occurredAt.slice(0, 10)}
-              expectedVersion={openVisit.version}
-              current={{
-                impression: openVisit.impression,
-                examination: openVisit.examination,
-                diagnosis: openVisit.diagnosis,
-                summary: openVisit.consultationSummary,
-              }}
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-[13rem_minmax(0,1fr)] lg:items-start">
+        <aside className="no-print hidden lg:sticky lg:top-3 lg:block">
+          <SectionNav />
+        </aside>
+        <div className="flex min-w-0 flex-col gap-3">
+          <ConsultationDraftProvider>
+            <DiagnosticReports
               reports={reports}
-              doctors={doctors}
-              priorReferences={references}
-              formId={CONSULTATION_FORM_ID}
-              systemicExamination={openVisit.systemicExamination}
-              ongoing={ongoing}
-              masterPacks={masterPacks}
-              examinationFlagger={flagger('EXAMINATION')}
+              queries={queries}
+              canDecide={canDecide}
+              canAddress={canDecide}
+              blockedReason={blockedReason}
+              upload={
+                roleHasPermission(actor.role, 'upload.create')
+                  ? { patientId: patient.id, pregnancyId: pregnancy.id, visitId: openVisit?.id ?? null }
+                  : null
+              }
             />
-          ) : (
-            <>
+
+            <div className="flex flex-col gap-2.5">
+              {/* Ongoing medication, in the prescription pad's own notation. */}
               <Accordion
-                title="Examination & fresh orders"
-                icon={<NotebookPen className="h-4.75 w-4.75" />}
-                tone="emphasis"
+                title="Active medication"
+                summary={`${ongoing.length} active`}
+                icon={<PillIcon className="h-4.75 w-4.75" />}
+                isEmpty={ongoing.length === 0}
+                emptyMessage={
+                  roleHasPermission(actor.role, 'prescription.read')
+                    ? 'Nothing currently prescribed.'
+                    : 'Prescriptions are visible to the consulting doctor.'
+                }
+              >
+                <div className="overflow-x-auto rounded-lg border border-slate-200/70">
+                  <table className="numeric w-full min-w-[560px] border-collapse text-left text-xs">
+                    <thead className="bg-slate-50 text-[10.5px] font-semibold tracking-wide text-slate-500 uppercase">
+                      <tr>
+                        <th className="px-2.5 py-1.5">Drug</th>
+                        <th className="px-2.5 py-1.5">Dosing</th>
+                        <th className="px-2.5 py-1.5">Food</th>
+                        <th className="px-2.5 py-1.5">Duration</th>
+                        <th className="px-2.5 py-1.5">Since</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {ongoing.map((prescription) => (
+                        <tr key={prescription.id} className="border-t border-slate-100 bg-white">
+                          <td className="px-2.5 py-1.5 font-semibold text-slate-900">{formatDrug(prescription)}</td>
+                          <td className="px-2.5 py-1.5" title={describeFrequency(prescription.frequency)}>
+                            <span className="rounded bg-brand-50 px-1.5 py-0.5 font-bold text-brand-800">
+                              {formatDosing(prescription.frequency)}
+                            </span>
+                          </td>
+                          <td className="px-2.5 py-1.5 text-slate-600">
+                            {describeFoodRelation(prescription.foodRelation) ?? '—'}
+                          </td>
+                          <td className="px-2.5 py-1.5 text-slate-600">
+                            {prescription.durationDays !== null ? `${prescription.durationDays} days` : '—'}
+                          </td>
+                          <td className="px-2.5 py-1.5 text-slate-500">{prescription.startDate}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </Accordion>
+
+              {/* Chief complaints sit here, above the record, but commit with Save & Next:
+                  the hidden field is tied to the consultation <form> by its id. */}
+              {openVisit && canSave ? (
+                <ChiefComplaintsSection formId={CONSULTATION_FORM_ID} current={openVisit.chiefComplaints} />
+              ) : (
+                <Accordion title="Chief complaints" icon={<MessageSquareText className="h-4.75 w-4.75" />}>
+                  <p className="text-xs text-slate-600">
+                    {!openVisit
+                      ? 'Chief complaints are recorded against today’s consultation. Start it to record them.'
+                      : 'Recording chief complaints is part of the doctor’s consultation.'}
+                  </p>
+                </Accordion>
+              )}
+
+              {/* Significant labs: what a clinician flagged. The trend still draws
+                  on every verified value, pinned or not. */}
+              <Accordion
+                title="Significant blood & urine reports"
+                summary={`${significantLabs.length} flagged · ${labs.length} verified`}
+                icon={<Activity className="h-4.75 w-4.75" />}
                 defaultOpen
               >
-                <div className="flex flex-col items-start gap-2.5">
-                  <p className="text-xs leading-relaxed text-slate-600">
-                    {!openVisit
-                      ? 'Examination, diagnosis, prescriptions, orders and the reference to another doctor are recorded against today’s consultation.'
-                      : `Finishing a consultation is a clinician act. Your role (${actor.role.toLowerCase()}) can record vitals, history, immunizations and reports, but not examine, prescribe or refer.`}
-                  </p>
-                  {!openVisit && canOpenVisit ? (
-                    <StartConsultationButton
-                      patientId={patient.id}
-                      pregnancyId={pregnancy.id}
-                      label={canSave ? 'Start today’s consultation' : 'Start today’s visit'}
-                    />
-                  ) : null}
+                <div className="flex flex-col gap-2.5">
+                  <StagedSignificant reports={reports} kind="LAB" />
+                  {flagger('REPORTS')}
+                  {labs.length === 0 ? <p className="text-xs text-slate-500">No verified results yet.</p> : null}
+                  <div className="flex flex-col gap-3 lg:flex-row lg:items-start">
+                    {hbTrend || afiTrend || bpTrend || sdpTrend || efwTrend || acTrend || glucoseTrends.length > 0 ? (
+                      <div className="flex flex-col gap-3 flex-1 w-full">
+                        {hbTrend ? (
+                          <div className="w-full rounded-lg border border-slate-200/60 bg-slate-50/70 p-3">
+                            <p className="font-heading mb-1.5 text-[11px] font-semibold tracking-wider text-slate-700 uppercase">
+                              {hbTrend.testName} trajectory
+                            </p>
+                            <Sparkline series={hbTrend} threshold={11.0} thresholdLabel="Normal ≥ 11 g/dL" />
+                            <p className="mt-1.5 text-[11px] text-slate-500">Every verified value in this pregnancy, flagged or not.</p>
+                          </div>
+                        ) : null}
+
+                        {afiTrend ? (
+                          <div className="w-full rounded-lg border border-slate-200/60 bg-slate-50/70 p-3">
+                            <p className="font-heading mb-1.5 text-[11px] font-semibold tracking-wider text-slate-700 uppercase">
+                              {afiTrend.testName} trajectory
+                            </p>
+                            <Sparkline series={afiTrend} threshold={5} thresholdLabel="Normal ≥ 5 cm" />
+                            <p className="mt-1.5 text-[11px] text-slate-500">Every verified AFI in this pregnancy, mapped from scans.</p>
+                          </div>
+                        ) : null}
+
+                        {sdpTrend ? (
+                          <div className="w-full rounded-lg border border-slate-200/60 bg-slate-50/70 p-3">
+                            <p className="font-heading mb-1.5 text-[11px] font-semibold tracking-wider text-slate-700 uppercase">
+                              {sdpTrend.testName} trajectory
+                            </p>
+                            <Sparkline series={sdpTrend} threshold={2} thresholdLabel="Normal ≥ 2 cm" />
+                            <p className="mt-1.5 text-[11px] text-slate-500">Every verified Single Deepest Pocket mapped from scans.</p>
+                          </div>
+                        ) : null}
+
+                        {bpTrend ? (
+                          <div className="w-full rounded-lg border border-slate-200/60 bg-slate-50/70 p-3">
+                            <p className="font-heading mb-1.5 text-[11px] font-semibold tracking-wider text-slate-700 uppercase">
+                              {bpTrend.testName} trajectory
+                            </p>
+                            <Sparkline series={bpTrend} threshold={140} thresholdLabel="Normal < 140 mmHg" />
+                            <p className="mt-1.5 text-[11px] text-slate-500">Systolic Blood Pressure across this pregnancy&apos;s visits.</p>
+                          </div>
+                        ) : null}
+
+                        {efwTrend ? (
+                          <div className="w-full rounded-lg border border-slate-200/60 bg-slate-50/70 p-3">
+                            <p className="font-heading mb-1.5 text-[11px] font-semibold tracking-wider text-slate-700 uppercase">
+                              {efwTrend.testName} trajectory
+                            </p>
+                            <Sparkline series={efwTrend} threshold={10} thresholdLabel="Normal ≥ 10th centile" />
+                            <p className="mt-1.5 text-[11px] text-slate-500">Estimated Fetal Weight percentiles mapped from scans.</p>
+                          </div>
+                        ) : null}
+
+                        {acTrend ? (
+                          <div className="w-full rounded-lg border border-slate-200/60 bg-slate-50/70 p-3">
+                            <p className="font-heading mb-1.5 text-[11px] font-semibold tracking-wider text-slate-700 uppercase">
+                              Abdominal Circumference trajectory
+                            </p>
+                            <Sparkline series={acTrend} threshold={10} thresholdLabel="Normal ≥ 10th centile" />
+                            <p className="mt-1.5 text-[11px] text-slate-500">Abdominal Circumference percentiles mapped from observations.</p>
+                          </div>
+                        ) : null}
+
+                        {glucoseTrends.map(t => (
+                          <div key={t.testCode} className="w-full rounded-lg border border-slate-200/60 bg-slate-50/70 p-3">
+                            <p className="font-heading mb-1.5 text-[11px] font-semibold tracking-wider text-slate-700 uppercase">
+                              {t.testName} trajectory
+                            </p>
+                            <Sparkline 
+                              series={t} 
+                              threshold={t.testCode.toLowerCase().includes('hba1c') ? 6.5 : (t.testCode.toLowerCase() === 'fbs' ? 95 : 140)} 
+                              thresholdLabel={t.testCode.toLowerCase().includes('hba1c') ? "Normal < 6.5 %" : (t.testCode.toLowerCase() === 'fbs' ? "Normal < 95 mg/dL" : "Normal < 140 mg/dL")}
+                            />
+                            <p className="mt-1.5 text-[11px] text-slate-500">Every verified value in this pregnancy for this glucose metric.</p>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+
+                    <div className="flex-1 w-full flex flex-col gap-2">
+                      <ViewAllList
+                        noun="results"
+                        items={labs.map((observation) => ({
+                          id: observation.id,
+                          name: observation.testName,
+                          date: observation.observedDate,
+                          node: <LabRow key={observation.id} observation={observation} patientId={patient.id} />,
+                        }))}
+                      />
+
+                      {/* Always on view, flagged or not: the three results the OPD
+                          checks at every antenatal visit. */}
+                      <ul className="grid grid-cols-1 gap-2 md:grid-cols-3" aria-label="Serology">
+                        {serology.map((slot) =>
+                          slot.observation ? (
+                            <LabRow key={slot.label} observation={slot.observation} patientId={patient.id} />
+                          ) : (
+                            <li
+                              key={slot.label}
+                              className="flex items-center justify-between gap-3 rounded border border-dashed border-slate-300 bg-white p-2.5 text-xs"
+                            >
+                              <span className="font-semibold text-slate-900">{slot.label}</span>
+                              <span className="text-[11px] text-slate-400">not on file</span>
+                            </li>
+                          ),
+                        )}
+                      </ul>
+
+                      {significantLabs.length > 0 ? (
+                        <ul className="flex flex-col gap-2">
+                          {significantLabs.map((observation) => (
+                            <LabRow key={observation.id} observation={observation} patientId={patient.id} />
+                          ))}
+                        </ul>
+                      ) : labs.length > 0 ? (
+                        <p className="text-xs text-slate-500">
+                          Nothing flagged as significant yet. Flag a report from the panel above to bring it here.
+                        </p>
+                      ) : null}
+
+                    </div>
+                  </div>
                 </div>
               </Accordion>
+
               <Accordion
-                title="Reference — refer to a doctor"
-                icon={<Send className="h-4.5 w-4.5" />}
-                summary={references.length > 0 ? `${references.length} earlier` : undefined}
+                title="Significant scans (milestones)"
+                summary={`${significantScans.length} shown · ${results.scans.length} on file`}
+                icon={<Baby className="h-4.75 w-4.75" />}
+                defaultOpen
               >
-                <div className="flex flex-col gap-2">
-                  {canSave ? (
-                    <p className="text-xs text-slate-600">
-                      Start today’s consultation to refer her to a registered doctor or an outside
-                      specialist; the reference is saved with it.
-                    </p>
-                  ) : null}
-                  {references.length === 0 ? (
-                    <p className="text-xs text-slate-500">No references in this pregnancy.</p>
+                <div className="flex flex-col gap-2.5">
+                  <StagedSignificant reports={reports} kind="SCAN" />
+                  {flagger('SCANS')}
+                  <ViewAllList
+                    noun="scans"
+                    layout="grid"
+                    items={results.scans.map((scan) => ({
+                      id: scan.id,
+                      name: `${SCAN_TYPE_LABELS[scan.scanType] ?? 'Ultrasound'} ${scan.impression ?? ''}`,
+                      date: scan.scanDate,
+                      // The most recent study is tinted — a statement about recency and nothing else.
+                      node: <ScanRow key={scan.id} scan={scan} isLatest={scan.id === newestScanId} />,
+                    }))}
+                  />
+                  {results.scans.length === 0 && flaggedScanFindings.length === 0 ? (
+                    <p className="text-xs text-slate-500">No verified scans yet.</p>
                   ) : (
-                    <ul className="flex flex-col gap-1.5">
-                      {references.map((ref) => (
-                        <li key={ref.id} className="rounded border border-slate-100 bg-slate-50 px-2.5 py-1.5 text-xs">
-                          <span className="font-semibold text-slate-900">
-                            {ref.recipient.kind === 'COLLEAGUE'
-                              ? (ref.recipient.displayName ?? 'Registered doctor')
-                              : ref.recipient.name}
-                          </span>
-                          {ref.specialty ? <span className="text-slate-500"> · {ref.specialty}</span> : null}
-                          <span className="numeric ml-2 text-[10px] text-slate-500">{ref.createdAt.slice(0, 10)}</span>
-                          <p className="mt-0.5 text-[11px] text-slate-600">{ref.reason}</p>
-                        </li>
+                    <p className="text-[11px] text-slate-500">
+                      The latest scan, the anomaly scan, and scans flagged as abnormal. Everything else is in View all.
+                    </p>
+                  )}
+                  {significantScans.length > 0 ? (
+                    <ul className="grid grid-cols-1 gap-2.5 md:grid-cols-3">
+                      {significantScans.map((scan) => (
+                        <ScanRow key={scan.id} scan={scan} isLatest={scan.id === newestScanId} />
                       ))}
                     </ul>
-                  )}
+                  ) : null}
+                  {flaggedScanFindings.length > 0 ? (
+                    <div className="rounded-lg border border-slate-200/60 bg-slate-50/60 p-3">
+                      <p className="font-heading mb-1.5 text-[11px] font-semibold tracking-wider text-slate-700 uppercase">
+                        Flagged scan findings
+                      </p>
+                      <ul className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                        {flaggedScanFindings.map((observation) => (
+                          <LabRow key={observation.id} observation={observation} patientId={patient.id} />
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
                 </div>
               </Accordion>
-            </>
-          )}
+
+              <Accordion
+                title="Immunization, marriage & conception"
+                summary={immunizationSummary(history, pregnancy.id)}
+                icon={<Syringe className="h-4.75 w-4.75" />}
+              >
+                <div className="mb-2.5">
+                  <PregnancyProfilePanel
+                    patientId={patient.id}
+                    pregnancy={pregnancy}
+                    canEdit={roleHasPermission(actor.role, 'patient.update')}
+                  />
+                </div>
+                <ImmunizationPanel
+                  patientId={patient.id}
+                  pregnancyId={pregnancy.id}
+                  records={history.immunizations}
+                  canRecord={roleHasPermission(actor.role, 'medication_administration.record')}
+                />
+              </Accordion>
+
+              <Accordion
+                title="Previous obstetric history"
+                summary={`${history.obstetric.length} recorded`}
+                flagCount={history.obstetric.filter((entry) => entry.flagged).length}
+                icon={<History className="h-4.75 w-4.75" />}
+              >
+                <ObstetricHistoryPanel
+                  patientId={patient.id}
+                  history={history.obstetric}
+                  canEdit={roleHasPermission(actor.role, 'patient.update')}
+                />
+              </Accordion>
+
+              <Accordion
+                title="Previous menstrual history"
+                summary={
+                  history.menstrual[0] ? `last taken ${history.menstrual[0].recordedOn}` : 'not taken'
+                }
+                flagCount={history.menstrual.filter((entry) => entry.flagged).length}
+                icon={<CalendarHeart className="h-4.75 w-4.75" />}
+              >
+                <MenstrualHistoryPanel
+                  patientId={patient.id}
+                  history={history.menstrual}
+                  canEdit={roleHasPermission(actor.role, 'patient.update')}
+                />
+              </Accordion>
+
+              <Accordion
+                title="Past history"
+                summary={history.past?.notes ? 'recorded' : 'not recorded'}
+                flagCount={history.past?.flagged ? 1 : 0}
+                icon={<ClipboardList className="h-4.75 w-4.75" />}
+              >
+                <PastHistoryPanel
+                  patientId={patient.id}
+                  past={history.past}
+                  canEdit={roleHasPermission(actor.role, 'patient.update')}
+                />
+              </Accordion>
+
+              <Accordion
+                title="Family history"
+                summary={`${history.family.length} recorded`}
+                flagCount={history.family.filter((entry) => entry.flagged).length}
+                icon={<Users className="h-4.75 w-4.75" />}
+              >
+                <FamilyHistoryPanel
+                  patientId={patient.id}
+                  entries={history.family}
+                  canEdit={roleHasPermission(actor.role, 'patient.update')}
+                />
+              </Accordion>
+
+              <Accordion
+                title="Birth Preparedness Plan"
+                summary={pregnancy.birthPlan && Object.keys(pregnancy.birthPlan).length > 0 ? 'Recorded' : 'Not recorded'}
+                icon={<ListChecks className="h-4.75 w-4.75" />}
+              >
+                <BirthPlanPanel
+                  patientId={patient.id}
+                  pregnancyId={pregnancy.id}
+                  version={pregnancy.version}
+                  plan={pregnancy.birthPlan || {}}
+                  canEdit={roleHasPermission(actor.role, 'patient.update')}
+                />
+              </Accordion>
+
+              <Accordion
+                title="Visits this pregnancy"
+                summary={`${visits.length} visits`}
+                icon={<ListChecks className="h-4.75 w-4.75" />}
+                isEmpty={visits.length === 0}
+                emptyMessage="No visits recorded in this pregnancy yet."
+              >
+                <ul className="numeric flex flex-col gap-1">
+                  {visits.map((visit) => (
+                    <li
+                      key={visit.id}
+                      className="flex flex-wrap items-center gap-2 rounded border border-slate-100 bg-white px-2 py-1.5 text-xs text-slate-700"
+                    >
+                      <span className="font-semibold text-slate-900">{visit.occurredAt.slice(0, 10)}</span>
+                      {/* Frozen at save, never recomputed. */}
+                      {visit.gaDaysAtVisit !== null ? (
+                        <span>{formatGestationalAge(splitGestationalAge(visit.gaDaysAtVisit))}</span>
+                      ) : null}
+                      <span className="text-[10px] text-slate-500">{visit.status.toLowerCase()}</span>
+                      {visit.diagnosis ? (
+                        <span className="min-w-0 truncate text-[11px] text-slate-600">· {visit.diagnosis}</span>
+                      ) : null}
+                      {visit.status === 'SAVED' ? (
+                        <div className="no-print ml-auto flex gap-3">
+                          <Link
+                            href={`/clinic/visits/${visit.id}/slip`}
+                            className="text-[11px] font-medium text-brand-600 hover:underline"
+                          >
+                            preview
+                          </Link>
+                          <Link
+                            href={`/clinic/visits/${visit.id}/slip?print=true`}
+                            className="text-[11px] font-medium text-brand-600 hover:underline"
+                          >
+                            print
+                          </Link>
+                        </div>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              </Accordion>
+
+              {openVisit && canSave ? (
+                <ConsultationForm
+                  visitId={openVisit.id}
+                  visitDate={openVisit.occurredAt.slice(0, 10)}
+                  expectedVersion={openVisit.version}
+                  current={{
+                    impression: openVisit.impression,
+                    examination: openVisit.examination,
+                    diagnosis: openVisit.diagnosis,
+                  }}
+                  reports={reports}
+                  doctors={doctors}
+                  priorReferences={references}
+                  formId={CONSULTATION_FORM_ID}
+                  systemicExamination={openVisit.systemicExamination}
+                  ongoing={ongoing}
+                  masterPacks={masterPacks}
+                  examinationFlagger={flagger('EXAMINATION')}
+                  vitals={<VitalsPanel latestVitals={latestVitals} baselineWeightKg={baselineWeightKg} />}
+                />
+              ) : (
+                <>
+                  <Accordion
+                    title="Examination & fresh orders"
+                    icon={<NotebookPen className="h-4.75 w-4.75" />}
+                    tone="emphasis"
+                    defaultOpen
+                  >
+                    <div className="flex flex-col items-start gap-2.5">
+                      <div className="w-full">
+                        <VitalsPanel latestVitals={latestVitals} baselineWeightKg={baselineWeightKg} />
+                      </div>
+                      <p className="text-xs leading-relaxed text-slate-600">
+                        {!openVisit
+                          ? 'Examination, diagnosis, prescriptions, orders and the reference to another doctor are recorded against today’s consultation.'
+                          : `Finishing a consultation is a clinician act. Your role (${actor.role.toLowerCase()}) can record vitals, history, immunizations and reports, but not examine, prescribe or refer.`}
+                      </p>
+                      {!openVisit && canOpenVisit ? (
+                        <StartConsultationButton
+                          patientId={patient.id}
+                          pregnancyId={pregnancy.id}
+                          label={canSave ? 'Start today’s consultation' : 'Start today’s visit'}
+                        />
+                      ) : null}
+                    </div>
+                  </Accordion>
+                  <Accordion
+                    title="Reference — refer to a doctor"
+                    icon={<Send className="h-4.5 w-4.5" />}
+                    summary={references.length > 0 ? `${references.length} earlier` : undefined}
+                  >
+                    <div className="flex flex-col gap-2">
+                      {canSave ? (
+                        <p className="text-xs text-slate-600">
+                          Start today’s consultation to refer her to a registered doctor or an outside
+                          specialist; the reference is saved with it.
+                        </p>
+                      ) : null}
+                      {references.length === 0 ? (
+                        <p className="text-xs text-slate-500">No references in this pregnancy.</p>
+                      ) : (
+                        <ul className="flex flex-col gap-1.5">
+                          {references.map((ref) => (
+                            <li key={ref.id} className="rounded border border-slate-100 bg-slate-50 px-2.5 py-1.5 text-xs">
+                              <span className="font-semibold text-slate-900">
+                                {ref.recipient.kind === 'COLLEAGUE'
+                                  ? (ref.recipient.displayName ?? 'Registered doctor')
+                                  : ref.recipient.name}
+                              </span>
+                              {ref.specialty ? <span className="text-slate-500"> · {ref.specialty}</span> : null}
+                              <span className="numeric ml-2 text-[10px] text-slate-500">{ref.createdAt.slice(0, 10)}</span>
+                              <p className="mt-0.5 text-[11px] text-slate-600">{ref.reason}</p>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  </Accordion>
+                </>
+              )}
+            </div>
+          </ConsultationDraftProvider>
         </div>
-      </ConsultationDraftProvider>
+      </div>
     </Shell>
   )
 }
@@ -1053,12 +1079,6 @@ function LabRow({ observation, patientId }: { observation: Observation; patientI
       <span className="min-w-0">
         <span className="flex items-center gap-1.5 font-semibold text-slate-900">
           <span className="truncate">{observation.testName}</span>
-          {observation.isPinned ? (
-            <Star
-              className="h-3.5 w-3.5 shrink-0 fill-caution-600 text-caution-600"
-              aria-label="flagged to the cockpit by a clinician"
-            />
-          ) : null}
         </span>
         <span className="flex items-center gap-2 text-[11px] text-slate-500">
           {observation.observedDate}
@@ -1113,9 +1133,6 @@ function ScanRow({ scan, isLatest }: { scan: ScanReport; isLatest: boolean }) {
       <div className="flex items-center justify-between gap-2">
         <span className={`numeric flex items-center gap-1.5 font-bold ${isLatest ? 'text-brand-800' : 'text-slate-900'}`}>
           <span className="truncate">{SCAN_TYPE_LABELS[scan.scanType] ?? 'Ultrasound'}</span>
-          {scan.isPinned ? (
-            <Star className="h-3.5 w-3.5 shrink-0 fill-caution-600 text-caution-600" aria-label="pinned to the cockpit by a clinician" />
-          ) : null}
         </span>
         {isLatest ? (
           <span className="numeric shrink-0 rounded bg-brand-800 px-1.5 text-[10px] font-bold text-white">Latest</span>
@@ -1168,7 +1185,7 @@ function NavChip<TRoute>({
 
 function Shell({ children }: { children: React.ReactNode }) {
   // Wide and dense: this is a 1080p+ clinical screen.
-  return <main className="mx-auto flex w-full max-w-7xl flex-col gap-3 p-3 sm:p-5">{children}</main>
+  return <main className="mx-auto flex w-full max-w-[90rem] flex-col gap-3 p-3 sm:p-5">{children}</main>
 }
 
 function Panel({ children }: { children: React.ReactNode }) {

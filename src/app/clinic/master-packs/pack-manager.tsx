@@ -316,7 +316,7 @@ export function PackContents({ pack }: { pack: MasterPack }) {
           {pack.medicines.map((line, i) => (
             <li key={i}>
               <span className="font-semibold text-slate-900">
-                {line.form ? `${line.form}. ` : ''}
+                {line.form ? `${line.form} ` : ''}
                 {line.medicineName}
                 {line.doseAmount !== null ? ` ${line.doseAmount} ${line.doseUnit}` : ''}
               </span>
@@ -407,7 +407,7 @@ function PackEditor({ draft, onChange }: { draft: Draft; onChange: (patch: Parti
                 className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[10.5px] font-medium text-slate-700 hover:border-brand-300 hover:bg-brand-50 hover:text-brand-800 disabled:cursor-default disabled:border-brand-200 disabled:bg-brand-100 disabled:text-brand-800"
               >
                 {added ? '✓ ' : '+ '}
-                {item.form}. {item.medicineName}
+                {item.form} {item.medicineName}
               </button>
             )
           })}

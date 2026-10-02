@@ -1,4 +1,4 @@
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, Flag } from 'lucide-react'
 
 /**
  * A cockpit accordion (PRD F5).
@@ -39,6 +39,11 @@ const PILL_STYLES: Record<PillTone, string> = {
   alert: 'border-alert-200 bg-alert-50 text-alert-700',
 }
 
+/** The anchor a section is reached by, from its title: "Past history" → "sec-past-history". */
+export function sectionId(title: string): string {
+  return `sec-${title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}`
+}
+
 export function Accordion({
   title,
   summary,
@@ -49,6 +54,7 @@ export function Accordion({
   defaultOpen = false,
   emptyMessage,
   isEmpty = false,
+  flagCount = 0,
   children,
 }: {
   title: string
@@ -64,12 +70,21 @@ export function Accordion({
   /** Shown instead of children when there is nothing to list. */
   emptyMessage?: string
   isEmpty?: boolean
+  /**
+   * Entries inside that a clinician flagged. Shown in red beside the title,
+   * open or collapsed, so a flagged history is never hidden behind a fold.
+   */
+  flagCount?: number
   children: React.ReactNode
 }) {
   const emphasis = tone === 'emphasis'
 
   return (
     <details
+      id={sectionId(title)}
+      // Read by the section list on the left of the cockpit (section-nav.tsx).
+      data-section={title}
+      data-flags={flagCount}
       // `open` on a server-rendered <details> is the initial state, not a
       // controlled prop — the browser takes over once the user clicks.
       open={defaultOpen}
@@ -117,6 +132,13 @@ export function Accordion({
               }`}
             >
               {summary}
+            </span>
+          ) : null}
+
+          {flagCount > 0 ? (
+            <span className="numeric inline-flex shrink-0 items-center gap-1 rounded border border-alert-200 bg-alert-50 px-2 py-0.5 text-[11px] font-bold text-alert-700">
+              <Flag aria-hidden className="h-3 w-3 fill-alert-600 text-alert-600" />
+              {flagCount} flagged
             </span>
           ) : null}
         </span>

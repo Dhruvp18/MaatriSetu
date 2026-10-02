@@ -11,6 +11,7 @@ import {
   RemoveFamilyHistorySchema,
   SaveFamilyHistorySchema,
   SavePastHistorySchema,
+  SetHistoryFlagSchema,
   SaveMenstrualHistorySchema,
   SaveObstetricHistorySchema,
 } from './history.schema'
@@ -209,5 +210,22 @@ export async function savePastHistory(actor: ActorContext, input: unknown): Prom
     patientId: parsed.data.patientId,
     expectedVersion: parsed.data.expectedVersion,
     notes: parsed.data.notes?.trim() || null,
+  })
+}
+
+/** Flag a history entry for attention, or clear the flag. */
+export async function setHistoryFlag(actor: ActorContext, input: unknown): Promise<void> {
+  requirePermission(actor, 'patient.update')
+
+  const parsed = SetHistoryFlagSchema.safeParse(input)
+  if (!parsed.success) {
+    throw validation('This flag could not be saved.', parsed.error.issues)
+  }
+
+  await repo.setHistoryFlag(serviceClient(), {
+    clinicId: actor.clinicId,
+    actorStaffUserId: actor.staffUserId,
+    requestId: actor.requestId,
+    ...parsed.data,
   })
 }

@@ -208,7 +208,9 @@ function summarise(reading: VitalsReading): string {
   if (reading.urineAlbumin) {
     parts.push(`Albumin ${DIPSTICK_LABELS[reading.urineAlbumin] ?? reading.urineAlbumin}`)
   }
-  if (reading.urineSugar) {
+  if (reading.urineSugarMgDl !== null) {
+    parts.push(`Sugar ${reading.urineSugarMgDl} mg/dL`)
+  } else if (reading.urineSugar) {
     parts.push(`Sugar ${DIPSTICK_LABELS[reading.urineSugar] ?? reading.urineSugar}`)
   }
 

@@ -20,6 +20,7 @@ import {
 } from '@modules/history/history.types'
 
 import { saveMenstrualHistoryAction } from './history-actions'
+import { HistoryFlag } from './history-flag'
 import { Detail, FIELD, Field, MultiWithNone, Section, YesNoRow, toIntOrNull } from './history-fields'
 
 /**
@@ -68,11 +69,21 @@ export function MenstrualHistoryPanel({
         <>
           <ul className="flex flex-col gap-1.5">
             {history.map((entry) => (
-              <li key={entry.id}>
+              <li key={entry.id} className="flex items-center gap-1.5">
+                <HistoryFlag
+                  patientId={patientId}
+                  kind="MENSTRUAL"
+                  entryId={entry.id}
+                  flagged={entry.flagged}
+                  canEdit={canEdit}
+                  label={`menstrual history taken ${entry.recordedOn}`}
+                />
                 <button
                   type="button"
                   onClick={() => setViewing(entry)}
-                  className="group flex w-full flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-xs transition-colors hover:border-brand-200 hover:bg-brand-50/40"
+                  className={`group flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border px-3 py-2 text-left text-xs transition-colors hover:border-brand-200 hover:bg-brand-50/40 ${
+                    entry.flagged ? 'border-alert-200 bg-alert-50/50' : 'border-slate-200 bg-white'
+                  }`}
                 >
                   <span className="numeric font-bold text-brand-800">{entry.recordedOn}</span>
                   <span className="numeric text-slate-700">LMP {entry.lmp ?? '—'}</span>

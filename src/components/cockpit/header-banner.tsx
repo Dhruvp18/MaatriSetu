@@ -23,7 +23,8 @@ import type { VitalsReading } from '@modules/visits/visit.types'
  *
  * Left: her blood group, colour-coded, then who she is — name, age, record
  * line, weight. Right: where this pregnancy is (GPLA, POG) and what must not be
- * missed. Under a hairline: today's vitals.
+ * missed. Today's vitals are in the Examination section (vitals-panel.tsx);
+ * the banner keeps only the weight line.
  *
  * ---------------------------------------------------------------------------
  * Blood group colours
@@ -230,53 +231,6 @@ export function HeaderBanner({
           {flaggedDiagnoses}
         </div>
       </div>
-
-      {latestVitals ? (
-        <div className="mt-3 grid grid-cols-2 gap-2 border-t border-slate-100 pt-3 text-xs sm:grid-cols-4 lg:grid-cols-6">
-          <Tile label="BP">
-            {latestVitals.bloodPressure ? (
-              <>
-                {latestVitals.bloodPressure.systolicMmHg}/{latestVitals.bloodPressure.diastolicMmHg} <Unit>mmHg</Unit>
-              </>
-            ) : null}
-          </Tile>
-          <Tile label="Pulse">
-            {latestVitals.pulseBpm !== null ? (
-              <>
-                {latestVitals.pulseBpm} <Unit>bpm</Unit>
-              </>
-            ) : null}
-          </Tile>
-          <Tile label="Weight">
-            {latestVitals.weightKg !== null && weight ? (
-              <>
-                {weight.text.replace(/ kg$/, '')} <Unit>kg</Unit>
-              </>
-            ) : null}
-          </Tile>
-          <Tile label="FHR" accent>
-            {latestVitals.fetalHeartRateBpm !== null ? (
-              <>
-                {latestVitals.fetalHeartRateBpm} <Unit>bpm</Unit>
-              </>
-            ) : null}
-          </Tile>
-          <Tile label="Fundal ht">
-            {latestVitals.fundalHeightCm !== null ? (
-              <>
-                {latestVitals.fundalHeightCm} <Unit>cm</Unit>
-              </>
-            ) : null}
-          </Tile>
-          <Tile label="Urine alb.">
-            {latestVitals.urineAlbumin !== null ? latestVitals.urineAlbumin.toLowerCase() : null}
-          </Tile>
-        </div>
-      ) : (
-        <p className="mt-3 border-t border-slate-100 pt-3 text-xs text-slate-500">
-          No vitals recorded at this visit yet.
-        </p>
-      )}
     </header>
   )
 }
@@ -345,35 +299,11 @@ function Dot() {
   )
 }
 
-/**
- * One cell of the vitals ribbon. A reading never taken prints as an em-dash
- * rather than vanishing — a six-tile grid that silently becomes four is how a
- * clinician comes away believing a blood pressure was recorded.
- */
-function Tile({ label, accent = false, children }: { label: string; accent?: boolean; children: React.ReactNode }) {
-  const recorded = children !== null && children !== undefined && children !== false
-
-  return (
-    <div className="flex items-center justify-between gap-2 rounded border border-slate-200/60 bg-slate-50/80 px-2.5 py-1.5">
-      <span className="shrink-0 text-slate-500">{label}</span>
-      {recorded ? (
-        <span className={`numeric truncate font-bold ${accent ? 'text-brand-800' : 'text-slate-800'}`}>{children}</span>
-      ) : (
-        <span className="text-slate-400">—</span>
-      )}
-    </div>
-  )
-}
-
 /** `G2 P1 L1 A0`, with a dash wherever a count was never asked. */
 function formatGpla(pregnancy: Pregnancy): string {
   const { gravida, parity, living, abortions } = pregnancy.gravidaParity
   const part = (label: string, value: number | null) => `${label}${value ?? '–'}`
   return [part('G', gravida), part('P', parity), part('L', living), part('A', abortions)].join(' ')
-}
-
-function Unit({ children }: { children: React.ReactNode }) {
-  return <span className="text-[10px] font-normal text-slate-500">{children}</span>
 }
 
 function Pill({ tone, icon, children }: { tone: 'alert' | 'caution'; icon?: React.ReactNode; children: React.ReactNode }) {

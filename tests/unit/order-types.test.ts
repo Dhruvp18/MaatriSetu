@@ -58,18 +58,18 @@ describe('prescription lines spell out the schedule', () => {
     // OD and BD are unambiguous to whoever typed them and a known source of
     // dosing error for everyone reading afterwards, including the mother.
     expect(formatPrescription(prescription())).toBe(
-      'Tab. Ferrous ascorbate 100 mg — once daily, after food',
+      'Tab Ferrous ascorbate 100 mg — once daily, after food',
     )
 
     expect(formatPrescription(prescription({ frequency: 'BD', foodRelation: 'BEFORE_FOOD' }))).toBe(
-      'Tab. Ferrous ascorbate 100 mg — twice daily, before food',
+      'Tab Ferrous ascorbate 100 mg — twice daily, before food',
     )
   })
 
   it('omits an unspecified food relation instead of printing an empty clause', () => {
     expect(
       formatPrescription(prescription({ frequency: 'HS', foodRelation: 'NOT_SPECIFIED' })),
-    ).toBe('Tab. Ferrous ascorbate 100 mg — at night')
+    ).toBe('Tab Ferrous ascorbate 100 mg — at night')
   })
 
   it('handles an order with no form and no numeric dose', () => {

@@ -31,6 +31,7 @@ const reading = (over: Partial<VitalsReading> = {}): VitalsReading => ({
   fetalHeartRateBpm: null,
   urineAlbumin: null,
   urineSugar: null,
+  urineSugarMgDl: null,
   note: null,
   recordedAt: '2026-09-18T09:00:00.000Z',
   recordedBy: null,

@@ -11,9 +11,10 @@ import {
   saveMenstrualHistory,
   savePastHistory,
   saveObstetricHistory,
+  setHistoryFlag,
 } from '@modules/history/history.service'
 import { flagDiagnoses, resolveFlaggedDiagnosis } from '@modules/diagnoses/diagnosis.service'
-import { updatePregnancyProfile } from '@modules/pregnancies/pregnancy.service'
+import { saveBirthPlan, updatePregnancyProfile } from '@modules/pregnancies/pregnancy.service'
 import { transcribeDictation } from '@modules/voice/voice.service'
 
 /**
@@ -102,9 +103,18 @@ export async function savePastHistoryAction(patientId: string, input: unknown): 
   return run(patientId, (actor) => savePastHistory(actor, input))
 }
 
+export async function setHistoryFlagAction(patientId: string, input: unknown): Promise<ActionResult> {
+  return run(patientId, (actor) => setHistoryFlag(actor, input))
+}
+
 /** Height, marriage and conception — facts about this pregnancy, saved at once. */
 export async function updatePregnancyProfileAction(patientId: string, input: unknown): Promise<ActionResult> {
   return run(patientId, (actor) => updatePregnancyProfile(actor, input))
+}
+
+/** The birth preparedness plan for this pregnancy. */
+export async function saveBirthPlanAction(patientId: string, input: unknown): Promise<ActionResult> {
+  return run(patientId, (actor) => saveBirthPlan(actor, input))
 }
 
 /**

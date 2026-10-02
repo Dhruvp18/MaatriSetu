@@ -237,7 +237,7 @@ export async function recordVitals(
     fundalHeightCm: v.fundalHeightCm ?? null,
     fetalHeartRateBpm: v.fetalHeartRateBpm ?? null,
     urineAlbumin: v.urineAlbumin ?? null,
-    urineSugar: v.urineSugar ?? null,
+    urineSugarMgDl: v.urineSugarMgDl ?? null,
     note: v.note ?? null,
   })
 

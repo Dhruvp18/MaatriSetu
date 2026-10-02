@@ -154,7 +154,15 @@ export function VitalsForm({
 
       <div className="grid grid-cols-2 gap-3">
         <Dipstick name="urineAlbumin" label="Urine albumin" />
-        <Dipstick name="urineSugar" label="Urine sugar" />
+        <Measure
+          name="urineSugarMgDl"
+          label="Urine sugar"
+          unit="mg/dL"
+          min={0}
+          max={5000}
+          step="0.1"
+          placeholder="0"
+        />
       </div>
 
       <div>
