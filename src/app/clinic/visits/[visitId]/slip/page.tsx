@@ -22,13 +22,6 @@ import {
   type Patient,
 } from '@modules/patients/patient.types'
 import { getPregnancy } from '@modules/pregnancies/pregnancy.service'
-import { getPregnancyResults } from '@modules/reports/report.service'
-import {
-  formatObservationValue,
-  formatReferenceRange,
-  type Observation,
-  type ScanReport,
-} from '@modules/reports/report.types'
 import { getVisitAdvice, getVisitWithVitals } from '@modules/visits/visit.service'
 import {
   adviceGiven,
@@ -118,16 +111,6 @@ const DATING_METHOD_LABELS: Record<DatingMethod, string> = {
   UNKNOWN: 'dating method not recorded',
 }
 
-const SCAN_TYPE_LABELS: Record<string, string> = {
-  DATING: 'Dating scan',
-  NT_NB: 'NT / NB',
-  TIFFA: 'TIFFA (anomaly)',
-  GROWTH: 'Growth',
-  GROWTH_DOPPLER: 'Growth + Doppler',
-  BPP: 'Biophysical profile',
-  OTHER: 'Ultrasound',
-}
-
 export default async function VisitSlipPage({
   params,
 }: {
@@ -198,11 +181,10 @@ export default async function VisitSlipPage({
 
   // Fetched together: this page renders once, prints once, and has no reason to
   // arrive in pieces.
-  const [patient, advice, prescriptions, results] = await Promise.all([
+  const [patient, advice, prescriptions] = await Promise.all([
     getPatient(actor, visit.patientId),
     getVisitAdvice(actor, visit.id),
     listPrescriptions(actor, visit.pregnancyId),
-    getPregnancyResults(actor, visit.pregnancyId),
   ])
 
   // What was written at THIS consultation. Drugs she was already taking are on
@@ -227,12 +209,6 @@ export default async function VisitSlipPage({
     visit.gaDaysAtVisit !== null && visit.gaDaysAtVisit >= 0
       ? { referenceDate: onDate, referenceGaDays: visit.gaDaysAtVisit }
       : null
-
-  // Results are limited to those observed on or before the consultation. A
-  // report that arrived afterwards is not what the advice below was given on,
-  // and printing it beneath this date would misrepresent the consultation.
-  const labs = results.observations.filter((o) => o.observedDate <= onDate)
-  const scans = results.scans.filter((s) => s.scanDate <= onDate)
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-6">
@@ -357,28 +333,6 @@ export default async function VisitSlipPage({
           )}
         </Section>
 
-        {/* ---- Reports on record ------------------------------------------ */}
-        {labs.length > 0 || scans.length > 0 ? (
-          <Section title="Reports on record">
-            {labs.length > 0 ? (
-              <ul className="mb-2 space-y-1">
-                {labs.map((observation) => (
-                  <li key={observation.id} className="text-sm">
-                    <LabLine observation={observation} />
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-
-            {scans.map((scan) => (
-              <p key={scan.id} className="numeric text-sm">
-                {SCAN_TYPE_LABELS[scan.scanType] ?? 'Ultrasound'} · {formatCalendarDate(scan.scanDate)}
-                {scanMeasurements(scan) ? ` · ${scanMeasurements(scan)}` : ''}
-              </p>
-            ))}
-          </Section>
-        ) : null}
-
         {/* ---- Fixed public-health text ------------------------------------ */}
         <section className="mt-4 border-2 border-slate-900 px-3 py-2">
           <h2 className="text-sm font-bold">
@@ -458,26 +412,6 @@ function AdviceBlock({ advice }: { advice: VisitAdvice }) {
   )
 }
 
-function LabLine({ observation }: { observation: Observation }) {
-  const range = formatReferenceRange(observation.referenceRange)
-
-  return (
-    <span className="numeric">
-      {observation.testName} {formatObservationValue(observation.value)} ·{' '}
-      {formatCalendarDate(observation.observedDate)}
-      {/*
-        The interval the laboratory printed, transcribed and attributed. The
-        cockpit additionally marks a value that sits outside it, for a clinician
-        reading with the rest of the record in front of them; that marker is
-        deliberately absent here. On a sheet read at home with no context, it is
-        one short step from being read as a diagnosis, and the system does not
-        make one (PRD §3).
-      */}
-      {range ? <span className="block text-xs">Laboratory’s stated range: {range}</span> : null}
-    </span>
-  )
-}
-
 /* -------------------------------------------------------------------------- */
 /* Formatting                                                                 */
 /* -------------------------------------------------------------------------- */
@@ -527,20 +461,6 @@ function durationLine(prescription: Prescription): string {
     return `${from} until ${formatCalendarDate(prescription.endDate)}`
   }
   return `${from} · duration not recorded, ask at your next visit`
-}
-
-/** The scan's measurements, each with its unit, or an empty string. */
-function scanMeasurements(scan: ScanReport): string {
-  return [
-    scan.efwGrams !== null ? `EFW ${scan.efwGrams} g` : null,
-    scan.afiCm !== null ? `AFI ${scan.afiCm} cm` : null,
-    // Presentation travels with the study that observed it and its date, never
-    // on its own: before term it changes, and a bare "breech" on a slip printed
-    // in August is read as current in October.
-    scan.presentation !== 'NOT_ASSESSED' ? scan.presentation.toLowerCase() : null,
-  ]
-    .filter(Boolean)
-    .join(' · ')
 }
 
 /* -------------------------------------------------------------------------- */
