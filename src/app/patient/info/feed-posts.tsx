@@ -78,9 +78,10 @@ export function TextPost({
   return (
     <article className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
       <PostHeader tag={tag} tagColor={tagColor} />
-      <div className={`${bg} flex aspect-square w-full flex-col items-center justify-center gap-3 px-8 text-center`}>
-        <span className="text-4xl">{emoji}</span>
-        <h3 className="font-serif text-xl font-bold" style={{ color: tagColor }}>
+      {/* No picture, so no picture-sized box: the title is a row, not a square. */}
+      <div className={`${bg} mx-4 flex items-center gap-3 rounded-xl px-3 py-2.5`}>
+        <span aria-hidden className="text-2xl leading-none">{emoji}</span>
+        <h3 className="font-serif text-base font-bold" style={{ color: tagColor }}>
           {title}
         </h3>
       </div>

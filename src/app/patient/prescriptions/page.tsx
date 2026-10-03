@@ -3,10 +3,10 @@ import { formatDosing } from '@/modules/orders/order.types'
 import { getPatientSession } from '../lib/session'
 import { Pill, Calendar, Clock, AlertTriangle } from 'lucide-react'
 import { getPatientI18n } from '../lib/i18n/server'
-import { fmt, formatDate } from '../lib/i18n/locales'
+import { fmt } from '../lib/i18n/locales'
 
 export default async function PrescriptionsPage() {
-  const [session, { lang, t }] = await Promise.all([getPatientSession(), getPatientI18n()])
+  const [session, { t }] = await Promise.all([getPatientSession(), getPatientI18n()])
   const rx = t.prescriptions
   if (!session) {
     return <div className="p-4 pt-8 text-center text-slate-500">{t.common.sessionExpired}</div>
@@ -26,9 +26,8 @@ export default async function PrescriptionsPage() {
     )
   }
 
-  const today = new Date().toISOString().slice(0, 10)
-  const ongoing = prescriptions.filter(p => !p.endDate || p.endDate >= today)
-  const past = prescriptions.filter(p => p.endDate && p.endDate < today)
+  // Already her active medication, one line per medicine — the cockpit's own list.
+  const ongoing = prescriptions
   // Calcium blocks iron absorption, so whenever she is on either, say to space them.
   const takesIronOrCalcium = ongoing.some(p => /iron|ferr|calcium/i.test(p.medicineName))
 
@@ -87,29 +86,6 @@ export default async function PrescriptionsPage() {
         <div className="bg-slate-50 rounded-xl p-6 border border-slate-100 text-center mb-8">
           <p className="text-sm text-slate-500 italic">{rx.noOngoing}</p>
         </div>
-      )}
-
-      {/* Past Prescriptions */}
-      {past.length > 0 && (
-        <>
-          <h2 className="text-sm font-bold text-slate-600 mb-3 px-1 flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-slate-300" /> {rx.past}
-          </h2>
-          <div className="space-y-3 opacity-75">
-            {past.map((p) => (
-              <div key={p.id} className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm pl-5">
-                <div className="flex justify-between items-start mb-1">
-                  <h3 className="text-sm font-bold text-slate-700">{p.medicineName}</h3>
-                  <span className="text-[10px] text-slate-400 font-mono">{formatDate(p.startDate, lang)}</span>
-                </div>
-                <p className="text-xs text-slate-500 mb-2">
-                  {p.dose.kind === 'SPECIFIED' ? `${p.dose.amount} ${p.dose.unit}` : rx.doseAsDirected} ·{' '}
-                  <span className="numeric">{formatDosing(p.frequency)}</span>
-                </p>
-              </div>
-            ))}
-          </div>
-        </>
       )}
     </div>
   )

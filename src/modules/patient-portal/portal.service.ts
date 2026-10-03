@@ -19,8 +19,10 @@ import * as pregnancyRepo from '@/modules/pregnancies/pregnancy.repository'
 import * as orderRepo from '@/modules/orders/order.repository'
 import * as reportRepo from '@/modules/reports/report.repository'
 import * as visitRepo from '@/modules/visits/visit.repository'
+import * as scheduleRepo from '@/modules/schedule/schedule.repository'
 import * as diagnosisRepo from '@/modules/diagnoses/diagnosis.repository'
 import * as monitoringRepo from '@/modules/monitoring/monitoring.repository'
+import { activeMedication } from '@/modules/orders/order.types'
 import { expectedDueDate, gestationalAgeOn } from '@/modules/pregnancies/pregnancy.types'
 import { metricsForDiagnoses, type MonitoringMetricPanel } from '@/modules/monitoring/monitoring.types'
 import { RecordHomeReadingSchema } from '@/modules/monitoring/monitoring.schema'
@@ -149,11 +151,23 @@ export async function getDashboard(self: PatientSelf): Promise<PatientDashboard>
   }
   if (!patient || !pregnancy) return empty
 
-  const ga = gestationalAgeOn(pregnancy.dating, todayIn(PORTAL_TIMEZONE))
+  const today = todayIn(PORTAL_TIMEZONE)
+  const ga = gestationalAgeOn(pregnancy.dating, today)
 
-  const visits = await visitRepo.listVisitsForPregnancy(db, self.clinicId, pregnancy.id)
+  const [visits, appointments] = await Promise.all([
+    visitRepo.listVisitsForPregnancy(db, self.clinicId, pregnancy.id),
+    scheduleRepo.listUpcomingForPatient(db, self.clinicId, self.patientId, today),
+  ])
   const lastSaved = visits.find((v) => v.status === 'SAVED') ?? null
   const advice = lastSaved ? await visitRepo.findAdviceForVisit(db, self.clinicId, lastSaved.id) : null
+  const lastVisitDate = lastSaved ? lastSaved.occurredAt.slice(0, 10) : null
+
+  // Her next visit: the earliest of a booked appointment and the follow-up her
+  // doctor advised — whichever is still ahead of the visit she last had.
+  const nextFollowUpDate =
+    [...appointments.map((a) => a.scheduledOn), ...(advice?.nextFollowupDate ? [advice.nextFollowupDate] : [])]
+      .filter((day) => day >= today && (lastVisitDate === null || day > lastVisitDate))
+      .sort()[0] ?? null
 
   let trimester: 1 | 2 | 3 | null = null
   if (ga) trimester = ga.totalDays < 98 ? 1 : ga.totalDays < 196 ? 2 : 3
@@ -163,8 +177,8 @@ export async function getDashboard(self: PatientSelf): Promise<PatientDashboard>
     gestationalAge: ga ? { weeks: ga.weeks, days: ga.days } : null,
     edd: expectedDueDate(pregnancy.dating),
     trimester,
-    lastVisitDate: lastSaved ? lastSaved.occurredAt.slice(0, 10) : null,
-    nextFollowUpDate: advice?.nextFollowupDate ?? null,
+    lastVisitDate,
+    nextFollowUpDate,
     hasActivePregnancy: true,
   }
 }
@@ -183,8 +197,9 @@ export async function getPrescriptions(self: PatientSelf) {
   const pregnancy = await pregnancyRepo.findActivePregnancy(db, self.clinicId, self.patientId)
   if (!pregnancy) return { hasActivePregnancy: false as const, prescriptions: [] }
 
-  const prescriptions = await orderRepo.listPrescriptions(db, self.clinicId, pregnancy.id)
-  return { hasActivePregnancy: true as const, prescriptions }
+  // Exactly the cockpit's "Active medication": ongoing today, one line per medicine.
+  const all = await orderRepo.listPrescriptions(db, self.clinicId, pregnancy.id)
+  return { hasActivePregnancy: true as const, prescriptions: activeMedication(all, todayIn(PORTAL_TIMEZONE)) }
 }
 
 export async function getReports(self: PatientSelf) {

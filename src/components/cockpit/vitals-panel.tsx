@@ -54,7 +54,7 @@ export function VitalsPanel({
         <Tile label="Weight">
           {latestVitals.weightKg !== null && weight ? (
             <>
-              {weight.text.replace(/ kg$/, '')} <Unit>kg</Unit>
+              {weight.text.replace(/ kg$/, '')} <Unit>kg{weight.note ? ` (${weight.note})` : ''}</Unit>
             </>
           ) : null}
         </Tile>

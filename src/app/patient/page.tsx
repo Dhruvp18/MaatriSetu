@@ -96,7 +96,7 @@ export default async function MyANCPage() {
       </div>
 
       {/* Visit info strip */}
-      {(data.lastVisitDate || data.nextFollowUpDate) && (
+      {data.hasActivePregnancy && (
         <div className="flex gap-3 mb-6">
           {data.lastVisitDate && (
             <div className="flex-1 bg-slate-50 rounded-xl p-3 border border-slate-100">
@@ -104,12 +104,13 @@ export default async function MyANCPage() {
               <p className="text-sm font-bold text-slate-700">{formatDate(data.lastVisitDate, lang)}</p>
             </div>
           )}
-          {data.nextFollowUpDate && (
-            <div className="flex-1 bg-amber-50 rounded-xl p-3 border border-amber-100">
-              <p className="text-[10px] text-amber-600 mb-1">{h.nextFollowUp}</p>
-              <p className="text-sm font-bold text-amber-700">{formatDate(data.nextFollowUpDate, lang)}</p>
-            </div>
-          )}
+          {/* Always beside the last visit, so she knows when she is due back. */}
+          <div className="flex-1 bg-amber-50 rounded-xl p-3 border border-amber-100">
+            <p className="text-[10px] text-amber-600 mb-1">{h.nextFollowUp}</p>
+            <p className="text-sm font-bold text-amber-700">
+              {data.nextFollowUpDate ? formatDate(data.nextFollowUpDate, lang) : h.notBookedYet}
+            </p>
+          </div>
         </div>
       )}
 

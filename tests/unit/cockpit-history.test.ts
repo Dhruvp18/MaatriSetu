@@ -51,12 +51,12 @@ describe('dosing is written in the prescription-pad notation', () => {
 })
 
 describe('weight is shown against her own baseline', () => {
-  it('writes a gain as baseline + change', () => {
-    expect(formatWeight(55, 60)?.text).toBe('55 + 5 kg')
+  it('writes today’s weight, then baseline + change', () => {
+    expect(formatWeight(55, 63)).toEqual({ text: '63 kg', note: '55 + 8' })
   })
 
   it('writes a loss with a minus', () => {
-    expect(formatWeight(60, 58.5)?.text).toBe('60 − 1.5 kg')
+    expect(formatWeight(60, 58.5)).toEqual({ text: '58.5 kg', note: '60 − 1.5' })
   })
 
   it('labels a baseline shown in place of today’s weight', () => {

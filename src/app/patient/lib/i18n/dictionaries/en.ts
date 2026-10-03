@@ -177,7 +177,8 @@ export const en = {
     expected: 'Expected:',
     noActivePregnancy: 'No active pregnancy on record',
     lastVisit: 'Last Visit',
-    nextFollowUp: 'Next Follow-up',
+    nextFollowUp: 'Next Visit',
+    notBookedYet: 'Not booked yet',
     tiles: {
       profile: { label: 'My Profile', desc: 'View and manage your details' },
       prescriptions: { label: 'My Prescriptions', desc: 'View your medicines and advice' },

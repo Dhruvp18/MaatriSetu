@@ -194,3 +194,19 @@ export function isOngoingOn(prescription: Prescription, on: CalendarDate): boole
   if (prescription.endDate !== null && prescription.endDate < on) return false
   return true
 }
+
+/**
+ * Her active medication: one line per medicine, the newest order in force.
+ *
+ * Once a visit carries an ongoing drug forward, the earlier order and the new
+ * one are both current until the earlier one ends — this keeps only the newest.
+ * The cockpit and the patient app both read this, so they always agree.
+ */
+export function activeMedication(prescriptions: readonly Prescription[], on: CalendarDate): Prescription[] {
+  return prescriptions
+    .filter((prescription) => isOngoingOn(prescription, on))
+    .sort((a, b) => b.startDate.localeCompare(a.startDate))
+    .filter(
+      (rx, i, all) => all.findIndex((o) => o.medicineName.toLowerCase() === rx.medicineName.toLowerCase()) === i,
+    )
+}

@@ -14,6 +14,7 @@ import {
 } from '@modules/reports/report.types'
 import { getOpenVisit } from '@modules/visits/visit.service'
 
+import { OriginalPreview } from '../cockpit/original-viewer'
 import { CandidateRow, type CandidateView } from './candidate-row'
 import { UploadForm } from './upload-form'
 
@@ -249,6 +250,12 @@ function ReportCard({
             </p>
           </>
         ) : null}
+
+        {/* The paper every value above was read from, in every state — a slip
+            still waiting to be read can be checked by eye. */}
+        <div className="mt-3 border-t border-slate-100 pt-3">
+          <OriginalPreview uploadId={upload.id} contentType={upload.contentType} />
+        </div>
       </div>
     </li>
   )

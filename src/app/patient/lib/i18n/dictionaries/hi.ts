@@ -26,6 +26,7 @@ export const hi: Dict = {
     noActivePregnancy: 'कोई चालू गर्भावस्था दर्ज नहीं है',
     lastVisit: 'पिछली जाँच',
     nextFollowUp: 'अगली जाँच',
+    notBookedYet: 'अभी तय नहीं',
     tiles: {
       profile: { label: 'मेरी प्रोफ़ाइल', desc: 'अपनी जानकारी देखें' },
       prescriptions: { label: 'मेरी दवाइयाँ', desc: 'अपनी दवाइयाँ और सलाह देखें' },

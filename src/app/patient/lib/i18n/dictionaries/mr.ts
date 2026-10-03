@@ -26,6 +26,7 @@ export const mr: Dict = {
     noActivePregnancy: 'सध्याची कोणतीही गर्भधारणा नोंदलेली नाही',
     lastVisit: 'मागील तपासणी',
     nextFollowUp: 'पुढील तपासणी',
+    notBookedYet: 'अजून ठरलेली नाही',
     tiles: {
       profile: { label: 'माझी प्रोफाइल', desc: 'तुमची माहिती पहा' },
       prescriptions: { label: 'माझी औषधे', desc: 'तुमची औषधे आणि सल्ला पहा' },

@@ -12,6 +12,7 @@ import {
   Send,
   NotebookPen,
   Pill as PillIcon,
+  Printer,
   Stethoscope,
   Syringe,
   Users,
@@ -22,7 +23,7 @@ import { notFound, redirect } from 'next/navigation'
 import { annotateObservationAction } from './report-actions'
 import { Accordion } from '@components/cockpit/accordion'
 import { BirthPlanPanel } from './birth-plan'
-import { HeaderBanner } from '@components/cockpit/header-banner'
+import { type BannerVitals, HeaderBanner } from '@components/cockpit/header-banner'
 import { VitalsPanel } from '@components/cockpit/vitals-panel'
 import { Sparkline } from '@components/cockpit/sparkline'
 import { roleHasPermission } from '@core/auth/permissions'
@@ -35,6 +36,7 @@ import { getPatientHistory, type PatientHistory } from '@modules/history/history
 import { listMyMasterPacks } from '@modules/master-packs/master-pack.service'
 import type { MasterPack } from '@modules/master-packs/master-pack.types'
 import {
+  activeMedication,
   describeFoodRelation,
   describeFrequency,
   formatDosing,
@@ -240,12 +242,8 @@ export default async function CockpitPage({ params }: { params: Promise<{ id: st
       listOpenFlaggedDiagnoses(actor, pregnancy.id),
     ])
 
-  // One line per medicine: once today's Rx carries an ongoing drug forward, the
-  // earlier order and the new one are both current until the earlier one ends.
-  // The newest is the one in force.
-  const ongoing = [...allOngoing]
-    .sort((a, b) => b.startDate.localeCompare(a.startDate))
-    .filter((rx, i, all) => all.findIndex((o) => o.medicineName.toLowerCase() === rx.medicineName.toLowerCase()) === i)
+  // One line per medicine, the newest order in force — the same list her app shows.
+  const ongoing = activeMedication(allOngoing, today)
 
   // The husband's blood group, from the most recent verified report that carries it.
   const husbandObservation = results.observations
@@ -354,6 +352,32 @@ export default async function CockpitPage({ params }: { params: Promise<{ id: st
     .filter((p) => p.observedDate)
     .sort((a, b) => a.observedDate.localeCompare(b.observedDate))
 
+  // The banner's pulse, BP and SFH: the latest of each this pregnancy, dated,
+  // with the BP and SFH series behind its hover graphs.
+  const datedReadings = vitalsHistory.map(({ reading }) => ({ reading, on: reading.recordedAt.slice(0, 10) }))
+  const latestOf = <T,>(pick: (reading: VitalsReading) => T | null) => {
+    const found = datedReadings.findLast(({ reading }) => pick(reading) !== null)
+    return found ? { value: pick(found.reading)!, on: found.on } : null
+  }
+  const latestPulse = latestOf((r) => r.pulseBpm)
+  const latestBp = latestOf((r) => r.bloodPressure)
+  const latestSfh = latestOf((r) => r.fundalHeightCm)
+  const bannerVitals: BannerVitals = {
+    pulse: latestPulse ? { bpm: latestPulse.value, on: latestPulse.on } : null,
+    bp: latestBp
+      ? { systolic: latestBp.value.systolicMmHg, diastolic: latestBp.value.diastolicMmHg, on: latestBp.on }
+      : null,
+    sfh: latestSfh ? { cm: latestSfh.value, on: latestSfh.on } : null,
+    bpTrend: datedReadings.flatMap(({ reading, on }) =>
+      reading.bloodPressure
+        ? [{ on, systolic: reading.bloodPressure.systolicMmHg, diastolic: reading.bloodPressure.diastolicMmHg }]
+        : [],
+    ),
+    sfhTrend: datedReadings.flatMap(({ reading, on }) =>
+      reading.fundalHeightCm !== null ? [{ on, value: reading.fundalHeightCm }] : [],
+    ),
+  }
+
   const bpTrendData = bpPoints.length > 0 ? {
     testCode: 'bp', testName: 'Blood Pressure (Systolic)', unit: 'mmHg', points: bpPoints
   } : null
@@ -389,6 +413,9 @@ export default async function CockpitPage({ params }: { params: Promise<{ id: st
       ? 'Start today’s consultation to flag or review these — decisions are saved with it.'
       : null
   const canOpenVisit = roleHasPermission(actor.role, 'visit.open')
+  const lastSavedVisit =
+    [...visits].filter((visit) => visit.status === 'SAVED').sort((a, b) => b.occurredAt.localeCompare(a.occurredAt))[0] ??
+    null
 
   return (
     <Shell>
@@ -416,6 +443,13 @@ export default async function CockpitPage({ params }: { params: Promise<{ id: st
           <NavChip href={`/clinic/patients/${id}/card`} icon={<IdCard className="h-4 w-4" />}>
             Patient card
           </NavChip>
+          {/* Only a saved consultation prints, so this is always the last saved one. */}
+          {lastSavedVisit ? (
+            <NavChip href={`/clinic/visits/${lastSavedVisit.id}/slip?print=true`} icon={<Printer className="h-4 w-4" />}>
+              Print slip
+              <span className="numeric ml-1.5 text-[10px] text-slate-400">{lastSavedVisit.occurredAt.slice(0, 10)}</span>
+            </NavChip>
+          ) : null}
           <NextVisitChip
             patientId={patient.id}
             pregnancyId={pregnancy.id}
@@ -435,6 +469,7 @@ export default async function CockpitPage({ params }: { params: Promise<{ id: st
         today={today}
         husbandBloodGroup={husbandBloodGroup}
         eddByScan={eddByScan}
+        vitals={bannerVitals}
         flaggedDiagnoses={<FlaggedDiagnosisPills patientId={patient.id} flags={openFlags} canResolve={canFlag} />}
       />
 

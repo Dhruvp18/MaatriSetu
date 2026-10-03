@@ -22,9 +22,9 @@ import type { VitalsReading } from '@modules/visits/visit.types'
  * The always-visible patient banner (PRD F3).
  *
  * Left: her blood group, colour-coded, then who she is — name, age, record
- * line, weight. Right: where this pregnancy is (GPLA, POG) and what must not be
- * missed. Today's vitals are in the Examination section (vitals-panel.tsx);
- * the banner keeps only the weight line.
+ * line, height, weight, pulse, BP and SFH (BP and SFH graph on hover). Right:
+ * where this pregnancy is (GPLA, POG) and what must not be missed. The full set
+ * of today's vitals is in the Examination section (vitals-panel.tsx).
  *
  * ---------------------------------------------------------------------------
  * Blood group colours
@@ -58,6 +58,18 @@ function aboOf(group: BloodGroup): 'O' | 'A' | 'B' | 'AB' {
   return group.split('_')[0] as 'O' | 'A' | 'B' | 'AB'
 }
 
+/**
+ * Pulse, BP and SFH for the banner: the latest reading of each this pregnancy,
+ * dated, and the BP and SFH series behind the hover graphs. Oldest first.
+ */
+export interface BannerVitals {
+  readonly pulse: { readonly bpm: number; readonly on: CalendarDate } | null
+  readonly bp: { readonly systolic: number; readonly diastolic: number; readonly on: CalendarDate } | null
+  readonly sfh: { readonly cm: number; readonly on: CalendarDate } | null
+  readonly bpTrend: readonly { readonly on: CalendarDate; readonly systolic: number; readonly diastolic: number }[]
+  readonly sfhTrend: readonly { readonly on: CalendarDate; readonly value: number }[]
+}
+
 export function HeaderBanner({
   patient,
   pregnancy,
@@ -68,6 +80,7 @@ export function HeaderBanner({
   husbandBloodGroup = null,
   flaggedDiagnoses = null,
   eddByScan = null,
+  vitals = null,
 }: {
   patient: Patient
   pregnancy: Pregnancy
@@ -88,6 +101,8 @@ export function HeaderBanner({
    * pregnancy, with that scan's date. Null when no scan printed a gestational age.
    */
   eddByScan?: { readonly date: CalendarDate; readonly scanDate: CalendarDate } | null
+  /** Pulse, BP and SFH, worked out by the caller from this pregnancy's readings. */
+  vitals?: BannerVitals | null
 }) {
   const age = ageInYears(patient.age, today)
   const { dating } = pregnancy
@@ -95,7 +110,8 @@ export function HeaderBanner({
   const weight = formatWeight(baselineWeightKg, latestVitals?.weightKg ?? null)
 
   return (
-    <header className="glass relative overflow-hidden rounded-xl border border-slate-200/90 p-4 shadow-xs">
+    // Not overflow-hidden: the BP and SFH hover graphs drop below the banner.
+    <header className="glass relative z-10 rounded-xl border border-slate-200/90 p-4 shadow-xs">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         {/* Left: blood group, then identity */}
         <div className="flex items-stretch gap-3">
@@ -182,6 +198,62 @@ export function HeaderBanner({
                   </span>
                 </>
               ) : null}
+              <Dot />
+              <span>
+                Pulse:{' '}
+                {vitals?.pulse ? (
+                  <>
+                    <strong className="font-semibold text-slate-800">{vitals.pulse.bpm} bpm</strong>
+                    <AsOf on={vitals.pulse.on} today={today} />
+                  </>
+                ) : (
+                  <span className="text-slate-400">—</span>
+                )}
+              </span>
+              <Dot />
+              <HoverTrend
+                label="BP"
+                trend={
+                  vitals && vitals.bpTrend.length > 0 ? (
+                    <MiniTrend
+                      title="Blood pressure (mmHg)"
+                      series={[
+                        vitals.bpTrend.map((p) => ({ on: p.on, value: p.systolic })),
+                        vitals.bpTrend.map((p) => ({ on: p.on, value: p.diastolic })),
+                      ]}
+                    />
+                  ) : null
+                }
+              >
+                {vitals?.bp ? (
+                  <>
+                    <strong className="font-semibold text-slate-800">
+                      {vitals.bp.systolic}/{vitals.bp.diastolic} mmHg
+                    </strong>
+                    <AsOf on={vitals.bp.on} today={today} />
+                  </>
+                ) : (
+                  <span className="text-slate-400">—</span>
+                )}
+              </HoverTrend>
+              <Dot />
+              <HoverTrend
+                label="SFH"
+                trend={
+                  vitals && vitals.sfhTrend.length > 0 ? (
+                    <MiniTrend title="Symphysis–fundal height (cm)" series={[vitals.sfhTrend]} />
+                  ) : null
+                }
+              >
+                {vitals?.sfh ? (
+                  <>
+                    <strong className="font-semibold text-slate-800">{vitals.sfh.cm} cm</strong>
+                    <AsOf on={vitals.sfh.on} today={today} />
+                  </>
+                ) : (
+                  <span className="text-slate-400">—</span>
+                )}
+              </HoverTrend>
             </div>
           </div>
         </div>
@@ -258,7 +330,7 @@ function BloodGroupTile({ group }: { group: BloodGroup | null }) {
 }
 
 /**
- * Weight as her baseline plus the change: `55 + 5 kg`.
+ * Weight as today's figure, then her baseline plus the change: `63 kg (55 + 8)`.
  *
  * Arithmetic on her own recorded numbers. With no baseline the current weight
  * stands alone; with no weight today the baseline is shown and labelled, so an
@@ -276,10 +348,9 @@ export function formatWeight(
   if (baselineKg === null) return { text: `${fmt(currentKg)} kg`, note: null }
 
   const change = Math.round((currentKg - baselineKg) * 10) / 10
-  if (change === 0) return { text: `${fmt(baselineKg)} + 0 kg`, note: null }
   return {
-    text: `${fmt(baselineKg)} ${change > 0 ? '+' : '−'} ${fmt(Math.abs(change))} kg`,
-    note: null,
+    text: `${fmt(currentKg)} kg`,
+    note: `${fmt(baselineKg)} ${change < 0 ? '−' : '+'} ${fmt(Math.abs(change))}`,
   }
 }
 
@@ -289,6 +360,116 @@ function formatAbha(abhaId: string): string {
   return digits.length === 14
     ? `${digits.slice(0, 2)}-${digits.slice(2, 6)}-${digits.slice(6, 10)}-${digits.slice(10)}`
     : abhaId
+}
+
+/** A reading not taken today carries its date, so an old number never passes for today's. */
+function AsOf({ on, today }: { on: CalendarDate; today: CalendarDate }) {
+  return on === today ? null : <span className="text-slate-400"> ({on})</span>
+}
+
+/**
+ * A banner value with its trend on hover (and on keyboard focus). Pure CSS —
+ * the banner stays a server component.
+ */
+function HoverTrend({ label, trend, children }: { label: string; trend: React.ReactNode; children: React.ReactNode }) {
+  if (!trend) {
+    return (
+      <span>
+        {label}: {children}
+      </span>
+    )
+  }
+  return (
+    <span tabIndex={0} className="group relative cursor-help rounded outline-none focus-visible:ring-2 focus-visible:ring-brand-300">
+      <span className="underline decoration-slate-300 decoration-dotted underline-offset-2">
+        {label}: {children}
+      </span>
+      <span className="pointer-events-none absolute top-full left-0 z-30 mt-1.5 hidden rounded-lg border border-slate-200 bg-white p-2.5 shadow-lg group-hover:block group-focus:block">
+        {trend}
+      </span>
+    </span>
+  )
+}
+
+const MINI_W = 220
+const MINI_H = 96
+const MINI_PAD_X = 14
+const MINI_PAD_TOP = 16
+const MINI_PAD_BOTTOM = 28
+
+/**
+ * A small line chart of one or two series sharing an axis (BP draws systolic
+ * over diastolic). One neutral colour, nothing coloured by high or low — the
+ * banner states readings, it does not grade them (PRD §3).
+ */
+function MiniTrend({
+  title,
+  series,
+}: {
+  title: string
+  series: readonly (readonly { readonly on: CalendarDate; readonly value: number }[])[]
+}) {
+  const all = series.flat()
+  const days = [...new Set(all.map((p) => p.on))].sort()
+  const min = Math.min(...all.map((p) => p.value))
+  const max = Math.max(...all.map((p) => p.value))
+  const span = max - min || 1
+  const x = (on: CalendarDate) =>
+    days.length === 1
+      ? MINI_W / 2
+      : MINI_PAD_X + (days.indexOf(on) / (days.length - 1)) * (MINI_W - MINI_PAD_X * 2)
+  const y = (value: number) =>
+    MINI_PAD_TOP + (1 - (value - min) / span) * (MINI_H - MINI_PAD_TOP - MINI_PAD_BOTTOM)
+  const short = (on: CalendarDate) => {
+    const d = new Date(`${on}T00:00:00`)
+    return `${d.getDate()} ${d.toLocaleString('en-IN', { month: 'short' })}`
+  }
+
+  return (
+    <span className="block">
+      <span className="mb-1 block text-[10px] font-semibold tracking-wider whitespace-nowrap text-slate-600 uppercase">
+        {title}
+      </span>
+      <svg width={MINI_W} height={MINI_H} viewBox={`0 0 ${MINI_W} ${MINI_H}`} aria-hidden focusable="false">
+        {series.map((points, s) => (
+          <g key={s}>
+            <polyline
+              points={points.map((p) => `${x(p.on).toFixed(1)},${y(p.value).toFixed(1)}`).join(' ')}
+              fill="none"
+              stroke="#c43f55"
+              strokeOpacity={s === 0 ? 1 : 0.55}
+              strokeWidth="2"
+              strokeLinejoin="round"
+              strokeLinecap="round"
+            />
+            {points.map((p, i) => (
+              <g key={i}>
+                <circle cx={x(p.on)} cy={y(p.value)} r="2.75" fill="#fff" stroke="#c43f55" strokeWidth="1.5" />
+                <text
+                  x={x(p.on)}
+                  y={s === 0 ? y(p.value) - 6 : y(p.value) + 12}
+                  fontSize="9"
+                  fontWeight="600"
+                  fill="#7f1d2d"
+                  textAnchor="middle"
+                >
+                  {Number.isInteger(p.value) ? p.value : p.value.toFixed(1)}
+                </text>
+              </g>
+            ))}
+          </g>
+        ))}
+        <text x={MINI_PAD_X} y={MINI_H - 3} fontSize="9" fill="#64748b">
+          {short(days[0]!)}
+        </text>
+        {days.length > 1 ? (
+          <text x={MINI_W - MINI_PAD_X} y={MINI_H - 3} fontSize="9" fill="#64748b" textAnchor="end">
+            {short(days[days.length - 1]!)}
+          </text>
+        ) : null}
+      </svg>
+    </span>
+  )
 }
 
 function Dot() {
