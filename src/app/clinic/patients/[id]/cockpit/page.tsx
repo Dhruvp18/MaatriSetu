@@ -362,7 +362,9 @@ export default async function CockpitPage({ params }: { params: Promise<{ id: st
   const latestPulse = latestOf((r) => r.pulseBpm)
   const latestBp = latestOf((r) => r.bloodPressure)
   const latestSfh = latestOf((r) => r.fundalHeightCm)
+  const latestWeight = latestOf((r) => r.weightKg)
   const bannerVitals: BannerVitals = {
+    weight: latestWeight ? { kg: latestWeight.value, on: latestWeight.on } : null,
     pulse: latestPulse ? { bpm: latestPulse.value, on: latestPulse.on } : null,
     bp: latestBp
       ? { systolic: latestBp.value.systolicMmHg, diastolic: latestBp.value.diastolicMmHg, on: latestBp.on }

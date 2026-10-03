@@ -63,6 +63,7 @@ function aboOf(group: BloodGroup): 'O' | 'A' | 'B' | 'AB' {
  * dated, and the BP and SFH series behind the hover graphs. Oldest first.
  */
 export interface BannerVitals {
+  readonly weight: { readonly kg: number; readonly on: CalendarDate } | null
   readonly pulse: { readonly bpm: number; readonly on: CalendarDate } | null
   readonly bp: { readonly systolic: number; readonly diastolic: number; readonly on: CalendarDate } | null
   readonly sfh: { readonly cm: number; readonly on: CalendarDate } | null
@@ -107,7 +108,10 @@ export function HeaderBanner({
   const age = ageInYears(patient.age, today)
   const { dating } = pregnancy
   const previousScar = obstetricHistory.some((entry) => entry.hasUterineScar)
-  const weight = formatWeight(baselineWeightKg, latestVitals?.weightKg ?? null)
+  // Today's weight if taken, else the latest this pregnancy (dated below).
+  const weightToday = latestVitals?.weightKg ?? null
+  const weightOn = weightToday !== null ? today : (vitals?.weight?.on ?? null)
+  const weight = formatWeight(baselineWeightKg, weightToday ?? vitals?.weight?.kg ?? null)
 
   return (
     // Not overflow-hidden: the BP and SFH hover graphs drop below the banner.
@@ -195,6 +199,7 @@ export function HeaderBanner({
                   <span>
                     Wt: <strong className="font-semibold text-slate-800">{weight.text}</strong>
                     {weight.note ? <span className="text-slate-400"> ({weight.note})</span> : null}
+                    {weightOn ? <AsOf on={weightOn} today={today} /> : null}
                   </span>
                 </>
               ) : null}
