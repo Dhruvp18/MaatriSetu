@@ -1,5 +1,23 @@
 # MaatriSetu
 
+## Demo Logins
+
+| Actor / Name | Email / Patient ID (UHID) | Password |
+| :--- | :--- | :--- |
+| **Doctor** | `doctor@maatrisetu.local` | `maatrisetu` |
+| **Nurse** | `nurse@maatrisetu.local` | `maatrisetu` |
+| **Assistant** | `assistant@maatrisetu.local` | `maatrisetu` |
+| **Admin** | `admin@maatrisetu.local` | `maatrisetu` |
+| **Patient: Kavita Desai** | `MH-2026-90302` | `password123` |
+| **Patient: Meera Patel** | `MH-2026-90301` | `password123` |
+| **Patient: Rehana Shaikh** | `MH-2026-90155` | `password123` |
+| **Patient: Sunita Sharma** | `MH-2026-90303` | `password123` |
+| **Patient: Kavya Menon** | `MH-2026-667789` | `password123` |
+| **Patient: Priya Desai** | `MH-2026-778899` | `password123` |
+| **Patient: Sunita Devi** | `MH-2026-89412` | `password123` |
+| **Patient: Lakshmi Yadav** | `MH-2026-90211` | `password123` |
+| **Patient: Priya Rathi** | `MH-2026-90400` | `password123` |
+
 An assistive paper-to-digital consultation cockpit for high-volume Indian
 antenatal OPDs. A QR sticker on the mother's existing paper file loads her
 verified obstetric history onto one screen, so the OB-GYN spends the two-minute
